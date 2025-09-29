@@ -207,8 +207,9 @@ class StoreQuestionRequest extends FormRequest
                                     break;
                                 case('submit_molecule'):
                                 case('marker'):
+                                case('pushing_arrows'):
                                     $rules['qti_prompt'] = ['required'];
-                                    $rules['solution_structure'] = ['required', new isValidSketcherStructure()];
+                                    $rules['solution_structure'] = ['required', new isValidSketcherStructure($qti_array['questionType'])];
                                     if ($qti_array['questionType'] === 'marker' && $qti_array['partialCredit'] === 'inclusive') {
                                         $rules['atoms_and_bonds'] = ['required', new AtomsAndBonds()];
                                     }

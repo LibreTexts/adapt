@@ -26,7 +26,7 @@
         await sketcher.load(event.data.structure)
         if (event.data.style) {
           await sketcher.set_props({
-            style: event.data.style
+           style: event.data.style
           })
         }
       }

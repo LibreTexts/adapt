@@ -238,14 +238,21 @@ class SubmissionController extends Controller
             if (!$user->central_identity_id){
                 $response = $user->updateCentralIdentityId();
                 if ($response['type'] === 'error'){
-                    $response['message'] = $response['message'];
                     return $response;
                 }
             }
             if ($submission && $assignment->number_of_allowed_attempts !== 'unlimited'
-                && (int)$submission->submission_count === (int)$assignment->number_of_allowed_attempts) {
+                && (int) $submission->submission_count === (int) $assignment->number_of_allowed_attempts) {
+
+                $submissionCount = (int) $submission->submission_count;
+                $allowedAttempts = (int) $assignment->number_of_allowed_attempts;
+
+                $submissionWord = $submissionCount === 1 ? 'time' : 'times';
+                $attemptWord = $allowedAttempts === 1 ? 'attempt' : 'attempts';
+
                 $response['type'] = 'error';
-                $response['message'] = "You have submitted this question $submission->submission_count times and you are only allowed $assignment->number_of_allowed_attempts attempts so no additional submissions will be accepted.";
+                $response['message'] = "You have submitted this question $submissionCount $submissionWord and you are only allowed $allowedAttempts $attemptWord, so no additional submissions will be accepted.";
+
                 return $response;
             }
             if ($questionLevelOverride->hasAutoGradedOverride($assignment->id, $question->id, $assignmentLevelOverride) ||

@@ -1495,6 +1495,7 @@
             <div>
               <b-form-group
                 v-if="questionForm.question_type === 'assessment'"
+                id="auto-graded-tech-block"
                 label-cols-sm="4"
                 label-cols-lg="3"
                 label-for="technology"
@@ -1677,7 +1678,7 @@
                     >
                       Marker <ConsultInsight :url="'https://commons.libretexts.org/insight/sketcher---mark-atom-or-bond'"/>
                     </b-form-radio>
-                    <b-form-radio v-show="false" v-model="qtiQuestionType" name="qti-question-type-pushing-arrows-placeholder" value="marker"
+                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type-pushing-arrows-placeholder" value="pushing_arrows"
                                   @change="initQTIQuestionType($event)"
                     >
                       Pushing Arrows <ConsultInsight :url="'https://commons.libretexts.org/insight/sketcher---pushing-arrows'"/>
@@ -2095,11 +2096,12 @@
                          'three_d_model_multiple_choice',
                          'submit_molecule',
                          'marker',
+                         'pushing_arrows',
                          'discuss_it'].includes(qtiQuestionType) && qtiJson"
                   class="mb-2"
                 >
                   <b-container
-                    v-if="questionForm.technology === 'qti' && !['submit_molecule','marker'].includes(qtiQuestionType)"
+                    v-if="questionForm.technology === 'qti' && !['submit_molecule','marker','pushing_arrows'].includes(qtiQuestionType)"
                     class="mt-2"
                   >
                     <b-row>
@@ -2194,7 +2196,7 @@
                   Debugging: {{ qtiJson }}
                   {{ qtiJson.matchStereo }}
                 </div>
-                <div v-if="['submit_molecule','marker'].includes(qtiQuestionType)">
+                <div v-if="['submit_molecule','marker','pushing_arrows'].includes(qtiQuestionType)">
                   <div v-if="qtiQuestionType === 'submit_molecule'" class="border border-dark p-2"
                        style="width:320px;margin:auto"
                   >
@@ -2208,7 +2210,7 @@
                       Only approve identical stereoisomers
                     </b-form-checkbox>
                   </div>
-                  <div v-show="qtiQuestionType !== 'marker' || !qtiJson.solutionStructure">
+                  <div v-show="!['marker','pushing_arrows'].includes(qtiQuestionType) || !qtiJson.solutionStructure">
                     <b-form-group
                       class="pt-2"
                       label-cols-sm="1"
@@ -2292,6 +2294,7 @@
                       </b-form-radio>
                     </b-form-radio-group>
                     <b-form-checkbox
+                      v-if="qtiQuestionType === 'marker'"
                       v-show="qtiJson.partialCredit === 'inclusive'"
                       v-model="qtiJson.oneHundredPercentOverride"
                       value="1"
@@ -2501,7 +2504,7 @@
                 </div>
                 <div class="pb-2">
                   <b-card
-                    v-if="['multiple_choice', 'numerical'].includes(qtiQuestionType)
+                    v-if="['multiple_choice', 'numerical', 'pushing_arrows'].includes(qtiQuestionType)
                       || nursingQuestions.includes(qtiQuestionType)
                       || qtiQuestionType.includes('drop_down_rationale')
                       || (qtiQuestionType === 'select_choice' && nativeType === 'nursing')"
@@ -3582,6 +3585,15 @@ export default {
       } else {
         await this.moveSketcherFromTab(false)
       }
+    },
+    // On a slow question load, nativeType (and/or activeTabIndex) can be set
+    // to 'sketcher' before #from-sketcher-component exists in the DOM
+    // (it's gated by fullyMounted), so the move above silently no-ops.
+    // Retry once fullyMounted flips true, if we should still be showing the sketcher.
+    fullyMounted: function (value) {
+      if (value && this.nativeType === 'sketcher') {
+        this.moveSketcherToTab()
+      }
     }
   },
   computed: {
@@ -4553,8 +4565,18 @@ export default {
           case ('submit_molecule'):
           case ('marker'):
             this.receivedStructure = false
-            const iframe = document.getElementById('sketcher')
-            iframe.contentWindow.postMessage('save', '*')
+            const iframe1 = document.getElementById('sketcher')
+            iframe1.contentWindow.postMessage('save', '*')
+            await this.handleGetStructure()
+            break
+          case ('pushing_arrows'):
+            this.receivedStructure = false
+            // Scoring is exclusive-only for now since the compare API doesn't
+            // yet support partial credit for arrows; force it regardless of
+            // what's in qtiJson.partialCredit (the picker is hidden in the UI).
+            this.qtiJson.partialCredit = 'exclusive'
+            const iframe2 = document.getElementById('sketcher')
+            iframe2.contentWindow.postMessage('save', '*')
             await this.handleGetStructure()
             break
           case ('highlight_table'):
@@ -4918,12 +4940,17 @@ export default {
             break
           case ('submit_molecule'):
           case ('marker'):
+          case ('pushing_arrows'):
             this.qtiQuestionType = this.qtiJson.questionType
             this.qtiPrompt = this.qtiJson['prompt']
             this.solutionStructure = this.qtiJson.solutionStructure
             this.nativeType = 'sketcher'
             if (this.qtiJson.questionType === 'marker') {
               this.sketcherType = 'marker-only'
+            }
+            if (this.qtiJson.questionType === 'pushing_arrows' &&
+              (!this.qtiJson.feedback || Array.isArray(this.qtiJson.feedback))) {
+              this.qtiJson.feedback = {}
             }
             break
           case ('drag_and_drop_cloze'):
@@ -5609,6 +5636,12 @@ export default {
       if (this.isLoadingEdit) {
         return
       }
+      const sketcherQuestionTypes = ['submit_molecule', 'marker', 'pushing_arrows']
+      const preservedSketcherPrompt =
+        sketcherQuestionTypes.includes(this.qtiJson?.questionType) &&
+        sketcherQuestionTypes.includes(questionType)
+          ? (this.qtiJson.prompt || '')
+          : ''
       this.questionForm.errors.clear()
       this.qtiJson = {}
       this.simpleChoices = []
@@ -5694,7 +5727,7 @@ export default {
         case ('submit_molecule'):
           this.qtiJson = {
             questionType: 'submit_molecule',
-            prompt: '',
+            prompt: preservedSketcherPrompt,
             solutionStructure: '',
             solution: '',
             matchStereo: '0'
@@ -5707,7 +5740,7 @@ export default {
         case ('marker'):
           this.qtiJson = {
             questionType: 'marker',
-            prompt: '',
+            prompt: preservedSketcherPrompt,
             solutionStructure: '',
             solution: '',
             partialCredit: 'exclusive',
@@ -5716,7 +5749,19 @@ export default {
           this.$nextTick(() => {
             this.qtiQuestionType = 'marker'
           })
-
+          break
+        case ('pushing_arrows'):
+          this.qtiJson = {
+            questionType: 'pushing_arrows',
+            prompt: preservedSketcherPrompt,
+            solutionStructure: '',
+            solution: '',
+            partialCredit: 'exclusive',
+            feedback: {}
+          }
+          this.$nextTick(() => {
+            this.qtiQuestionType = 'pushing_arrows'
+          })
           break
         case ('highlight_table'):
           this.qtiJson = {
@@ -6205,7 +6250,7 @@ export default {
       if (window.self !== window.top) {
         window.parent.postMessage('scroll-to-top', '*')
       }
-      if (['marker', 'submit-molecule'].includes(this.qtiQuestionType)) {
+      if (['marker', 'submit-molecule', 'pushing_arrows'].includes(this.qtiQuestionType)) {
         this.previewingQuestion = true
         this.receivedStructure = false
         const iframe = document.getElementById('sketcher')

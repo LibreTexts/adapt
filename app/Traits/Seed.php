@@ -39,6 +39,7 @@ trait Seed
                     'discuss_it',
                     'submit_molecule',
                     'marker',
+                    'pushing_arrows',
                     'true_false',
                     'fill_in_the_blank',
                     'numerical',

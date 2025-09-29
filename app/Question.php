@@ -956,6 +956,21 @@ class Question extends Model
                     }
                 }
                 break;
+            case('pushing_arrows'):
+                if (!$show_solution) {
+                    if (request()->user()->role === 3) {
+                        $qti_array['solutionStructure'] = $this->_removeArrows($qti_array['solutionStructure']);
+                        unset($qti_array['feedback']);
+                    }
+                } else {
+                    if (!$student_response && $json_type === 'question_json') {
+                        $qti_array['solutionStructure'] = $this->_removeArrows($qti_array['solutionStructure']);
+                        if (request()->user()->role === 3) {
+                            unset($qti_array['feedback']);
+                        }
+                    }
+                }
+                break;
             case('submit_molecule'):
                 if (!$show_solution) {
                     if (request()->user()->role === 3) {
@@ -4083,6 +4098,20 @@ class Question extends Model
                 unset($solution_structure[$item][$key]['mark']);
             }
         }
+        return $solution_structure;
+    }
+
+    /**
+     * Strips the arrows (the answer) from a pushing_arrows solution structure
+     * before it is shown to a student who has not yet seen the solution.
+     *
+     * @param array $solution_structure
+     * @return array
+     */
+    private
+    function _removeArrows(array $solution_structure): array
+    {
+        $solution_structure['arrows'] = [];
         return $solution_structure;
     }
 

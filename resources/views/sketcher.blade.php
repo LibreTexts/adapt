@@ -84,6 +84,7 @@
   @php
     $toolsetMap = [
     'marker-only' => ['atom' => ['mark' => true]],
+   'arrows-only' => ['general' => ['undo' => true, 'create'=> true], 'arrow' => ['type' => ['electron_single','electron_pair']]],
     'show-correct' => [],
     'empty' => [],
     'default' => []
@@ -92,6 +93,7 @@
     $configJson = isset($toolsetMap[$configuration])
     ? json_encode($toolsetMap[$configuration])
     : null;
+
   @endphp
 
   <div data-toolset='@json((object) ($toolsetMap[$configuration] ?? []))'
