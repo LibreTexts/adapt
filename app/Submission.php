@@ -473,6 +473,10 @@ class Submission extends Model
                         $compare_marks_info = $this->_compareMarks($submission->question->partialCredit, $submission->question->solutionStructure, json_decode($submission->student_response)->structure);
                         $proportion_correct = Round($compare_marks_info['proportion_correct'], 2);
                         break;
+                    case('pushing_arrows'):
+                        $compare_arrows_info = $this->_compareArrows($submission->question->partialCredit, $submission->question->solutionStructure, json_decode($submission->student_response)->structure);
+                        $proportion_correct = Round($compare_arrows_info['proportion_correct'], 2);
+                        break;
                     case('submit_molecule'):
                         $proportion_correct_response = $this->computeScoreFromSubmitMolecule($submission->question, $submission->student_response);
                         if ($proportion_correct_response['type'] === 'error') {
@@ -2708,6 +2712,107 @@ class Submission extends Model
             return $item['mark'] ?? null;
         }
         return null;
+    }
+
+    /**
+     * Grades a pushing_arrows submission by comparing the student's arrows
+     * against the solution's arrows. The sketcher snaps arrow endpoints to
+     * fixed atom/bond locations, so a correctly-placed arrow will match a
+     * solution arrow's start/end position, type, and path type exactly.
+     *
+     * Each solution arrow is worth equal weight. With 'inclusive' partial
+     * credit, the student earns credit for each solution arrow they
+     * correctly placed, and loses credit for each extra arrow they drew
+     * that doesn't correspond to any solution arrow (to prevent guessing by
+     * drawing every possible arrow). With 'exclusive' partial credit, the
+     * student must draw exactly the solution's arrows (same count, all
+     * matched, no extras) to receive any credit.
+     *
+     * @param string $partial_credit
+     * @param $solution
+     * @param $student
+     * @return array
+     * @throws Exception
+     */
+    private
+    function _compareArrows(string $partial_credit, $solution, $student): array
+    {
+        $solution_arrows = $solution->arrows ?? [];
+        $student_arrows = $student->arrows ?? [];
+
+        $num_solution_arrows = count($solution_arrows);
+
+        $matched_student_indices = [];
+        $result = [
+            'arrows' => [],
+            'all_correct' => true,
+        ];
+        //Log::info("solution " . json_encode($solution_arrows));
+        //Log::info("student " . json_encode($student_arrows));
+        foreach ($solution_arrows as $index => $solution_arrow) {
+            $matched_index = null;
+            foreach ($student_arrows as $student_index => $student_arrow) {
+                if (in_array($student_index, $matched_student_indices)) {
+                    continue;
+                }
+                if ($this->_arrowsMatch($solution_arrow, $student_arrow)) {
+                    $matched_index = $student_index;
+                    break;
+                }
+            }
+
+            $correct = $matched_index !== null;
+            if ($correct) {
+                $matched_student_indices[] = $matched_index;
+            } else {
+                $result['all_correct'] = false;
+            }
+
+            $result['arrows'][] = [
+                'index' => $index,
+                'correct' => $correct,
+            ];
+        }
+
+        $num_extra_arrows = count($student_arrows) - count($matched_student_indices);
+        if ($num_extra_arrows > 0) {
+            $result['all_correct'] = false;
+        }
+
+        if (!$num_solution_arrows) {
+            throw new Exception("This pushing_arrows question has no arrows in its solution.");
+        }
+
+        switch ($partial_credit) {
+            case('inclusive'):
+                $num_correct = count($matched_student_indices);
+                $percent_correct = 100 * ($num_correct - $num_extra_arrows) / $num_solution_arrows;
+                break;
+            case('exclusive'):
+                $percent_correct = $result['all_correct'] ? 100 : 0;
+                break;
+            default:
+                throw new Exception("$partial_credit is not a valid partial credit option.");
+        }
+        $result['proportion_correct'] = max($percent_correct / 100, 0);
+        return $result;
+    }
+
+    /**
+     * @param $solution_arrow
+     * @param $student_arrow
+     * @return bool
+     */
+    private
+    function _arrowsMatch($solution_arrow, $student_arrow): bool
+    {
+        $solution_arrow = json_decode(json_encode($solution_arrow), true);
+        $student_arrow = json_decode(json_encode($student_arrow), true);
+
+        return ($solution_arrow['type'] ?? null) === ($student_arrow['type'] ?? null)
+            && ($solution_arrow['path']['type'] ?? null) === ($student_arrow['path']['type'] ?? null)
+            && ($solution_arrow['start']['position'] ?? null) === ($student_arrow['start']['position'] ?? null)
+            && ($solution_arrow['end']['position'] ?? null) === ($student_arrow['end']['position'] ?? null);
     }
 
     /**

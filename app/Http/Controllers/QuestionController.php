@@ -1676,6 +1676,7 @@ class QuestionController extends Controller
                         $unsets = ['media_uploads'];
                         break;
                     case('submit_molecule'):
+                    case('pushing_arrows'):
                         $unsets = ['solution_structure'];
                         break;
                     case('marker'):

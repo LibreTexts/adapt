@@ -90,6 +90,7 @@
                'three_d_model_multiple_answer',
                'submit_molecule',
                'marker',
+               'pushing_arrows',
                'matching',
                'true_false',
                'multiple_choice',
@@ -137,13 +138,14 @@
             />
           </div>
           <SketcherViewer
-            v-if="['submit_molecule', 'marker'].includes(questionType) && !previewingQuestion || 'marker' === questionType && previewingQuestion"
+            v-if="['pushing_arrows','submit_molecule', 'marker'].includes(questionType) && !previewingQuestion || ['marker','pushing_arrows'].includes(questionType) && previewingQuestion"
             ref="sketcherViewer"
             :key="`sketcher-${qtiJsonCacheKey}-${previewingQuestion}`"
             :qti-json="JSON.parse(qtiJson)"
             :student-response="studentResponse ? JSON.stringify(JSON.parse(studentResponse).structure) : solutionStructure"
             :read-only="previewOrSolution || !submitButtonActive"
             :configuration="questionType === 'marker' ? 'marker-only' : 'default'"
+            :sketcher-viewer-id="showQtiAnswer ? null : 'sketcherViewer'"
           />
 
           <ThreeDModelViewer
@@ -523,6 +525,14 @@ export default {
         this.solutionStructure = JSON.stringify(solutionStructure)
       }
     }
+    if (this.questionType === 'pushing_arrows') {
+      this.solutionStructure = JSON.stringify(JSON.parse(this.qtiJson).solutionStructure)
+      if (this.previewingQuestion) {
+        let solutionStructure = JSON.parse(this.qtiJson).solutionStructure
+        solutionStructure.arrows = []
+        this.solutionStructure = JSON.stringify(solutionStructure)
+      }
+    }
     switch (this.questionType) {
       case ('flashcard'):
       case ('discuss_it'):
@@ -535,6 +545,7 @@ export default {
       case ('three_d_model_multiple_choice'):
       case ('submit_molecule'):
       case ('marker'):
+      case ('pushing_arrows'):
       case ('matching') :
       case ('multiple_answers'):
       case ('matrix_multiple_response'):
@@ -773,6 +784,7 @@ export default {
           break
         case ('submit_molecule'):
         case ('marker'):
+        case ('pushing_arrows'):
           const iframe = document.getElementById('sketcherViewer')
           iframe.contentWindow.postMessage('save', '*')
           await this.handleGetStructure()
