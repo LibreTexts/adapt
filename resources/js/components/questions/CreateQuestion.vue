@@ -1494,6 +1494,7 @@
             <div>
               <b-form-group
                 v-if="questionForm.question_type === 'assessment'"
+                id="auto-graded-tech-block"
                 label-cols-sm="4"
                 label-cols-lg="3"
                 label-for="technology"
@@ -1683,6 +1684,11 @@
                                   @change="initQTIQuestionType($event)"
                     >
                       Pushing Arrows <ConsultInsight :url="'https://commons.libretexts.org/insight/sketcher---pushing-arrows'"/>
+                    </b-form-radio>
+                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="pushing_arrows"
+                                  @change="initQTIQuestionType($event)"
+                    >
+                      Pushing Arrows
                     </b-form-radio>
                   </div>
                   <div v-if="nativeType === '3d_model'" v-show="false">
@@ -2092,11 +2098,12 @@
                          'three_d_model_multiple_choice',
                          'submit_molecule',
                          'marker',
+                         'pushing_arrows',
                          'discuss_it'].includes(qtiQuestionType) && qtiJson"
                   class="mb-2"
                 >
                   <b-container
-                    v-if="questionForm.technology === 'qti' && !['submit_molecule','marker'].includes(qtiQuestionType)"
+                    v-if="questionForm.technology === 'qti' && !['submit_molecule','marker','pushing_arrows'].includes(qtiQuestionType)"
                     class="mt-2"
                   >
                     <b-row>
@@ -2191,7 +2198,7 @@
                   Debugging: {{ qtiJson }}
                   {{ qtiJson.matchStereo }}
                 </div>
-                <div v-if="['submit_molecule','marker'].includes(qtiQuestionType)">
+                <div v-if="['submit_molecule','marker','pushing_arrows'].includes(qtiQuestionType)">
                   <div v-if="qtiQuestionType === 'submit_molecule'" class="border border-dark p-2"
                        style="width:320px;margin:auto"
                   >
@@ -2205,7 +2212,7 @@
                       Only approve identical stereoisomers
                     </b-form-checkbox>
                   </div>
-                  <div v-show="qtiQuestionType !== 'marker' || !qtiJson.solutionStructure">
+                  <div v-show="!['marker','pushing_arrows'].includes(qtiQuestionType) || !qtiJson.solutionStructure">
                     <b-form-group
                       class="pt-2"
                       label-cols-sm="1"
@@ -2268,7 +2275,7 @@
                       </b-button>
                     </div>
                   </div>
-                  <div v-if="qtiQuestionType === 'marker'" class="d-inline-flex">
+                  <div v-if="['marker', 'pushing_arrows'].includes(qtiQuestionType)" class="d-inline-flex">
                     <label class="mr-2">
                       Scoring
                       <QuestionCircleTooltip id="marker-scoring-tooltip"/>
@@ -2289,6 +2296,7 @@
                       </b-form-radio>
                     </b-form-radio-group>
                     <b-form-checkbox
+                      v-if="qtiQuestionType === 'marker'"
                       v-show="qtiJson.partialCredit === 'inclusive'"
                       v-model="qtiJson.oneHundredPercentOverride"
                       value="1"
@@ -3579,6 +3587,15 @@ export default {
       } else {
         await this.moveSketcherFromTab(false)
       }
+    },
+    // On a slow question load, nativeType (and/or activeTabIndex) can be set
+    // to 'sketcher' before #from-sketcher-component exists in the DOM
+    // (it's gated by fullyMounted), so the move above silently no-ops.
+    // Retry once fullyMounted flips true, if we should still be showing the sketcher.
+    fullyMounted: function (value) {
+      if (value && this.nativeType === 'sketcher') {
+        this.moveSketcherToTab()
+      }
     }
   },
   computed: {
@@ -4541,6 +4558,7 @@ export default {
             break
           case ('submit_molecule'):
           case ('marker'):
+          case('pushing_arrows'):
             this.receivedStructure = false
             const iframe = document.getElementById('sketcher')
             iframe.contentWindow.postMessage('save', '*')
@@ -4907,6 +4925,7 @@ export default {
             break
           case ('submit_molecule'):
           case ('marker'):
+          case ('pushing_arrows'):
             this.qtiQuestionType = this.qtiJson.questionType
             this.qtiPrompt = this.qtiJson['prompt']
             this.solutionStructure = this.qtiJson.solutionStructure
@@ -5705,7 +5724,18 @@ export default {
           this.$nextTick(() => {
             this.qtiQuestionType = 'marker'
           })
-
+          break
+        case ('pushing_arrows'):
+          this.qtiJson = {
+            questionType: 'pushing_arrows',
+            prompt: '',
+            solutionStructure: '',
+            solution: '',
+            partialCredit: 'exclusive'
+          }
+          this.$nextTick(() => {
+            this.qtiQuestionType = 'pushing_arrows'
+          })
           break
         case ('highlight_table'):
           this.qtiJson = {
@@ -6194,7 +6224,7 @@ export default {
       if (window.self !== window.top) {
         window.parent.postMessage('scroll-to-top', '*')
       }
-      if (['marker', 'submit-molecule'].includes(this.qtiQuestionType)) {
+      if (['marker', 'submit-molecule', 'pushing_arrows'].includes(this.qtiQuestionType)) {
         this.previewingQuestion = true
         this.receivedStructure = false
         const iframe = document.getElementById('sketcher')

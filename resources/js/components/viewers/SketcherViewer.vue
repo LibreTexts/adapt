@@ -1,7 +1,7 @@
 <template>
   <div>
     <iframe
-      :id="`${sketcherViewerId}`"
+      :id="sketcherViewerId || generatedId"
       ref="sketcherViewer"
       v-resize="{ log: false }"
       width="100%"
@@ -24,7 +24,7 @@ export default {
     },
     sketcherViewerId: {
       type: String,
-      default: 'sketcherViewer'
+      default: null
     },
     qtiJson: {
       type: Object,
@@ -40,10 +40,15 @@ export default {
       default: false
     }
   },
-  data: () => ({
-    src: '',
-    uuid: ''
-  }),
+  data () {
+    return {
+      src: '',
+      // Falls back to a per-instance unique id so that having more than one
+      // SketcherViewer on the same page (e.g. an interactive one plus a
+      // read-only solution view) never collide on DOM id lookups.
+      generatedId: `sketcherViewer-${uuidv4()}`
+    }
+  },
   created () {
     window.addEventListener('message', this.receiveMessage, false)
   },
@@ -59,12 +64,15 @@ export default {
     }
 
     this.loadStructure()
-    this.uuid = this.uuidv4
   },
   methods: {
     uuidv4,
     loadStructure () {
       console.log('loading solutionStructure')
+      if (!this.$refs.sketcherViewer) {
+        // Guard against calls before the iframe ref exists (e.g. very early in the lifecycle).
+        return
+      }
       const structure = this.studentResponse ? JSON.parse(this.studentResponse) : this.qtiJson.solutionStructure
       this.$refs.sketcherViewer.contentWindow.postMessage({
         method: 'load',
