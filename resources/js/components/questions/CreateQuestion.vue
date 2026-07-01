@@ -4183,20 +4183,6 @@ export default {
       console.error(event.data)
       console.error(this.nativeType)
       switch (this.nativeType) {
-        case ('3d_model'):
-          if (event.data.modelStructureData) {
-            if (event.data.modelStructureData.selectedIndex >= 0) {
-              this.receivedModelStructureData = true
-              this.qtiJson.solutionStructure = event.data.modelStructureData
-              this.questionForm.solution_structure = JSON.stringify(this.qtiJson.solutionStructure)
-              console.error(this.qtiJson.solutionStructure)
-              this.$forceUpdate()
-            } else if (this.qtiJson.solutionStructure && this.qtiJson.solutionStructure.selectedIndex >= 0) {
-              this.receivedModelStructureData = true
-            }
-          }
-          break
-
         case ('sketcher'):
           if (event.data.structure) {
             this.receivedStructure = true
@@ -4320,18 +4306,6 @@ export default {
         this.$forceUpdate()
       })
     },
-    waitFor3DModel () {
-      return new Promise((resolve) => {
-        const intervalId = setInterval(() => {
-          if (this.receivedModelStructureData) {
-            clearInterval(intervalId)
-            resolve()
-          } else {
-            console.log('Checking for received3DModel...')
-          }
-        }, 50)
-      })
-    },
     waitForStructure () {
       return new Promise((resolve) => {
         const intervalId = setInterval(() => {
@@ -4343,10 +4317,6 @@ export default {
           }
         }, 50)
       })
-    },
-    async handleGet3DModel () {
-      await this.waitFor3DModel()
-      this.message = '3D Model received!'
     },
     async handleGetStructure () {
       await this.waitForStructure()
@@ -4434,10 +4404,6 @@ export default {
             this.questionForm.qti_json = JSON.stringify(mpcJson)
             break
           case ('three_d_model_multiple_choice'):
-            this.receivedModelStructureData = false
-            document.getElementById('threeDModel-create-question').contentWindow.postMessage('save3DModel', '*')
-            await this.handleGet3DModel()
-            this.$forceUpdate()
             this.questionForm.qti_prompt = this.qtiJson['prompt']
             this.questionForm.qti_json = JSON.stringify(this.qtiJson)
             this.questionForm.parameters = this.qtiJson.parameters
@@ -6138,9 +6104,6 @@ export default {
         } else {
           switch (this.qtiQuestionType) {
             case ('three_d_model_multiple_choice'):
-              this.receivedModelStructureData = false
-              document.getElementById('threeDModel-create-question').contentWindow.postMessage('save3DModel', '*')
-              await this.handleGet3DModel()
               this.$forceUpdate()
               break
             case ('flashcard'):

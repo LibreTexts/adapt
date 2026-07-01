@@ -491,6 +491,7 @@ export default {
             .sort((a, b) => a.originalIndex - b.originalIndex)
           this.feedbacks = [clicked, ...rest]
           this.reorderKey++
+          this.$emit('updateQtiJson', 'solutionStructure', { selectedIndex: selected })
         }
       }
       if (event.data.info === 'isReady') {
@@ -507,6 +508,7 @@ export default {
                 }
               }
               threeDModelView.contentWindow.postMessage(response, '*')
+              this.$emit('updateQtiJson', 'solutionStructure', { selectedIndex: this.qtiJson.solutionStructure.selectedIndex })
             }
             threeDModelView.contentWindow.postMessage('pieceCount', '*')
           } else {
