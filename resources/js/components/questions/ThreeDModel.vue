@@ -1,6 +1,6 @@
 <template>
   <div>
-    <b-modal id="modal-3d-modal"
+    <b-modal id="threeDModel-feedback-modal"
              :title="`ID ${activeIndex}`"
              no-close-on-esc
              no-close-on-backdrop
@@ -19,7 +19,7 @@
       <template #modal-footer="{  ok }">
         <b-button size="sm"
                   variant="primary"
-                  @click="$bvModal.hide(`threeDModel-feedback-${activeIndex}`)"
+                  @click="$bvModal.hide('threeDModel-feedback-modal')"
         >
           OK
         </b-button>
@@ -148,6 +148,7 @@
                 id="BGColor"
                 v-model="parametersForm.BGColor"
                 type="text"
+                placeholder="d3d3d3"
                 :class="{ 'is-invalid': parametersForm.errors.has('BGColor') }"
                 @keydown="parametersForm.errors.clear('BGColor')"
               />
@@ -170,6 +171,7 @@
                 id="modelOffset"
                 v-model="parametersForm.modelOffset"
                 type="text"
+                placeholder="0,0,0"
                 :class="{ 'is-invalid': parametersForm.errors.has('modelOffset') }"
                 @keydown="parametersForm.errors.clear('modelOffset')"
               />
@@ -192,6 +194,7 @@
                 id="cameraOffset"
                 v-model="parametersForm.cameraOffset"
                 type="text"
+                placeholder="2.25"
                 :class="{ 'is-invalid': parametersForm.errors.has('cameraOffset') }"
                 @keydown="parametersForm.errors.clear('cameraOffset')"
               />
@@ -214,6 +217,7 @@
                 id="selectionColor"
                 v-model="parametersForm.selectionColor"
                 type="text"
+                placeholder="0058E6"
                 :class="{ 'is-invalid': parametersForm.errors.has('selectionColor') }"
                 @keydown="parametersForm.errors.clear('selectionColor')"
               />
@@ -236,6 +240,7 @@
                 id="STLmatCol"
                 v-model="parametersForm.STLmatCol"
                 type="text"
+                placeholder="ffffff"
                 :class="{ 'is-invalid': parametersForm.errors.has('STLmatCol') }"
                 @keydown="parametersForm.errors.clear('STLmatCol')"
               />
@@ -258,6 +263,7 @@
                 id="hideDistance"
                 v-model="parametersForm.hideDistance"
                 type="text"
+                placeholder="5"
                 :class="{ 'is-invalid': parametersForm.errors.has('hideDistance') }"
                 @keydown="parametersForm.errors.clear('hideDistance')"
               />
@@ -311,7 +317,7 @@
           <b-col cols="auto" class="d-flex justify-content-center align-items-center flex-shrink-0"
                  style="width: 100px; max-width: 100px;"
           >
-            <b-button @click="show3DModelModal(feedback.originalIndex)"
+            <b-button @click="show3DModelFeedbackModal(feedback.originalIndex)"
                       :variant="(lastClickedIndex !== null || (qtiJson.solutionStructure && qtiJson.solutionStructure.selectedIndex >= 0)) ? (index === 0 ? 'success' : 'danger') : ''"
             >
               ID {{ feedback.originalIndex }}
@@ -438,15 +444,12 @@ export default {
   },
   methods: {
     create3DModelSrc,
-    isCorrectAnswer (index) {
-      return this.correctIndex === index
-    },
-    show3DModelModal (index) {
+    show3DModelFeedbackModal (index) {
       this.activeIndex = index
       const isFirst = this.feedbacks.length > 0 && this.feedbacks[0].originalIndex === index
       const selectionColor = isFirst ? '008600' : 'dc3545'
       this.feedbackSrc = `https://devapp02.libretexts.org/?modelID=${this.parametersForm.modelID}&mode=selection&panel=hide&autospin=no&hideControlsButton=true&allowSelection=false&selectionColor=${selectionColor}` + '&v=' + Date.now()
-      this.$bvModal.show('modal-3d-modal')
+      this.$bvModal.show('threeDModel-feedback-modal')
     },
     receiveMessage (event) {
       console.error(event.data)
@@ -501,13 +504,12 @@ export default {
           this.isReady[id] = true
           if (id === 'threeDModel-create-question') {
             if (this.qtiJson && this.qtiJson.solutionStructure) {
-              const response = {
+              threeDModelView.contentWindow.postMessage({
                 type: 'load3DModel',
                 modelInfo: {
                   selectedIndex: this.qtiJson.solutionStructure.selectedIndex
                 }
-              }
-              threeDModelView.contentWindow.postMessage(response, '*')
+              }, '*')
               this.$emit('updateQtiJson', 'solutionStructure', { selectedIndex: this.qtiJson.solutionStructure.selectedIndex })
             }
             threeDModelView.contentWindow.postMessage('pieceCount', '*')
@@ -538,9 +540,7 @@ export default {
       }, 50)
     },
     updateSrc () {
-      const base = this.create3DModelSrc(this.parametersForm)
-      this.src = base.replace(/selectionColor=[^&]*/g, 'selectionColor=008600')
-        + (base.includes('selectionColor') ? '' : '&selectionColor=008600')
+      this.src = this.create3DModelSrc(this.parametersForm)
     },
     handleFixCKEditor () {
       fixCKEditor(this)

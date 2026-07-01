@@ -2396,6 +2396,8 @@ class AssignmentSyncQuestionController extends Controller
                     $columns['submission'] = 'forge (final)';
                 } elseif ($value->qti_json_type === 'forge_iteration') {
                     $columns['submission'] = 'forge (draft)';
+                } elseif ($value->qti_json_type === 'three_d_model_multiple_choice'){
+                    $columns['submission'] = '3D multiple choice';
                 }
 
                 $columns['license'] = $value->license;

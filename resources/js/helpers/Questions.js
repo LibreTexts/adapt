@@ -28,24 +28,18 @@ export function create3DModelSrc (parameters) {
     src += '&annotations=' + parameters.annotations
   }
   src += '&mode=' + parameters.mode
-  if (parameters.BGColor) {
-    src += '&BGColor' + parameters.BGColor
-  }
+  src += '&BGColor=' + (parameters.BGColor?.trim() || 'd3d3d3')
   if (parameters.modelOffset) {
-    src += '&modelOffset' + parameters.modelOffset
+    src += '&modelOffset=' + parameters.modelOffset
   }
-  if (parameters.selectionColor) {
-    src += '&selectionColor' + parameters.selectionColor
-  }
+  src += '&selectionColor=' + (parameters.selectionColor?.trim() || '0058E6')
   if (parameters.panel === 'no') {
     src += '&panel=hide'
   }
   if (parameters.autospin === 'no') {
     src += '&autospin=no'
   }
-  if (parameters.STLmatCol === 'no') {
-    src += '&STLmatCol=' + parameters.STLmatCol
-  }
+  src += '&STLmatCol=' + (parameters.STLmatCol?.trim() || 'ffffff')
   if (parameters.hideDistance) {
     src += '&hideDistance=' + parameters.hideDistance
   }

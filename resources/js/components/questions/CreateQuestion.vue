@@ -2118,7 +2118,7 @@
                     @updateQtiJson="updateQtiJson"
                   />
                 </div>
-                <div v-if="['three_d_model_multiple_choice'].includes(qtiQuestionType)">
+                <div v-if="['three_d_model_multiple_choice'].includes(qtiQuestionType)" class="mb-2">
                   <ThreeDModel
                     :qti-json="qtiJson"
                     :three-d-model-parameter-errors="threeDModelParameterErrors"
@@ -3036,16 +3036,16 @@ import WebworkMacroPickerModal from '../WebworkMacroPickerModal.vue'
 const parameters3DModel = {
   modelID: '',
   BGImage: '',
-  BGColor: '',
+  BGColor: 'd3d3d3',
   mode: '',
   annotations: '',
-  modelOffset: '',
-  cameraOffset: '',
-  selectionColor: '',
+  modelOffset: '0,0,0',
+  cameraOffset: '2.25',
+  selectionColor: '0058E6',
   panel: 'no',
   autospin: 'no',
-  STLmatCol: '',
-  hideDistance: ''
+  STLmatCol: 'ffffff',
+  hideDistance: '5'
 }
 const defaultQuestionForm = {
   question_type: 'assessment',

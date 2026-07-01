@@ -88,7 +88,7 @@ export default {
       if (this.qtiJson.studentResponse && this.responseIsCorrect !== null) {
         params.selectionColor = this.responseIsCorrect ? '008600' : 'dc3545'
       } else {
-        params.selectionColor = '0058E6'
+        params.selectionColor = params.selectionColor || '0058E6'
       }
       this.src = this.buildSrc(params) + (!this.submitButtonActive ? '&allowSelection=false' : '')
     }
@@ -137,9 +137,12 @@ export default {
 
             // Switch to blue after load so subsequent clicks are blue
             if (!this.isAnswerView) {
+              const color = this.qtiJson.parameters?.selectionColor?.trim()
+                ? parseInt(this.qtiJson.parameters.selectionColor, 16)
+                : 0x0058E6
               threeDModelView.contentWindow.postMessage({
                 message: 'setSelectionColor',
-                color: 0x0058E6
+                color
               }, '*')
             }
           }
@@ -151,9 +154,12 @@ export default {
         if (this.isAnswerView) return
         const viewerIframe = document.getElementById(`threeDModel-viewer-${this.activeIndex}`)
         if (viewerIframe && event.source === viewerIframe.contentWindow) {
+          const color = this.qtiJson.parameters?.selectionColor?.trim()
+            ? parseInt(this.qtiJson.parameters.selectionColor, 16)
+            : 0x0058E6
           viewerIframe.contentWindow.postMessage({
             message: 'setSelectionColor',
-            color: 0x0058E6
+            color
           }, '*')
         }
       }
