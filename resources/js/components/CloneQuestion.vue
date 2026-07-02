@@ -1,33 +1,23 @@
 <template>
   <span>
-    <b-modal :id="`modal-clone-learning-tree-${questionId}`"
-             title="Cloning learning trees"
-    >
-      <p>Cloning trees cannot be cloned within an assignment context because the question in the root node will remain
-      unchanged and must be unique within an assignment.</p>
-      <p>If you would like to clone a learning tree, please go to your <router-link
-        to="/instructors/learning-trees"
-      >Learning Trees</router-link> and
-      clone it there.  You will then be able to adjust it and add it to an assignment which doesn't share the same root node.</p>
-   <template #modal-footer>
-        <b-button size="sm"
-                  variant="primary"
-                  @click="$bvModal.hide(`modal-clone-learning-tree-${questionId}`)"
-        >
-          OK
-        </b-button>
-   </template></b-modal>
     <b-modal :id="`modal-clone-question-${questionId}`"
-             :title="`Clone ${title}`"
+             :title="learningTreeId ? `Clone Learning Tree` : `Clone ${title}`"
              size="lg"
              @hidden="showModalContents= false"
              @shown="initCloneModal()"
     >
       <div v-show="showModalContents">
-        <b-alert variant="info" show>After cloning a question, you'll have full editing rights to the newly created question. However, if you would just
-        like to use the question in your course without making any changes to the question, please just add the question to your assignment instead of cloning it.
+        <b-alert variant="info" show>
+          <span v-if="learningTreeId">
+            After cloning this learning tree, you'll have full editing rights to the newly created tree and its root question.
+            The remediation nodes will remain shared with the original.
+          </span>
+          <span v-else>
+            After cloning a question, you'll have full editing rights to the newly created question. However, if you would just
+            like to use the question in your course without making any changes to the question, please just add the question to your assignment instead of cloning it.
+          </span>
         </b-alert>
-        <div v-if="isAdmin">
+        <div v-if="isAdmin && !learningTreeId">
           <span>Acting as</span>
           <toggle-button
             style="margin-bottom:5px"
@@ -42,8 +32,8 @@
           />
         </div>
         <div v-if="actingAs === user.first_name">
-          <RequiredText/>
-          <div class="inline-flex d-flex pb-2">
+          <RequiredText v-if="!learningTreeId"/>
+          <div v-if="!learningTreeId" class="inline-flex d-flex pb-2">
             Clone question to*
             <SavedQuestionsFolders
               :key="`cloned-question-folder-${cloneForm.clone_to_folder_id}`"
@@ -77,7 +67,6 @@
                            :options="assignmentOptions"
                            @change="validateNotWeightedPointsPerQuestionWithSubmissions($event)"
             />
-
           </div>
         </div>
         <div v-if="actingAs === 'Admin'">
@@ -104,7 +93,7 @@
         </b-button>
          <div v-if="cloning">
           <b-spinner small type="grow"/>
-          Cloning question...
+          {{ learningTreeId ? 'Cloning learning tree...' : 'Cloning question...' }}
         </div>
       </template>
     </b-modal>
@@ -145,8 +134,11 @@
     <span v-else-if="isForgeDraft">
       Clone the main Forge question ({{ questionId }}). Drafts cannot be cloned individually.
     </span>
-    <span v-else-if="isAdmin">
+    <span v-else-if="isAdmin && !learningTreeId">
       Make a clone of question {{ questionId }} to your account or that of another instructor's.
+    </span>
+    <span v-else-if="learningTreeId">
+      Clone this learning tree into your account.
     </span>
     <span v-else>
       Clone {{ title }}.
@@ -159,8 +151,8 @@
     <span v-if="!this.public && !learningTreeId">
       Since this question is not public, it cannot be cloned.
     </span>
-      <span v-if="learningTreeId">
-      Since you do not own this learning tree you cannot clone it.
+    <span v-if="learningTreeId">
+      Since this learning tree is not public and you do not own it, you cannot clone it.
     </span>
   </span>
 </b-tooltip>
@@ -239,6 +231,7 @@ export default {
   },
   data: () => ({
     learningTreeAuthorId: 0,
+    learningTreePublic: 1,
     weightedPointsPerQuestionWithSubmissions: false,
     cloning: false,
     showModalContents: false,
@@ -264,7 +257,7 @@ export default {
     isAdmin: () => window.config.isAdmin,
     canClone () {
       if (this.learningTreeId) {
-        return this.learningTreeAuthorId === this.user.id
+        return this.learningTreeAuthorId === this.user.id || Boolean(this.learningTreePublic)
       }
       if (this.user.id !== this.questionEditorUserId) {
         return !['ccbyncnd', 'ccbynd', 'arr'].includes(this.license) && Boolean(this.public)
@@ -299,6 +292,7 @@ export default {
           return false
         }
         this.learningTreeAuthorId = data.author_id
+        this.learningTreePublic = data.public
       } catch (error) {
         this.$noty.error(error.message)
       }
@@ -391,11 +385,9 @@ export default {
     openModalCopyQuestion () {
       if (this.learningTreeId) {
         if (this.canClone) {
-          this.$bvModal.show(`modal-clone-learning-tree-${this.questionId}`)
-          return false
-        } else {
-          return false
+          this.$bvModal.show(`modal-clone-question-${this.questionId}`)
         }
+        return false
       }
       if (!this.canClone) {
         return false
@@ -407,11 +399,12 @@ export default {
       this.cloneForm.acting_as = this.actingAs === 'Admin' ? 'admin' : 'instructor'
       this.cloneForm.question_id = this.questionId
       this.cloneForm.question_editor_user_id = this.actingAs === 'Admin' ? this.questionEditor.value : this.user.id
+      this.cloneForm.learning_tree_id = this.learningTreeId || 0
       if (this.cloneForm.acting_as === 'admin') {
         this.cloneForm.assignment_id = 0
         this.cloneForm.clone_to_folder_id = 0
       }
-      if (!this.cloneForm.assignment_id && this.courseId) {
+      if (!this.learningTreeId && !this.cloneForm.assignment_id && this.courseId) {
         this.$noty.error('Please either choose an assignment or do not choose a course.')
         return false
       }

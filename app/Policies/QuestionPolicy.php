@@ -120,21 +120,29 @@ class QuestionPolicy
     /**
      * @param User $user
      * @param Question $question
+     * @param int $learning_tree_id
      * @return Response
      */
-    public function clone(User $user, Question $question): Response
+    public function clone(User $user, Question $question, int $learning_tree_id): Response
     {
         $has_access = true;
         $message = '';
         if ($user->id !== $question->question_editor_user_id) {
-            if (in_array($question->license, ['ccbyncnd', 'ccbynd', 'arr'])) {
-                $message = "Due to licensing restrictions, this question cannot be cloned.";
-                $has_access = false;
-            }
-
-            if (!$question->public) {
-                $message = "This is a private question and cannot be cloned.";
-                $has_access = false;
+            if ($learning_tree_id) {
+                $learning_tree = LearningTree::find($learning_tree_id);
+                if (!$learning_tree->public) {
+                    $message = 'The learning tree is not public so it cannot be cloned.';
+                    $has_access = false;
+                }
+            } else {
+                if (in_array($question->license, ['ccbyncnd', 'ccbynd', 'arr'])) {
+                    $message = "Due to licensing restrictions, this question cannot be cloned.";
+                    $has_access = false;
+                }
+                if (!$question->public) {
+                    $message = "This is a private question and cannot be cloned.";
+                    $has_access = false;
+                }
             }
             if (!in_array($user->role, [2, 5])) {
                 $message = "You are not allowed to clone questions.";
@@ -154,10 +162,11 @@ class QuestionPolicy
      * @param $assignment
      * @return bool|Response
      */
-    public function refreshQuestion(User                   $user,
-                                    Question               $question,
-                                    AssignmentSyncQuestion $assignmentSyncQuestion,
-                                                           $assignment)
+    public
+    function refreshQuestion(User                   $user,
+                             Question               $question,
+                             AssignmentSyncQuestion $assignmentSyncQuestion,
+                                                    $assignment)
     {
         if (Helper::isAdmin()) {
             return true;
@@ -189,7 +198,8 @@ class QuestionPolicy
      * @param User $user
      * @return Response
      */
-    public function getWebworkCodeFromFilePath(User $user): Response
+    public
+    function getWebworkCodeFromFilePath(User $user): Response
     {
         return in_array($user->role, [2, 5])
 
@@ -201,7 +211,8 @@ class QuestionPolicy
      * @param User $user
      * @return Response
      */
-    public function exportWebworkCode(User $user): Response
+    public
+    function exportWebworkCode(User $user): Response
     {
         return in_array($user->role, [2, 5])
 
@@ -214,7 +225,8 @@ class QuestionPolicy
      * @param User $user
      * @return Response
      */
-    public function getQuestionForEditing(User $user)
+    public
+    function getQuestionForEditing(User $user)
     {
         return in_array($user->role, [2, 5])
 
@@ -228,7 +240,8 @@ class QuestionPolicy
      * @param $assignment_id
      * @return Response
      */
-    public function storeH5P(User $user, Question $question, $assignment_id): Response
+    public
+    function storeH5P(User $user, Question $question, $assignment_id): Response
     {
         $allow = true;
         $message = '';
@@ -255,14 +268,16 @@ class QuestionPolicy
             : Response::deny($message);
     }
 
-    public function index(User $user): Response
+    public
+    function index(User $user): Response
     {
         return (in_array($user->role, [2, 5]))
             ? Response::allow()
             : Response::deny("You are not allowed to view My Questions.");
     }
 
-    public function destroy(User $user, Question $question): Response
+    public
+    function destroy(User $user, Question $question): Response
     {
 
         return ((int)$question->question_editor_user_id === (int)$user->id) || Helper::isAdmin()
@@ -270,7 +285,8 @@ class QuestionPolicy
             : Response::deny("You are not allowed to delete that question.");
     }
 
-    public function store(User $user, Question $question, int $folder_id): Response
+    public
+    function store(User $user, Question $question, int $folder_id): Response
     {
         $authorize = true;
         $message = "no message provided";
@@ -289,7 +305,8 @@ class QuestionPolicy
             : Response::deny($message);
     }
 
-    private function _ownsFolder($folder_id)
+    private
+    function _ownsFolder($folder_id)
     {
         return DB::table('saved_questions_folders', $folder_id)
             ->where('user_id', auth()->user()->id)
@@ -302,7 +319,8 @@ class QuestionPolicy
      * @param Question $question
      * @return Response
      */
-    public function storeFlashcardTts(User $user, Question $question): Response
+    public
+    function storeFlashcardTts(User $user, Question $question): Response
     {
         if (Helper::isAdmin()) {
             $authorize = true;
@@ -324,7 +342,8 @@ class QuestionPolicy
      * @param $folder_id
      * @return Response
      */
-    public function update(User $user, Question $question, $folder_id): Response
+    public
+    function update(User $user, Question $question, $folder_id): Response
     {
 
         $message = 'Unknown authorization user to update question';
@@ -362,7 +381,8 @@ class QuestionPolicy
             : Response::deny($message);
     }
 
-    public function validateBulkImport(User $user, Question $question, $course_id): Response
+    public
+    function validateBulkImport(User $user, Question $question, $course_id): Response
     {
         $has_access = true;
         $message = '';
@@ -382,7 +402,8 @@ class QuestionPolicy
     }
 
 
-    public function getQuestionTypes(User $user): Response
+    public
+    function getQuestionTypes(User $user): Response
     {
         return in_array($user->role, [2, 4, 5])
             ? Response::allow()
@@ -390,7 +411,8 @@ class QuestionPolicy
 
     }
 
-    public function preview(User $user): Response
+    public
+    function preview(User $user): Response
     {
         return in_array($user->role, [2, 5])
             ? Response::allow()
@@ -398,7 +420,8 @@ class QuestionPolicy
 
     }
 
-    public function updateProperties(User $user): Response
+    public
+    function updateProperties(User $user): Response
     {
         return ($user->role === 2)
             ? Response::allow()
@@ -415,12 +438,13 @@ class QuestionPolicy
      * @param int $question_id
      * @return Response
      */
-    public function getRemediationByQuestionIdInLearningTreeAssignment(User         $user,
-                                                                       Question     $question,
-                                                                       Assignment   $assignment,
-                                                                       LearningTree $learningTree,
-                                                                       int          $active_id,
-                                                                       int          $question_id): Response
+    public
+    function getRemediationByQuestionIdInLearningTreeAssignment(User         $user,
+                                                                Question     $question,
+                                                                Assignment   $assignment,
+                                                                LearningTree $learningTree,
+                                                                int          $active_id,
+                                                                int          $question_id): Response
     {
 
         $question_in_assignment = $this->_questionInAssignment($user->id, $assignment->id, $question->id);
@@ -446,7 +470,8 @@ class QuestionPolicy
 
     }
 
-    public function viewAny(User $user)
+    public
+    function viewAny(User $user)
     {
 
         return ($user->role !== 3)
@@ -455,7 +480,8 @@ class QuestionPolicy
 
     }
 
-    public function refreshProperties(User $user)
+    public
+    function refreshProperties(User $user)
     {
         return ($user->role === 2)
             ? Response::allow()
@@ -469,7 +495,8 @@ class QuestionPolicy
      * @param $question_id
      * @return bool|Response
      */
-    public function getHeaderHtml(User $user, Question $question, $question_id)
+    public
+    function getHeaderHtml(User $user, Question $question, $question_id)
     {
         //set when viewing remediations
         if (session()->get('canViewLocallySavedContents')) {
@@ -495,7 +522,8 @@ class QuestionPolicy
 
     }
 
-    private function _questionInAssignment(int $user_id, int $assignment_id, int $question_id)
+    private
+    function _questionInAssignment(int $user_id, int $assignment_id, int $question_id)
     {
         return DB::table('assignment_question')
             ->join('assignments', 'assignment_question.assignment_id', '=', 'assignments.id')

@@ -203,7 +203,9 @@
                background="#FFFFFF"
       />
       <div v-if="!isLoading">
-        <PageTitle title="Questions"/>
+        <PageTitle :title="assessmentType === 'learning tree' ? 'Trees' : 'Questions'"
+                   :assessment-type="assessmentType"
+        />
         <AssessmentTypeWarnings :assessment-type="assessmentType"
                                 :open-ended-questions-in-real-time="openEndedQuestionsInRealTime"
                                 :learning-tree-questions-in-non-learning-tree="learningTreeQuestionsInNonLearningTree"

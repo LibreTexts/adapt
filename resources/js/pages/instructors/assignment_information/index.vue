@@ -13,7 +13,7 @@
       />
     </b-modal>
     <div v-if="[2, 4, 5].includes(user.role)">
-      <CannotAddAssessmentToBetaAssignmentModal/>
+      <CannotAddAssessmentToBetaAssignmentModal />
       <b-container>
         <hr>
       </b-container>
@@ -29,7 +29,7 @@
                 scale="1.25"
                 class="pr-1"
               />
-              View Questions
+              View {{capitalFormattedAssessmentType}}s
             </b-button>
           </div>
           <div class="mb-1">
@@ -42,7 +42,7 @@
                 scale="1.25"
                 class="pr-1"
               />
-              Add Questions
+              Add {{capitalFormattedAssessmentType}}s
             </b-button>
           </div>
           <div>
@@ -55,7 +55,7 @@
                 scale="1.25"
                 class="pr-1"
               />
-              New Question
+              New {{ capitalFormattedAssessmentType}}
             </b-button>
           </div>
           <b-card v-show="showPanel" header-html="<h2 class=&quot;h7&quot;>Assignment Information</h2>"
@@ -78,21 +78,21 @@
             </ul>
           </b-card>
           <b-card body-class="p-0" class="mb-2">
-          <ul class="nav flex-column nav-pills">
-            <template v-for="(tab, index) in tabs2">
-              <li v-if="showTab(tab.name)" :key="`tab-${index}`" class="nav-item">
-                <router-link
-                  v-if="showTab(tab.name)"
-                  :key="tab.route"
-                  :to="{ name: tab.route }"
-                  class="nav-link"
-                  active-class="active"
-                >
-                  <span class="hover-underline"> {{ tab.name }}</span>
-                </router-link>
-              </li>
-            </template>
-          </ul>
+            <ul class="nav flex-column nav-pills">
+              <template v-for="(tab, index) in tabs2">
+                <li v-if="showTab(tab.name)" :key="`tab-${index}`" class="nav-item">
+                  <router-link
+                    v-if="showTab(tab.name)"
+                    :key="tab.route"
+                    :to="{ name: tab.route }"
+                    class="nav-link"
+                    active-class="active"
+                  >
+                    <span class="hover-underline"> {{ tab.name }}</span>
+                  </router-link>
+                </li>
+              </template>
+            </ul>
           </b-card>
           <b-card body-class="p-0">
             <ul class="nav flex-column nav-pills">
@@ -106,41 +106,41 @@
                   <span class="hover-underline"> Regrader</span>
                 </router-link>
               </li>
-            <li>
-              <router-link
-                :to="{ name: 'assignment.grading.index', params: {assignmentId: assignmentId}}"
-                class="nav-link"
-                active-class="active"
+              <li>
+                <router-link
+                  :to="{ name: 'assignment.grading.index', params: {assignmentId: assignmentId}}"
+                  class="nav-link"
+                  active-class="active"
+                >
+                  <span class="hover-underline"> Open Grader</span>
+                </router-link>
+              </li>
+              <router-link v-if="user.role !== 5 && !isFormative"
+                           :to="{ name: 'instructors.assignments.gradebook' }"
+                           class="nav-link"
+                           active-class="active"
               >
-                <span class="hover-underline"> Open Grader</span>
+                <span class="hover-underline"> Assignment Gradebook</span>
               </router-link>
-            </li>
-            <router-link v-if="user.role !== 5 && !isFormative"
-                         :to="{ name: 'instructors.assignments.gradebook' }"
-                         class="nav-link"
-                         active-class="active"
-            >
-              <span class="hover-underline"> Assignment Gradebook</span>
-            </router-link>
-            <li v-if="user.role !== 5 && !isFormative">
-              <a :href="`/courses/${courseId}/gradebook`" class="nav-link">
-                <span class="hover-underline">  Course Gradebook</span>
-              </a>
-            </li>
-            <router-link v-if="user.role !== 5 && isLms"
-                         :to="{ name: 'instructors.assignments.resend_grades_to_lms' }"
-                         class="nav-link"
-                         active-class="active"
-            >
-              <span class="hover-underline"> Resend Grades to LMS</span>
-            </router-link>
+              <li v-if="user.role !== 5 && !isFormative">
+                <a :href="`/courses/${courseId}/gradebook`" class="nav-link">
+                  <span class="hover-underline">  Course Gradebook</span>
+                </a>
+              </li>
+              <router-link v-if="user.role !== 5 && isLms"
+                           :to="{ name: 'instructors.assignments.resend_grades_to_lms' }"
+                           class="nav-link"
+                           active-class="active"
+              >
+                <span class="hover-underline"> Resend Grades to LMS</span>
+              </router-link>
             </ul>
           </b-card>
         </div>
 
         <div class="col-md-9">
           <transition name="fade" mode="out-in">
-            <router-view :key="`router-view-${tabKey}`"/>
+            <router-view :key="`router-view-${tabKey}`" />
           </transition>
         </div>
       </div>
@@ -163,6 +163,7 @@ export default {
     CreateQuestion
   },
   data: () => ({
+    assessmentType: '',
     isLms: false,
     showPanel: false,
     isFormative: false,
@@ -175,6 +176,9 @@ export default {
     ...mapGetters({
       user: 'auth/user'
     }),
+    capitalFormattedAssessmentType () {
+      return this.assessmentType === 'learning tree' ? 'Tree' : 'Question'
+    },
     isAdmin: () => window.config.isAdmin,
     tabs1 () {
       return [
@@ -244,10 +248,14 @@ export default {
       this.$forceUpdate()
     },
     openQuestionEditor () {
-      this.$bvModal.show('modal-question-editor')
-      this.$nextTick(() => {
-        updateModalToggleIndex('modal-question-editor')
-      })
+      if (this.assessmentType === 'learning tree') {
+        window.location.href = '/instructors/learning-trees/editor/0'
+      } else {
+        this.$bvModal.show('modal-question-editor')
+        this.$nextTick(() => {
+          updateModalToggleIndex('modal-question-editor')
+        })
+      }
     },
     showTab (name) {
       if (name === 'Lab Report') {
@@ -283,7 +291,8 @@ export default {
         this.courseId = data.assignment.course_id
         this.isFormative = data.assignment.is_formative_course || data.assignment.formative
         this.isBetaAssignment = data.assignment.is_beta_assignment
-        this.assessmentUrlType = data.assignment.assessment_type === 'learning tree' ? 'learning-trees' : 'questions'
+        this.assessmentType = data.assignment.assessment_type
+        this.assessmentUrlType = this.assessmentType === 'learning tree' ? 'learning-trees' : 'questions'
         this.isLms = data.assignment.lms
       } catch (error) {
         this.$noty.error(error.message)

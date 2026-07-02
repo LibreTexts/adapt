@@ -23,7 +23,11 @@
               variant="success"
             />
           </span>
-          {{ title }}
+          <b-icon
+            v-if="assessmentType === 'learning tree' || learningTreeId"
+            icon="tree"
+            variant="success"
+          />{{ title }}
           <CustomTitle v-if="title && showPencil"
                        :assignment-id="assignmentId"
                        :question-id="questionId"
@@ -47,27 +51,31 @@
              aria-label="Copy ADAPT ID"
              @click.prevent="doCopy('adapt-id')"
           >
-            <font-awesome-icon :icon="copyIcon" />
+            <font-awesome-icon :icon="copyIcon"/>
           </a>
         </span>
         </span>
-        <span v-if="learningTreeId"><br>Learning Tree ID: <span id="learning-tree-id">{{ learningTreeId }}</span>  <span
-          class="text-info"
-        >
+          <span v-if="learningTreeId"><br>Learning Tree ID: <span id="learning-tree-id">{{
+              learningTreeId
+            }}</span>  <span
+            class="text-info"
+          >
           <a href=""
              aria-label="Copy Learning Tree ID"
              @click.prevent="doCopy('learning-tree-id')"
           >
-            <font-awesome-icon :icon="copyIcon" />
+            <font-awesome-icon :icon="copyIcon"/>
           </a>
         </span>
 
         </span>
         </small>
       </b-col>
-      <b-col v-if="user.role === 2" cols="auto" class="text-right" />
-      <div id="instructor-action-icons" style="display: flex;align-items: flex-end; padding-bottom: 0 !important;gap: 0.25rem; ">
-  </div>
+      <b-col v-if="user.role === 2" cols="auto" class="text-right"/>
+      <div id="instructor-action-icons"
+           style="display: flex;align-items: flex-end; padding-bottom: 0 !important;gap: 0.25rem; "
+      >
+      </div>
     </b-row>
     <hr style="margin-top:7px">
   </div>
@@ -81,6 +89,7 @@ import FormativeWarning from './FormativeWarning.vue'
 import CustomTitle from './CustomTitle.vue'
 import AlgorithmicIcon from './AlgorithmicIcon.vue'
 import { mapGetters } from 'vuex'
+import { faTree } from '@fortawesome/free-solid-svg-icons'
 
 export default {
   name: 'PageTitle',
@@ -138,6 +147,10 @@ export default {
     questionId: {
       type: Number,
       default: 0
+    },
+    assessmentType: {
+      type: String,
+      default: ''
     }
   },
   data: () => ({

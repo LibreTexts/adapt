@@ -34,6 +34,9 @@ use App\Services\WebworkMacroService;
 use App\Tag;
 use App\Traits\AssignmentProperties;
 use App\Traits\DateFormatter;
+use App\AssignmentQuestionLearningTree;
+use App\LearningTree;
+use App\LearningTreeHistory;
 use App\RefreshQuestionRequest;
 use App\User;
 use App\Webwork;
@@ -450,20 +453,20 @@ class QuestionController extends Controller
 
     /**
      * @param Request $request
-     * @param Question $question
      * @param AssignmentSyncQuestion $assignmentSyncQuestion
      * @param BetaCourseApproval $betaCourseApproval
      * @param RubricCategory $rubricCategory
      * @param QuestionMediaUpload $questionMediaUpload
+     * @param AssignmentQuestionLearningTree $assignmentQuestionLearningTree
      * @return array
      * @throws Exception
      */
-    public function clone(Request                $request,
-                          Question               $question,
-                          AssignmentSyncQuestion $assignmentSyncQuestion,
-                          BetaCourseApproval     $betaCourseApproval,
-                          RubricCategory         $rubricCategory,
-                          QuestionMediaUpload    $questionMediaUpload): array
+    public function clone(Request                        $request,
+                          AssignmentSyncQuestion         $assignmentSyncQuestion,
+                          BetaCourseApproval             $betaCourseApproval,
+                          RubricCategory                 $rubricCategory,
+                          QuestionMediaUpload            $questionMediaUpload,
+                          AssignmentQuestionLearningTree $assignmentQuestionLearningTree): array
     {
         $response['type'] = 'error';
         $cloned_question = [];
@@ -475,7 +478,8 @@ class QuestionController extends Controller
         }
 
         try {
-            $authorized = Gate::inspect('clone', $clone_source);
+            $learning_tree_id = $request->learning_tree_id ? $request->learning_tree_id : 0;
+            $authorized = Gate::inspect('clone', [$clone_source, $learning_tree_id]);
             if (!$authorized->allowed()) {
                 $response['message'] = $authorized->message();
                 return $response;
@@ -483,8 +487,9 @@ class QuestionController extends Controller
 
             $question_editor_user_id = $request->question_editor_user_id;
 
-            $assignment_id = $request->assignment_id;
+
             $assignment = null;
+            $assignment_id = $request->assignment_id;
             $acting_as = $request->acting_as;
             $clone_to_folder_id = $request->clone_to_folder_id;
 
@@ -523,6 +528,26 @@ class QuestionController extends Controller
                         $response['message'] = "You cannot clone a question to someone else's account.";
                         return $response;
                     }
+
+                    // When cloning a learning tree, auto-place root question in "Cloned Questions"
+                    if ($learning_tree_id && !$clone_to_folder_id) {
+                        $cloned_questions_folder = DB::table('saved_questions_folders')
+                            ->where('user_id', request()->user()->id)
+                            ->where('type', 'my_questions')
+                            ->where('name', 'Cloned Questions')
+                            ->first();
+                        if (!$cloned_questions_folder) {
+                            $newFolder = new SavedQuestionsFolder();
+                            $newFolder->user_id = request()->user()->id;
+                            $newFolder->type = 'my_questions';
+                            $newFolder->name = 'Cloned Questions';
+                            $newFolder->save();
+                            $clone_to_folder_id = $newFolder->id;
+                        } else {
+                            $clone_to_folder_id = $cloned_questions_folder->id;
+                        }
+                    }
+
                     if ($assignment_id) {
                         $assignment = Assignment::find($assignment_id);
                         if (!$assignment) {
@@ -620,7 +645,7 @@ class QuestionController extends Controller
                     $webworkAttachment->save();
                 }
             }
-            if ($assignment_id) {
+            if ($assignment_id && !$learning_tree_id) {
                 $custom_rubric = $assignmentSyncQuestion->customRubric($assignment->id, $question_id);
                 $assignmentSyncQuestion->addQuestiontoAssignmentByQuestionId($assignment,
                     $cloned_question->id,
@@ -629,7 +654,6 @@ class QuestionController extends Controller
                     $assignment->default_open_ended_text_editor,
                     $betaCourseApproval,
                     $custom_rubric);
-
             }
             $learning_outcomes = DB::table('question_learning_outcome')
                 ->where('question_id', $question_id)
@@ -653,13 +677,82 @@ class QuestionController extends Controller
                         'updated_at' => Carbon::now()]);
             }
             DB::commit();
+
+            // If cloning from a learning tree assignment, also clone the learning tree
+            // with the new root question substituted in.
+            if ($learning_tree_id) {
+                DB::beginTransaction();
+                $source_tree = LearningTree::find($learning_tree_id);
+                if (!$source_tree) {
+                    $response['message'] = "Question was cloned but the learning tree with ID $learning_tree_id could not be found.";
+                    $response['type'] = 'error';
+                    return $response;
+                }
+
+                // Rewrite the root node's question_id in the tree JSON blocks
+                $tree_data = json_decode($source_tree->learning_tree, true);
+                foreach ($tree_data['blocks'] as &$block) {
+                    if ((int)$block['parent'] === -1) {
+                        foreach ($block['data'] as &$datum) {
+                            if ($datum['name'] === 'question_id') {
+                                $datum['value'] = (string)$cloned_question->id;
+                            }
+                        }
+                        unset($datum);
+                    }
+                }
+                unset($block);
+
+                // Also patch the html string (handles both single- and double-quoted attribute values)
+                $old_root_id = (string)$source_tree->root_node_question_id;
+                $new_root_id = (string)$cloned_question->id;
+                $tree_data['html'] = str_replace(
+                    ["value='$old_root_id'", "value=\"$old_root_id\""],
+                    ["value='$new_root_id'", "value=\"$new_root_id\""],
+                    $tree_data['html']
+                );
+
+                $cloned_tree = $source_tree->replicate();
+                $cloned_tree->user_id = $request->user()->id;
+                $cloned_tree->title = $source_tree->title . ' copy';
+                $cloned_tree->root_node_question_id = $cloned_question->id;
+                $cloned_tree->learning_tree = json_encode($tree_data);
+                $cloned_tree->save();
+
+                $learningTreeHistory = new LearningTreeHistory();
+                $learningTreeHistory->learning_tree = $cloned_tree->learning_tree;
+                $learningTreeHistory->learning_tree_id = $cloned_tree->id;
+                $learningTreeHistory->root_node_question_id = $cloned_tree->root_node_question_id;
+                $learningTreeHistory->save();
+
+                if ($assignment_id) {
+                    $add_result = $assignmentQuestionLearningTree->addToAssignment(
+                        $assignment,
+                        $cloned_tree,
+                        $assignmentSyncQuestion,
+                        $betaCourseApproval
+                    );
+                    if ($add_result['type'] === 'error') {
+                        DB::rollback();
+                        $response['message'] = $add_result['message'];
+                        return $response;
+                    }
+                }
+
+                DB::commit();
+            }
+
             if ($acting_as === 'admin') {
                 $user = User::find($question_editor_user_id);
                 $message = "$clone_source->title has been cloned and $user->first_name $user->last_name has been given editing rights.";
             } else {
                 $clone_to_folder = SavedQuestionsFolder::find($clone_to_folder_id);
-                $message = "The question has been cloned to your '$clone_to_folder->name' folder.";
-                if ($assignment_id) {
+                $root_node = $learning_tree_id ? "The root " : 'The';
+                $message = "$root_node question has been cloned to your '$clone_to_folder->name' folder.";
+                if ($learning_tree_id) {
+                    $message .= "<br><br>In addition, the learning tree has been cloned as '{$cloned_tree->title}'";
+                    $message .= $assignment_id ? " and added to $assignment->name." : ".";
+                } elseif ($assignment_id) {
                     $message .= "<br><br>In addition, it has been added to $assignment->name.";
                 }
             }
@@ -674,7 +767,9 @@ class QuestionController extends Controller
             }
             $h = new Handler(app());
             $h->report($e);
-            $response['message'] = "There was an error cloning the question.  Please try again or contact us for assistance.";
+            $response['message'] = isset($request->learning_tree_id) && $request->learning_tree_id
+                ? "There was an error cloning the learning tree.  Please try again or contact us for assistance."
+                : "There was an error cloning the question.  Please try again or contact us for assistance.";
         }
         return $response;
     }
