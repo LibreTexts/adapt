@@ -1286,13 +1286,12 @@
         </div>
       </div>
       <b-card
-        v-if="lms"
+        v-if="lms && !isFormativeCourse && form.formative !== '1'"
         id="lms-card"
         :header-html="getHeaderHtml('LMS')"
         body-class="pb-0 card-body-pl"
         class="mb-3"
       >
-        <div v-if="!isFormativeCourse && form.formative !== '1'">
           <b-form-group
             label-cols-sm="4"
             label-cols-lg="3"
@@ -1310,7 +1309,6 @@
               <b-form-radio name="lms" value="manual">Manual</b-form-radio>
             </b-form-radio-group>
           </b-form-group>
-        </div>
       </b-card>
 
       <!-- Secondary Approval: hidden for flashcard -->

@@ -13,7 +13,7 @@
       />
     </b-modal>
     <div v-if="[2, 4, 5].includes(user.role)">
-      <CannotAddAssessmentToBetaAssignmentModal />
+      <CannotAddAssessmentToBetaAssignmentModal/>
       <b-container>
         <hr>
       </b-container>
@@ -29,7 +29,7 @@
                 scale="1.25"
                 class="pr-1"
               />
-              View {{capitalFormattedAssessmentType}}s
+              View {{ capitalFormattedAssessmentType }}s
             </b-button>
           </div>
           <div class="mb-1">
@@ -42,7 +42,7 @@
                 scale="1.25"
                 class="pr-1"
               />
-              Add {{capitalFormattedAssessmentType}}s
+              Add {{ capitalFormattedAssessmentType }}s
             </b-button>
           </div>
           <div>
@@ -55,7 +55,7 @@
                 scale="1.25"
                 class="pr-1"
               />
-              New {{ capitalFormattedAssessmentType}}
+              New {{ capitalFormattedAssessmentType }}
             </b-button>
           </div>
           <b-card v-show="showPanel" header-html="<h2 class=&quot;h7&quot;>Assignment Information</h2>"
@@ -77,7 +77,7 @@
               </template>
             </ul>
           </b-card>
-          <b-card body-class="p-0" class="mb-2">
+          <b-card body-class="p-0" class="mb-2" v-if="tabs2.some(tab => showTab(tab.name))">
             <ul class="nav flex-column nav-pills">
               <template v-for="(tab, index) in tabs2">
                 <li v-if="showTab(tab.name)" :key="`tab-${index}`" class="nav-item">
@@ -94,7 +94,9 @@
               </template>
             </ul>
           </b-card>
-          <b-card body-class="p-0">
+          <b-card v-show="showTab('Regrader') || (user.role !== 5 && !isFormative) || (user.role !== 5 && isLms)"
+                  body-class="p-0"
+          >
             <ul class="nav flex-column nav-pills">
               <li v-if="showTab('Regrader')" class="nav-item">
                 <router-link
@@ -140,7 +142,7 @@
 
         <div class="col-md-9">
           <transition name="fade" mode="out-in">
-            <router-view :key="`router-view-${tabKey}`" />
+            <router-view :key="`router-view-${tabKey}`"/>
           </transition>
         </div>
       </div>
