@@ -21,7 +21,7 @@ class SetAppVersionHeader
         $response = $next($request);
         //$app_version = env('VAPOR_COMMIT_HASH') ? env('VAPOR_COMMIT_HASH') : '1.0';
         if (!$response instanceof StreamedResponse) {
-            $response->header('appversion', '5.24');
+            $response->header('appversion', '5.25');
         }
         return $response;
     }

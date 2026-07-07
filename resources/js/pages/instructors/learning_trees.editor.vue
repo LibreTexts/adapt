@@ -66,16 +66,12 @@
         </b-button>
         by providing a Title and
         Description for the Learning Tree, you can add nodes
-        either using the
+        using the
         <b-button size="sm" aria-label="New Node" variant="outline-secondary" class="inline-button">
           New Node
         </b-button>
         button
-        to create an empty node which can then be populated with a newly created question or you can use the
-        <b-button size="sm" aria-label="Add Node" variant="primary" class="inline-button">
-          Add Node
-        </b-button>
-        button to create a node based on an existing question.
+        to create an empty node which can then be populated with a newly created question.
       </p>
       <p>
         To create a node based on an existing question, you can specify its contents by using the single number ADAPT
@@ -474,25 +470,6 @@
           <b-spinner v-if="validatingQuestionId" small label="Spinning"/>
           New Node
         </b-button>
-        <div id="search" class="pt-2">
-          <div class="d-flex flex-row">
-            <b-form-input v-model="questionId" style="width:175px;"
-                          size="sm"
-                          placeholder="ADAPT ID"
-            />
-            <b-button :class="{ 'disabled': learningTreeId === 0}"
-                      class="ml-2 mr-2"
-                      :disabled="learningTreeId === 0"
-                      :aria-disabled="learningTreeId === 0"
-                      variant="primary"
-                      size="sm"
-                      @click="addRemediation"
-            >
-              <b-spinner v-if="validatingQuestionId" small label="Spinning"/>
-              Add Node
-            </b-button>
-          </div>
-        </div>
       </div>
       <div id="blocklist"/>
     </div>
