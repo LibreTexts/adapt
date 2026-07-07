@@ -387,7 +387,7 @@
       </template>
     </b-modal>
     <div v-if="isAuthor" style="margin-left:-100px;">
-      <span v-if="showTreeButton" class="pr-4">
+      <span v-if="!isLearningTreeView" class="pr-4">
         <b-button size="sm"
                   variant="outline-info"
                   @click="$bvModal.show('modal-learning-tree-instructions')"
@@ -411,7 +411,7 @@
     </div>
     <div v-show="user.role === 2 && !isLearningTreeView && isAuthor" id="leftcard">
       <div id="actions">
-        <b-button v-show="showTreeButton"
+        <b-button v-show="!isLearningTreeView"
                   variant="success"
                   size="sm"
                   class="mr-2"
@@ -543,7 +543,6 @@ export default {
     modalAttribution: '',
     autoAttributionHTML: '',
     questionNodeTitle: '',
-    showTreeButton: false,
     modalTitleClass: '',
     learningNodeModalTitle: '',
     event: {},
@@ -619,8 +618,6 @@ export default {
       this.assignmentId = this.$route.params.assignmentId
       this.rootNodeQuestionId = this.$route.params.rootNodeQuestionId
       console.log(this.xCenter)
-    } else {
-      this.showTreeButton = typeof this.$route.params.assignmentId !== 'undefined'
     }
     this.xCenter = this.$route.params.xCenter
 
