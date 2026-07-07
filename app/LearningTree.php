@@ -316,7 +316,8 @@ class LearningTree extends Model
         if (Helper::isAdmin()) {
             // return false;
         }
-        $assignment_learning_tree_info = DB::table('assignment_question_learning_tree')->where('learning_tree_id', $this->id)
+        $assignment_learning_tree_info = DB::table('assignment_question_learning_tree')
+            ->where('learning_tree_id', $this->id)
             ->first();
 
         if (!$assignment_learning_tree_info) {

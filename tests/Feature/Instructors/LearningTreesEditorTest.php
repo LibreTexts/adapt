@@ -6,6 +6,7 @@ use App\Assignment;
 use App\Course;
 use App\LearningTreeHistory;
 use App\Question;
+use App\Submission;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -79,6 +80,45 @@ EOT;
             'order' => 1,
             'points' => 10
         ]);
+    }
+
+
+    /** @test */
+    public function owner_cannot_update_a_node_if_in_assignment()
+    {
+
+        $this->submission_object = '{"actor":{"account":{"name":"5038b12a-1181-4546-8735-58aa9caef971","homePage":"https://h5p.libretexts.org"},"objectType":"Agent"},"verb":{"id":"http://adlnet.gov/expapi/verbs/answered","display":{"en-US":"answered"}},"object":{"id":"https://h5p.libretexts.org/wp-admin/admin-ajax.php?action=h5p_embed&id=97","objectType":"Activity","definition":{"extensions":{"http://h5p.org/x-api/h5p-local-content-id":97},"name":{"en-US":"1.3 Actividad # 5: comparativos y superlativos"},"interactionType":"fill-in","type":"http://adlnet.gov/expapi/activities/cmi.interaction","description":{"en-US":"<p><strong>Instrucciones: Ponga las palabras en orden. Empiece con el sujeto de la oración.</strong></p>\n<br/>1. de todas las universidades californianas / la / antigua / es / La Universidad del Pacífico / más <br/>__________ __________ __________ __________ __________ __________.<br/><br/>2. el / UC Merced / número de estudiantes / tiene / menor<br/>__________ __________ __________ __________ __________."},"correctResponsesPattern":["La Universidad del Pacífico[,]es[,]la[,]más[,]antigua[,]de todas las universidades californianas[,]UC Merced[,]tiene[,]el[,]menor[,]número de estudiantes"]}},"context":{"contextActivities":{"category":[{"id":"http://h5p.org/libraries/H5P.DragText-1.8","objectType":"Activity"}]}},"result":{"response":"[,][,][,][,][,][,][,]antigua[,][,][,]","score":{"min":0,"raw":11,"max":11,"scaled":0},"duration":"PT3.66S","completion":true}}';
+        $this->h5pSubmission = [
+            'assignment_id' => $this->assignment->id,
+            'question_id' => $this->question->id,
+            'submission' => $this->submission_object,
+            'score' => 10,
+            'user_id' => $this->student_user->id,
+            'submission_count' => 1,
+            'answered_correctly_at_least_once' => 1,
+        ];
+        $this->learning_tree->root_node_question_id = $this->question->id;
+        $this->learning_tree->save();
+        $this->h5pSubmission['user_id'] = $this->student_user->id;
+        Submission::insert($this->h5pSubmission);
+        $assignment_question_id = DB::table('assignment_question')
+            ->where('assignment_id', $this->assignment->id)
+            ->where('question_id', $this->question->id)
+            ->select('id')
+            ->first()
+            ->id;
+
+        DB::table('assignment_question_learning_tree')->insert([
+            'assignment_question_id' => $assignment_question_id,
+            'learning_tree_id' => $this->learning_tree->id,
+            'number_of_successful_paths_for_a_reset' => 1
+        ]);
+        $this->learning_tree_info['learning_tree'] = '{"key":"value"}';
+        $this->actingAs($this->user)->patchJson("/api/learning-trees/nodes/{$this->learning_tree->id}", $this->learning_tree_info)
+            ->assertJson([
+                'message' => "A submission exists for this Learning Tree so you cannot alter it.",
+            ]);
+
     }
 
     /** @test */
@@ -186,29 +226,6 @@ EOT;
 
     }
 
-
-    /** @test */
-    public function owner_cannot_update_a_node_if_in_assignment()
-    {
-        $assignment_question_id = DB::table('assignment_question')
-            ->where('assignment_id', $this->assignment->id)
-            ->where('question_id', $this->question->id)
-            ->select('id')
-            ->first()
-            ->id;
-
-        DB::table('assignment_question_learning_tree')->insert([
-            'assignment_question_id' => $assignment_question_id,
-            'learning_tree_id' => $this->learning_tree->id,
-            'number_of_successful_paths_for_a_reset' => 1
-        ]);
-        $this->learning_tree_info['learning_tree'] = '{"key":"value"}';
-        $this->actingAs($this->user)->patchJson("/api/learning-trees/nodes/{$this->learning_tree->id}", $this->learning_tree_info)
-            ->assertJson([
-                'message' => "It looks like you're using this Learning Tree in {$this->course->name} --- {$this->assignment->name}.  Please first remove that question from the assignment before attempting to update the node.",
-            ]);
-
-    }
 
     /** @test */
 

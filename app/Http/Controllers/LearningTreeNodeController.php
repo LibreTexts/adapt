@@ -41,9 +41,9 @@ class LearningTreeNodeController extends Controller
 
         $response['type'] = 'error';
         if ((int)($request->original_question_id) !== (int)$request->question_id) {
-            $message = $learningTree->inAssignment($request,  'update the node');
-            if ($message) {
-                $response['message'] = $message;
+            $submission_exists = Submission::where('question_id', $learningTree->root_node_question_id)->exists();
+            if ($submission_exists) {
+                $response['message'] = "A submission exists for this Learning Tree so you cannot alter it.";
                 return $response;
             }
         }
@@ -197,9 +197,9 @@ class LearningTreeNodeController extends Controller
             }
             $assignment_course_info = $assignment->assignmentCourseInfo();
             LearningTreeAnalytics::create([
-                'course_name'=>  $assignment_course_info->course_name,
-                'assignment_name'=>  $assignment_course_info->assignment_name,
-                'instructor'=>  $assignment_course_info->instructor,
+                'course_name' => $assignment_course_info->course_name,
+                'assignment_name' => $assignment_course_info->assignment_name,
+                'instructor' => $assignment_course_info->instructor,
                 'user_id' => $request->user()->id,
                 'learning_tree_id' => $assignment_question_learning_tree->learning_tree_id,
                 'assignment_id' => $assignment->id,
@@ -208,8 +208,6 @@ class LearningTreeNodeController extends Controller
                 'action' => 'reset submission',
                 'response' => ''
             ]);
-
-
 
 
             $response['type'] = 'info';
@@ -275,6 +273,7 @@ class LearningTreeNodeController extends Controller
         return $response;
 
     }
+
     /**
      * @param int $questionId
      * @return array
