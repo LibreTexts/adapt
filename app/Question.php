@@ -2895,6 +2895,7 @@ class Question extends Model
         $question_info['reason_for_edit'] = $question_info['reason_for_edit'] ?? null;
         $question_info['revision_number'] = $question_info['revision_number'] ?? 0;
         $question['title'] = $question_info['title'];
+        $question['question_type'] = $question_info['question_type'];
         $question['subject'] = $learning_outcome ? $learning_outcome->subject : null;
         $question['id'] = $question_info['id'];
         $question['library'] = $question_info['library'];

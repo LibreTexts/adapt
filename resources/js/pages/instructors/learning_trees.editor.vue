@@ -190,13 +190,11 @@
       no-close-on-backdrop
       no-close-on-esc
       hide-footer
+      :modal-class="nodeModalBorderClass"
     >
       <template #modal-header="{ close }">
-        <!-- Emulate built in modal header close button action -->
         <div>
-          <h5>
-            Node
-          </h5>
+          <h5>{{ nodeModalTitle || 'Node' }}</h5>
           <h6>
             ADAPT ID:
             <span :id="`node-question-id-${nodeForm.question_id}`">{{ nodeForm.question_id }}</span>
@@ -275,7 +273,7 @@
                 <b-button
                   size="sm"
                   variant="info"
-                  @click="getQuestionToView(nodeForm.question_id)"
+                  @click="getQuestionToView(nodeForm.question_id, true)"
                 >
                   Refresh Node
                 </b-button>
@@ -514,6 +512,8 @@ export default {
     ViewQuestionWithoutModal
   },
   data: () => ({
+    nodeModalTitle: '',
+    nodeModalBorderClass: '',
     copyIcon: faCopy,
     xCenter: '0',
     earnedReset: false,
@@ -732,6 +732,29 @@ export default {
     addGlow,
     processReceiveMessage,
     getTechnology,
+    setNodeModalTitleAndBorderClass () {
+      if (this.user.role !== 2) {
+        return
+      }
+      const blockElem = this.nodeToUpdate.querySelector('.blockelem') || this.nodeToUpdate
+      console.error('question_type:', this.questionToView.question_type)
+      console.error('nodeToUpdate classes:', this.nodeToUpdate.className)
+      console.error('blockElem classes:', blockElem.className)
+      console.error('isRootNode:', this.isRootNode)
+      if (this.isRootNode) {
+        this.nodeModalTitle = 'Root Assessment Node'
+        this.nodeModalBorderClass = 'modal-border-blue'
+      } else if (blockElem.classList.contains('question-border')) {
+        this.nodeModalTitle = 'Assessment Node'
+        this.nodeModalBorderClass = 'modal-border-blue'
+      } else if (blockElem.classList.contains('exposition-border')) {
+        this.nodeModalTitle = 'Exposition Node'
+        this.nodeModalBorderClass = 'modal-border-red'
+      } else {
+        this.nodeModalTitle = 'Empty Node'
+        this.nodeModalBorderClass = 'modal-border-gray'
+      }
+    },
     updateLocation () {
       if (!+this.xCenter) {
         return
@@ -951,6 +974,7 @@ export default {
       let questionId = this.nodeToUpdate.querySelector('input[name="question_id"]').value
       this.isRootNode = parseInt(this.nodeToUpdate.querySelector('input[name="blockid"]').value) === 0
       this.nodeForm.is_root_node = this.isRootNode
+      this.setNodeModalTitleAndBorderClass()
       if (this.assignmentId) {
         this.uncompletedNodes = []
         if (this.learningTreeNodeUncompletedParentNodeTitlesByQuestionId[questionId].length) {
@@ -998,11 +1022,10 @@ export default {
         this.$noty.error(error.message)
       }
     },
-    async getQuestionToView (questionId) {
+    async getQuestionToView (questionId, updateModalStyle = false) {
       questionId = questionId.split('-').pop()
       try {
         const { data } = await axios.get(`/api/questions/${questionId}`)
-        console.log(data)
         if (data.type !== 'success') {
           this.$noty.error(data.message)
           return false
@@ -1011,6 +1034,16 @@ export default {
         let vm = this
         this.updateAutoAttribution(vm, this.questionToView)
         this.questionToViewKey++
+        if (updateModalStyle) {
+          const blockElem = this.nodeToUpdate.querySelector('.blockelem') || this.nodeToUpdate
+          blockElem.classList.remove('question-border', 'exposition-border', 'empty-node-border')
+          blockElem.classList.add(
+            this.questionToView.question_type === 'assessment' ? 'question-border'
+              : this.questionToView.question_type === 'exposition' ? 'exposition-border'
+                : 'empty-node-border'
+          )
+          this.setNodeModalTitleAndBorderClass()
+        }
       } catch (error) {
         if (error.message.includes('404')) {
           this.$noty.error(`There is no question with the ADAPT ID ${questionId}.`)
@@ -2108,5 +2141,14 @@ body, html {
 
 .non-completed-border {
   border: 2px solid #dc3545;
+}
+.modal-border-blue .modal-content {
+   border: 3px solid cornflowerblue;
+ }
+.modal-border-red .modal-content {
+  border: 3px solid rosybrown;
+}
+.modal-border-gray .modal-content {
+  border: 3px solid darkgray;
 }
 </style>
