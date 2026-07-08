@@ -4323,6 +4323,9 @@ export default {
       this.message = 'Structure received!'
     },
     async initSaveQuestion () {
+      if (window.self !== window.top) {
+        window.parent.postMessage('scroll-to-top', '*')
+      }
       if (!this.checkedOpenEndedSubmissionType &&
         this.questionForm.technology === 'text' &&
         this.questionForm.non_technology_text !== '' &&
@@ -4663,6 +4666,9 @@ export default {
               this.revisionAction = 'notify'
             }
           }
+        }
+        if (window.self !== window.top) {
+          window.parent.postMessage('scroll-to-top', '*')
         }
         this.$bvModal.show('modal-reason-for-edit')
       } else {
@@ -6185,6 +6191,9 @@ export default {
       this.processingPreview = false
     },
     async saveQuestion () {
+      if (window.self !== window.top) {
+        window.parent.postMessage('scroll-to-top', '*')
+      }
       try {
         this.switchingType = false
         this.savingQuestion = true
@@ -6206,6 +6215,9 @@ export default {
 
           if (data.changes_are_topical_error) {
             this.questionForm.errors.set('changes_are_topical', data.changes_are_topical_error)
+          }
+          if (window.self !== window.top) {
+            window.parent.postMessage('scroll-to-top', '*')
           }
           this.$bvModal.show('modal-reason-for-edit')
           this.savingQuestion = false

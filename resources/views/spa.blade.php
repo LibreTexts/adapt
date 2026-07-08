@@ -40,7 +40,6 @@ if (config('app.env') === 'dev' && (!isset($_COOKIE['IS_ME']) || $_COOKIE['IS_ME
 {{-- Global configuration object --}}
 <script>
   window.config = @json($config);
-  //
 </script>
 {{-- Load the application scripts --}}
 <script src="{{ mix('dist/js/app.js') }}"></script>
@@ -121,7 +120,6 @@ if (config('app.env') === 'dev' && (!isset($_COOKIE['IS_ME']) || $_COOKIE['IS_ME
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-svg.min.js"></script>
 <script>
   if (window.top === window.self) {
-    // Not in an iframe --- fix the padding issue
     const style = document.createElement('style')
     style.textContent = `
       .page-container {
@@ -141,8 +139,14 @@ if (config('app.env') === 'dev' && (!isset($_COOKIE['IS_ME']) || $_COOKIE['IS_ME
     console.log('dom loaded')
     if (window.self !== window.top) {
       console.log('fixing body')
-      console.log(document.getElementsByTagName('body')[0])
       document.body.style.background = 'transparent'
+
+      const observer = new ResizeObserver(() => {
+        if (window.parentIFrame) {
+          window.parentIFrame.size()
+        }
+      })
+      observer.observe(document.body)
     }
   })
 </script>

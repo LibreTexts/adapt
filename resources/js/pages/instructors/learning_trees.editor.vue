@@ -6,13 +6,42 @@
                             @resetLearningTreePropertiesModal="resetLearningTreePropertiesModal"
                             @saveLearningTreeProperties="saveLearningTreeProperties"
     />
-    <b-modal
-      id="modal-attribution"
-      ref="modalAttribution"
-      hide-footer
-      title="Attribution"
+    <b-modal v-if="questionToEdit && questionToEdit.id"
+             :id="`modal-edit-question-${questionToEdit.id}`"
+             size="xl"
+             hide-footer
+             dialog-class="modal-90"
+             @hidden="reloadCurrentNode"
     >
-      <span v-html="modalAttribution"/>
+      <template #modal-header>
+        <div>
+          <h2 class="h5 modal-title">
+            Edit Question "{{ questionToEdit.title }}"
+          </h2>
+          <div>
+            <small>ADAPT ID: <span :id="`edit-question-adapt-id-${questionToEdit.id}`">{{ questionToEdit.id }}</span>
+            </small>
+            <a href=""
+               aria-label="Copy ADAPT ID"
+               @click.prevent="doCopy(`edit-question-adapt-id-${questionToEdit.id}`)"
+            >
+              <font-awesome-icon :icon="copyIcon" class="text-muted pl-1"/>
+            </a>
+
+          </div>
+        </div>
+        <button type="button" aria-label="Close" class="close"
+                @click="$bvModal.hide(`modal-edit-question-${questionToEdit.id}`)"
+        >
+          ×
+        </button>
+      </template>
+      <iframe
+        :src="`/source/edit/${questionToEdit.id}`"
+        v-resize="{ log: false }"
+        style="width:100%; border:none; display:block"
+        allowtransparency="true"
+      />
     </b-modal>
     <b-modal id="modal-learning-node-submission-response"
              hide-footer
@@ -161,11 +190,6 @@
                                 :show-submit="true"
                                 @receiveMessage="receiveMessage"
       />
-      <span v-if="(nodeQuestion.attribution !== null || (nodeQuestion.auto_attribution && autoAttributionHTML))">
-        <b-button size="sm" variant="outline-primary" @click="showAttributionModal(nodeQuestion)">
-          Attribution
-        </b-button>
-      </span>
       <div v-show="completedNodeMessage" style="width:100%">
         <hr>
         <b-alert variant="success" show>
@@ -195,16 +219,16 @@
       <template #modal-header="{ close }">
         <div>
           <h5>{{ nodeModalTitle || 'Node' }}</h5>
-          <h6>
+          <small>
             ADAPT ID:
-            <span :id="`node-question-id-${nodeForm.question_id}`">{{ nodeForm.question_id }}</span>
-            <a href=""
-               aria-label="Copy Node ADAPT ID"
-               @click.prevent="doCopy(`node-question-id-${nodeForm.question_id}`)"
-            >
-              <font-awesome-icon :icon="copyIcon" class="text-muted"/>
-            </a>
-          </h6>
+            <span :id="`node-question-id-${nodeForm.question_id}`">{{ nodeForm.question_id }}</span></small>
+          <a href=""
+             aria-label="Copy Node ADAPT ID"
+             @click.prevent="doCopy(`node-question-id-${nodeForm.question_id}`)"
+          >
+            <font-awesome-icon :icon="copyIcon" class="text-muted"/>
+          </a>
+
         </div>
         <div>
           <b-button size="sm" variant="outline-secondary" @click="close()">
@@ -220,42 +244,25 @@
           </div>
         </div>
       </div>
-      <div v-if="showNodeModalContents">
-        <div v-if="isAuthor" class="flex d-inline-flex pb-4" style="width:100%">
-          <label class="pr-2" style="width:150px">Node Title</label>
-          <b-form-input
-            v-model="nodeForm.title"
-            size="sm"
-            placeholder="Enter a node title or leave blank to use the question title"
-            type="text"
-          />
-        </div>
-        <div v-if="isAuthor" class="flex d-inline-flex pb-4" style="width:100%">
-          <label class="pr-2" style="width:150px">Source Title</label>
-          <b-form-input
-            v-model="questionToView.title"
-            size="sm"
-            disabled
-            placeholder="Enter a node title or leave blank to use the source title"
-            type="text"
-          />
-        </div>
+      <div v-if="isAuthor && showNodeModalContents" class="flex d-inline-flex pb-4" style="width:100%">
+        <label class="pr-2" style="width:150px">Node Title</label>
+        <b-form-input
+          v-model="nodeForm.title"
+          size="sm"
+          placeholder="Enter a node title or leave blank to use the question title"
+          type="text"
+        />
       </div>
-      <ViewQuestionWithoutModal :key="`question-to-view-${questionToViewKey}`" :question-to-view="questionToView"/>
-      <span v-if="(questionToView.attribution !== null || (questionToView.auto_attribution && autoAttributionHTML))">
-        <b-button size="sm" variant="outline-primary" @click="showAttributionModal(questionToView)">
-          Attribution
-        </b-button>
-      </span>
-      <div v-if="showNodeModalContents">
-        <hr>
+      <div v-show="showNodeModalContents" style="border: 2px solid #343a40; border-radius: 4px; padding: 10px;">
         <b-form ref="form">
           <b-form-group>
-            <div v-if="isAuthor" class="flex d-inline-flex">
-              <label class="pr-2">
-                <span>ADAPT ID*
-                </span>
+            <div v-if="isAuthor" class="flex d-inline-flex" style="width:100%">
+              <label class="pr-2" style="width:120px">Source ID#
+                <QuestionCircleTooltip :id="'source-id'"/>
               </label>
+              <b-tooltip target="source-id" delay="500" triggers="hover focus">
+                The ADAPT ID of the question used as the source for this node.
+              </b-tooltip>
               <b-form-input
                 id="node_question_id"
                 v-model="nodeForm.question_id"
@@ -267,41 +274,45 @@
               />
               <has-error :form="nodeForm" field="question_id"/>
               <span class="pl-2"><b-button size="sm" variant="info" @click="editSource">
-                <b-icon icon="gear"/> {{ questionToView.can_edit ? 'Edit' : 'View' }} Node Source
-              </b-button></span>
-              <span class="pl-2">
-                <b-button
-                  size="sm"
-                  variant="info"
-                  @click="getQuestionToView(nodeForm.question_id, true)"
-                >
-                  Refresh Node
-                </b-button>
-              </span>
-              <a id="reload-question-tooltip"
-                 href=""
-                 @click.prevent
-              >
-                <b-icon-question-circle style="width: 25px; height: 25px;margin-top:4px" class="text-muted pl-2"/>
-              </a>
-              <b-tooltip target="reload-question-tooltip"
-                         delay="250"
-                         triggers="hover focus"
-              >
-                If you edit the current question source or you change the ADAPT ID entirely, you can reload the
-                question
-                for viewing.
-              </b-tooltip>
+        <b-icon icon="pencil"/> {{ questionToView.can_edit ? 'Edit' : 'View' }} Source
+      </b-button></span>
             </div>
           </b-form-group>
           <div v-if="!isAuthor">
             <div>
-              <span class="pr-2">ADAPT ID: {{ nodeForm.question_id }}</span>
+              <label class="pr-2" style="width:120px">Source ID# {{ nodeForm.question_id }}
+                <QuestionCircleTooltip :id="'source-id-non-author'"/>
+              </label>
+              <b-tooltip target="source-id-non-author" delay="500" triggers="hover focus">
+                The ADAPT ID of the question used as the source for this node.
+              </b-tooltip>
               <b-button size="sm" variant="info" @click="editSource">
-                View Node Source
+                View Source
               </b-button>
             </div>
           </div>
+        </b-form>
+        <div v-if="isAuthor" class="flex d-inline-flex pb-4" style="width:100%">
+          <label class="pr-2" style="width:137px">Source Title
+            <QuestionCircleTooltip :id="'source-title'"/>
+          </label>
+          <b-tooltip target="source-title" delay="500" triggers="hover focus">
+            The title of the question used as the source for this node. Automatically pulled from the source question and cannot be edited here.
+          </b-tooltip>
+          <b-form-input
+            v-model="questionToView.title"
+            size="sm"
+            disabled
+            placeholder="Enter a node title or leave blank to use the source title"
+            type="text"
+          />
+        </div>
+        <div :style="`border: 4px solid ${nodeModalBorderColor}; border-radius: 4px; padding: 10px;`">
+          <ViewQuestionWithoutModal :key="`question-to-view-${questionToViewKey}`" :question-to-view="questionToView"/>
+        </div>
+      </div>
+      <div v-if="showNodeModalContents">
+        <hr>
           <div v-if="!isRootNode">
             <b-form-group
               v-if="isAuthor"
@@ -405,7 +416,7 @@
     </div>
     <div v-show="user.role === 2 && !isLearningTreeView && isAuthor" id="leftcard">
       <div id="actions">
-        <b-button v-show="!isLearningTreeView"
+        <b-button v-show="!isLearningTreeView && showNewTreeButton"
                   variant="success"
                   size="sm"
                   class="mr-2"
@@ -492,7 +503,6 @@ import { h5pResizer } from '~/helpers/H5PResizer'
 import 'vue-select/dist/vue-select.css'
 import { getLearningOutcomes, subjectOptions } from '~/helpers/LearningOutcomes'
 import { processReceiveMessage, addGlow, getTechnology, getTechnologySrcDoc } from '~/helpers/HandleTechnologyResponse'
-import { updateAutoAttribution } from '~/helpers/Licenses'
 import LearningTreeProperties from '../../components/LearningTreeProperties.vue'
 import { doCopy } from '../../helpers/Copy'
 
@@ -512,13 +522,13 @@ export default {
     ViewQuestionWithoutModal
   },
   data: () => ({
+    previousRouteName: '',
+    questionToEdit: {},
     nodeModalTitle: '',
     nodeModalBorderClass: '',
     copyIcon: faCopy,
     xCenter: '0',
     earnedReset: false,
-    modalAttribution: '',
-    autoAttributionHTML: '',
     questionNodeTitle: '',
     modalTitleClass: '',
     learningNodeModalTitle: '',
@@ -574,9 +584,26 @@ export default {
     chosenId: '',
     learningTreeId: 0
   }),
-  computed: mapGetters({
-    user: 'auth/user'
-  }),
+  computed: {
+    ...mapGetters({
+      user: 'auth/user'
+    }),
+    nodeModalBorderColor () {
+      switch (this.nodeModalBorderClass) {
+        case 'modal-border-blue': return 'cornflowerblue'
+        case 'modal-border-red': return 'rosybrown'
+        default: return 'darkgray'
+      }
+    },
+    showNewTreeButton () {
+      const hideFromRoutes = [
+        'instructors.assignments.questions',
+        'instructors.assignments.summary',
+        'questions.view'
+      ]
+      return !hideFromRoutes.includes(this.previousRouteName)
+    },
+  },
   created () {
     h5pResizer()
     this.getLearningOutcomes = getLearningOutcomes
@@ -591,6 +618,8 @@ export default {
     }
   },
   async mounted () {
+    this.previousRouteName = localStorage.getItem('learning_tree_editor_referrer')
+    localStorage.removeItem('learning_tree_editor_referrer')
     if (this.user.role === 3) {
       this.assignmentId = this.$route.params.assignmentId
       this.rootNodeQuestionId = this.$route.params.rootNodeQuestionId
@@ -725,13 +754,29 @@ export default {
   beforeDestroy () {
     window.removeEventListener('message', this.receiveMessage)
   },
+  beforeRouteEnter (to, from, next) {
+    next(vm => {
+      vm.previousRoute = from
+    })
+  },
   methods: {
     doCopy,
-    updateAutoAttribution,
     getTechnologySrcDoc,
     addGlow,
     processReceiveMessage,
     getTechnology,
+    listenForIframeClose () {
+      window.addEventListener('message', (event) => {
+        if (event.data === 'question-saved' || event.data === 'question-cancelled') {
+          this.$bvModal.hide(`modal-edit-question-${this.questionToEdit.id}`)
+        }
+      })
+    },
+    async reloadCurrentNode () {
+      if (this.nodeForm.question_id) {
+        await this.getQuestionToView(this.nodeForm.question_id)
+      }
+    },
     setNodeModalTitleAndBorderClass () {
       if (this.user.role !== 2) {
         return
@@ -790,10 +835,6 @@ export default {
       this.$bvModal.hide('modal-learning-node-submission-response')
       window.parent.postMessage('Close learning tree modal', '*')
     },
-    showAttributionModal (question) {
-      this.modalAttribution = question.attribution ? question.attribution : this.autoAttributionHTML
-      this.$bvModal.show('modal-attribution')
-    },
     hideLineUnderTitle (modalId) {
       $('#' + modalId + '___BV_modal_body_').hide()
     },
@@ -850,6 +891,17 @@ export default {
       }
     },
     receiveMessage (event) {
+      if (event.data === 'question-saved') {
+        this.$bvModal.hide(`modal-edit-question-${this.questionToEdit.id}`)
+        return false
+      }
+      if (event.data === 'scroll-to-top') {
+        const modalBody = document.querySelector(`#modal-edit-question-${this.questionToEdit.id} .modal-body`)
+        if (modalBody) {
+          modalBody.scrollTop = 0
+        }
+        return false
+      }
       let vm = this
       console.log(this.$route.name)
       this.processReceiveMessage(vm, this.$route.name, event)
@@ -939,11 +991,20 @@ export default {
       }
       return false
     },
-    editSource () {
-      this.questionToView.id = this.nodeForm.question_id.split('-').pop()
-      let url
-      url = `/source/edit/${this.questionToView.id}`
-      window.open(url, '_blank')
+    async editSource () {
+      const questionId = this.nodeForm.question_id.split('-').pop()
+      try {
+        const { data } = await axios.get(`/api/questions/${questionId}`)
+        if (data.type !== 'success') {
+          this.$noty.error(data.message)
+          return false
+        }
+        this.questionToEdit = data.question
+        await this.$nextTick()
+        this.$bvModal.show(`modal-edit-question-${this.questionToEdit.id}`)
+      } catch (error) {
+        this.$noty.error(error.message)
+      }
     },
     toggleLearningTreeView () {
       this.$emit('toggle-learning-tree-view', this.isLearningTreeView)
@@ -1006,10 +1067,6 @@ export default {
         }
         this.questionToViewKey++
         this.nodeQuestion = data.node_question
-        console.log(this.nodeQuestion)
-        this.autoAttributionHTML = ''
-        let vm = this
-        this.updateAutoAttribution(vm, this.nodeQuestion)
         if (this.nodeQuestion.technology === 'text' || this.nodeQuestion.question_type === 'exposition') {
           this.timeLeft = this.nodeQuestion.time_left
         } else {
@@ -1032,7 +1089,6 @@ export default {
         }
         this.questionToView = data.question
         let vm = this
-        this.updateAutoAttribution(vm, this.questionToView)
         this.questionToViewKey++
         if (updateModalStyle) {
           const blockElem = this.nodeToUpdate.querySelector('.blockelem') || this.nodeToUpdate
@@ -2142,13 +2198,27 @@ body, html {
 .non-completed-border {
   border: 2px solid #dc3545;
 }
+
 .modal-border-blue .modal-content {
-   border: 3px solid cornflowerblue;
- }
+  border: 3px solid cornflowerblue;
+}
+
 .modal-border-red .modal-content {
   border: 3px solid rosybrown;
 }
+
 .modal-border-gray .modal-content {
   border: 3px solid darkgray;
+}
+
+.modal .modal-90 {
+  max-width: 90%;
+  width: 90%;
+}
+
+.modal .modal-90 .modal-body {
+  padding: 0;
+  max-height: 85vh;
+  overflow-y: auto;
 }
 </style>

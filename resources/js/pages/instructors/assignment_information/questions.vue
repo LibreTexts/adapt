@@ -862,6 +862,7 @@ export default {
       this.$bvModal.show('modal-learning-tree-properties')
     },
     editLearningTree (learningTreeId) {
+      localStorage.setItem('learning_tree_editor_referrer', this.$route.name)
       window.open(`/instructors/learning-trees/editor/${learningTreeId}`, '_blank')
     },
     setQuestionRevision (revision) {
