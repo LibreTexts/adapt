@@ -396,12 +396,12 @@
         tabindex="0"
         class="mt-2"
         :width="170"
-        :value="!isLearningTreeView"
+        :value="isLearningTreeView"
         :sync="true"
         :font-size="14"
         :margin="4"
-        :color="{checked: '#6c757d', unchecked: '#28a745'}"
-        :labels="{checked: 'Editor/Learning Tree', unchecked: 'Learning Tree Only'}"
+        :color="{checked: '#28a745', unchecked: '#6c757d'}"
+        :labels="{checked: 'Learning Tree Only', unchecked: 'Editor/Learning Tree'}"
         @change="toggleLearningTreeView()"
       />
     </div>
