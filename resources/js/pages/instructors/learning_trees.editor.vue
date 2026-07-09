@@ -85,7 +85,7 @@
       size="lg"
     >
       <p>
-       You can add nodes
+        You can add nodes
         using the
         <b-button size="sm" aria-label="New Node" variant="outline-secondary" class="inline-button">
           New Node
@@ -288,7 +288,8 @@
             <QuestionCircleTooltip :id="'source-title'"/>
           </label>
           <b-tooltip target="source-title" delay="500" triggers="hover focus">
-            The title of the question used as the source for this node. Automatically pulled from the source question and cannot be edited here.
+            The title of the question used as the source for this node. Automatically pulled from the source question
+            and cannot be edited here.
           </b-tooltip>
           <b-form-input
             v-model="questionToView.title"
@@ -304,41 +305,41 @@
       </div>
       <div v-if="showNodeModalContents">
         <hr>
-          <div v-if="!isRootNode">
-            <b-form-group
-              v-if="isAuthor"
-              label="Node Description*"
-              label-for="node_description"
-              class="mb-3"
-            >
-              <b-form-textarea
-                id="node_description"
-                v-model="nodeForm.node_description"
-                type="text"
-                :class="{ 'is-invalid': nodeForm.errors.has('node_description') }"
-                rows="3"
-                @keydown="nodeForm.errors.clear('node_description')"
-              />
-              <has-error :form="nodeForm" field="node_description"/>
-            </b-form-group>
-            <div v-if="!isAuthor">
-              Node Description: {{ nodeForm.node_description ? nodeForm.node_description : 'None provided.' }}
-            </div>
+        <div v-if="!isRootNode">
+          <b-form-group
+            v-if="isAuthor"
+            label="Node Description*"
+            label-for="node_description"
+            class="mb-3"
+          >
+            <b-form-textarea
+              id="node_description"
+              v-model="nodeForm.node_description"
+              type="text"
+              :class="{ 'is-invalid': nodeForm.errors.has('node_description') }"
+              rows="3"
+              @keydown="nodeForm.errors.clear('node_description')"
+            />
+            <has-error :form="nodeForm" field="node_description"/>
+          </b-form-group>
+          <div v-if="!isAuthor">
+            Node Description: {{ nodeForm.node_description ? nodeForm.node_description : 'None provided.' }}
           </div>
-          <div v-if="isAuthor">
-            <b-form-group
-              label="Private notes"
-              label-for="notes"
-              class="mb-3"
-            >
-              <b-form-textarea
-                id="notes"
-                v-model="nodeForm.notes"
-                type="text"
-                rows="3"
-              />
-            </b-form-group>
-          </div>
+        </div>
+        <div v-if="isAuthor">
+          <b-form-group
+            label="Private notes"
+            label-for="notes"
+            class="mb-3"
+          >
+            <b-form-textarea
+              id="notes"
+              v-model="nodeForm.notes"
+              type="text"
+              rows="3"
+            />
+          </b-form-group>
+        </div>
         </b-form>
         <div class="float-right">
           <b-button size="sm" variant="outline-secondary" @click="$bvModal.hide('modal-update-node')">
@@ -471,6 +472,7 @@
 <script>
 
 import { flowy } from '~/helpers/Flowy'
+import { LEARNING_TREE_TEMPLATE } from '~/helpers/LearningTreeTemplate'
 import $ from 'jquery'
 import axios from 'axios'
 import Form from 'vform'
@@ -571,9 +573,12 @@ export default {
     }),
     nodeModalBorderColor () {
       switch (this.nodeModalBorderClass) {
-        case 'modal-border-blue': return 'cornflowerblue'
-        case 'modal-border-red': return 'rosybrown'
-        default: return 'darkgray'
+        case 'modal-border-blue':
+          return 'cornflowerblue'
+        case 'modal-border-red':
+          return 'rosybrown'
+        default:
+          return 'darkgray'
       }
     },
   },
@@ -1183,6 +1188,8 @@ export default {
           this.notes = this.learningTreeForm.notes
           this.assessmentQuestionId = this.learningTreeForm.question_id
           this.$bvModal.hide('modal-learning-tree-properties')
+          flowy.import(LEARNING_TREE_TEMPLATE)
+          await this.saveLearningTree()
         }
       } catch (error) {
         if (!error.message.includes('status code 422')) {
