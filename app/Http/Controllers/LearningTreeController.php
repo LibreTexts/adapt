@@ -143,7 +143,7 @@ class LearningTreeController extends Controller
             foreach ($learning_tree_ids as $learning_tree_id) {
                 $learning_tree_to_clone = LearningTree::find(trim($learning_tree_id))
                     ->replicate()
-                    ->fill(['user_id' => $request->user()->id]);
+                    ->fill(['user_id' => $request->user()->id, 'public' => 0]);
                 $learning_tree_to_clone->save();
 
                 $learningTreeHistory = new LearningTreeHistory();
@@ -600,7 +600,7 @@ EOT;
         DB::beginTransaction();
         try {
             if ($assignmentQuestionId === '0') {
-                $new_question['title'] =  'Empty Learning Tree Node';
+                $new_question['title'] = 'Empty Learning Tree Node';
                 $new_question['question_editor_user_id'] = $request->user()->id;
                 $new_question['page_id'] = Question::max('page_id') + $request->user()->id;
                 $new_question['public'] = 0;

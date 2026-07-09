@@ -714,6 +714,7 @@ class QuestionController extends Controller
 
                 $cloned_tree = $source_tree->replicate();
                 $cloned_tree->user_id = $request->user()->id;
+                $cloned_tree->public = 0;
                 $cloned_tree->title = $source_tree->title . ' copy';
                 $cloned_tree->root_node_question_id = $cloned_question->id;
                 $cloned_tree->learning_tree = json_encode($tree_data);
