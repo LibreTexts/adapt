@@ -85,16 +85,7 @@
       size="lg"
     >
       <p>
-        After creating a
-        <b-button variant="success"
-                  aria-label="New Tree"
-                  class="inline-button"
-                  size="sm"
-        >
-          New Tree
-        </b-button>
-        by providing a Title and
-        Description for the Learning Tree, you can add nodes
+       You can add nodes
         using the
         <b-button size="sm" aria-label="New Node" variant="outline-secondary" class="inline-button">
           New Node
@@ -416,15 +407,6 @@
     </div>
     <div v-show="user.role === 2 && !isLearningTreeView && isAuthor" id="leftcard">
       <div id="actions">
-        <b-button v-show="!isLearningTreeView && showNewTreeButton"
-                  variant="success"
-                  size="sm"
-                  class="mr-2"
-                  @click="initCreateNew"
-        >
-          New Tree
-        </b-button>
-
         <b-icon id="properties-tooltip"
                 icon="gear"
                 :class="{ 'disabled': learningTreeId === 0}"
@@ -522,7 +504,6 @@ export default {
     ViewQuestionWithoutModal
   },
   data: () => ({
-    previousRouteName: '',
     questionToEdit: {},
     nodeModalTitle: '',
     nodeModalBorderClass: '',
@@ -595,14 +576,6 @@ export default {
         default: return 'darkgray'
       }
     },
-    showNewTreeButton () {
-      const hideFromRoutes = [
-        'instructors.assignments.questions',
-        'instructors.assignments.summary',
-        'questions.view'
-      ]
-      return !hideFromRoutes.includes(this.previousRouteName)
-    },
   },
   created () {
     h5pResizer()
@@ -618,8 +591,6 @@ export default {
     }
   },
   async mounted () {
-    this.previousRouteName = localStorage.getItem('learning_tree_editor_referrer')
-    localStorage.removeItem('learning_tree_editor_referrer')
     if (this.user.role === 3) {
       this.assignmentId = this.$route.params.assignmentId
       this.rootNodeQuestionId = this.$route.params.rootNodeQuestionId
@@ -754,11 +725,6 @@ export default {
   beforeDestroy () {
     window.removeEventListener('message', this.receiveMessage)
   },
-  beforeRouteEnter (to, from, next) {
-    next(vm => {
-      vm.previousRoute = from
-    })
-  },
   methods: {
     doCopy,
     getTechnologySrcDoc,
@@ -891,7 +857,7 @@ export default {
       }
     },
     receiveMessage (event) {
-      if (event.data === 'question-saved') {
+      if (event.data === 'question-saved' || event.data === 'question-cancelled') {
         this.$bvModal.hide(`modal-edit-question-${this.questionToEdit.id}`)
         return false
       }

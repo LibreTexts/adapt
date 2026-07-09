@@ -2923,7 +2923,7 @@
     <span class="float-right">
       <b-button v-if="isEdit"
                 size="sm"
-                @click="$bvModal.hide(`modal-edit-question-${questionToEdit.id}`)"
+                @click="closeEditQuestionModal"
       >
         Cancel</b-button>
       <b-button v-if="isLocalMe && questionForm.technology === 'qti' && jsonShown" size="sm"
@@ -3649,6 +3649,10 @@ export default {
     window.removeEventListener('message', this.receiveMessage)
   },
   methods: {
+    closeEditQuestionModal() {
+      this.$bvModal.hide(`modal-edit-question-${this.questionToEdit.id}`)
+      window.parent.postMessage('question-cancelled', '*')
+    },
     searchByOwner (input) {
       if (input.length < 1) return []
       return this.allQuestionEditors
@@ -6066,6 +6070,9 @@ export default {
       return true
     },
     async previewQuestion () {
+      if (window.self !== window.top) {
+        window.parent.postMessage('scroll-to-top', '*')
+      }
       if (['marker', 'submit-molecule'].includes(this.qtiQuestionType)) {
         this.previewingQuestion = true
         this.receivedStructure = false
