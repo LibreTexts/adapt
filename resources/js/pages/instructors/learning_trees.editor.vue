@@ -690,6 +690,18 @@ export default {
     addGlow,
     processReceiveMessage,
     getTechnology,
+    syncBlockPositions () {
+      const canvas = document.getElementById('canvas')
+      const blocks = flowy.getBlocks && flowy.getBlocks()
+      if (!canvas || !blocks || !blocks.length) return
+      blocks.forEach(block => {
+        const blockEl = canvas.querySelector('.blockid[value="' + block.id + '"]')
+        if (!blockEl) return
+        const elRect = blockEl.parentNode.getBoundingClientRect()
+        block.x = elRect.left + window.scrollX + (block.width / 2) + canvas.scrollLeft
+        block.y = elRect.top + window.scrollY + (block.height / 2) + canvas.scrollTop
+      })
+    },
     updateCanvasHeight () {
       this.$nextTick(() => {
         let maxBottom = 0
@@ -1294,6 +1306,7 @@ export default {
       const canvas = document.getElementById('canvas')
       if (canvas) {
         canvas.scrollTop = 0
+        this.syncBlockPositions()
       }
       this.questionId = ''
     }

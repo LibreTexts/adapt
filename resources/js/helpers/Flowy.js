@@ -144,6 +144,12 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
         blockGrabbed(event.target.closest('.create-flowy'))
         drag.classList.add('dragging')
         active = true
+        const canvas = document.getElementById('canvas')
+        flowy.getBlocks().forEach(b => {
+          const el = document.querySelector('.blockid[value="' + b.id + '"]').parentNode
+          const liveY = el.getBoundingClientRect().top + window.scrollY + b.height/2 + canvas.scrollTop
+          console.error('id', b.id, 'cached', Math.round(b.y), 'live', Math.round(liveY), 'Δ', Math.round(liveY - b.y))
+        })
         dragx = mouse_x - (event.target.closest('.create-flowy').getBoundingClientRect().left)
         dragy = mouse_y - (event.target.closest('.create-flowy').getBoundingClientRect().top)
         drag.style.left = mouse_x - dragx + 'px'
@@ -411,6 +417,12 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
             if (!active && !rearrange) {
               dragblock = true
               drag = theblock
+              const canvas = document.getElementById('canvas')
+              flowy.getBlocks().forEach(b => {
+                const el = document.querySelector('.blockid[value="' + b.id + '"]').parentNode
+                const liveY = el.getBoundingClientRect().top + window.scrollY + b.height/2 + canvas.scrollTop
+                console.error('id', b.id, 'cached', Math.round(b.y), 'live', Math.round(liveY), 'Δ', Math.round(liveY - b.y))
+              })
               dragx = mouse_x - (drag.getBoundingClientRect().left + window.scrollX)
               dragy = mouse_y - (drag.getBoundingClientRect().top + window.scrollY)
             }
