@@ -203,7 +203,6 @@
       ref="modal"
       size="xl"
       no-close-on-backdrop
-      no-close-on-esc
       hide-footer
       :modal-class="nodeModalBorderClass"
     >
