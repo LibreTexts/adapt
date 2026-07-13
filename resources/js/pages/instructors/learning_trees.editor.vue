@@ -536,6 +536,7 @@ export default {
     }
   },
   async mounted () {
+    document.querySelector('.container')?.classList.add('lt-editor-wide')
     if (this.user.role === 3) {
       this.assignmentId = this.$route.params.assignmentId
       this.rootNodeQuestionId = this.$route.params.rootNodeQuestionId
@@ -630,7 +631,6 @@ export default {
       }
 
       if (event.type === 'mouseup' && aclick && !noinfo && !isSaving) {
-        alert('b')
         if (event.target.closest('.block') && !event.target.closest('.block').classList.contains('dragging')) {
           vm.openNodeModal(event.target.closest('.block'))
           tempblock = event.target.closest('.block')
@@ -682,6 +682,7 @@ export default {
   },
   beforeDestroy () {
     window.removeEventListener('message', this.receiveMessage)
+    document.querySelector('.container')?.classList.remove('lt-editor-wide')
   },
   methods: {
     doCopy,
@@ -1673,5 +1674,8 @@ body, html {
   src: local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfBBc4AMP6lQ.woff2) format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
-
+.container.lt-editor-wide {
+  width: 90%;
+  max-width: 90%;
+}
 </style>
