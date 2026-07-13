@@ -442,7 +442,9 @@
     </div>
 
     <!-- CANVAS -->
-    <div id="canvas"/>
+    <div id="canvas">
+      <div id="canvas-inner"/>
+    </div>
   </div>
 </template>
 
@@ -655,13 +657,7 @@ export default {
     let doneTouch = function (event) {
       document.querySelectorAll('.block.dragging').forEach(el => el.classList.remove('dragging'))
 
-      console.error('doneTouch:', {
-        aclick,
-        isSaving,
-        totalMovement: Math.abs(event.clientX - mouseDownX) + Math.abs(event.clientY - mouseDownY),
-        target: event.target.className,
-        scrollLeft: document.getElementById('canvas').scrollLeft
-      })
+
 
       if (vm.touchingBlock && !aclick) {
         isSaving = true
@@ -703,7 +699,8 @@ export default {
     } else {
       await this.getLearningTreeLearningTreeId(this.learningTreeId)
       await this.$nextTick()
-      this.updateLocation()
+      this.updateCanvasHeight()
+      await this.updateLocation()
       if (this.user.role === 3) {
         await this.updateCompletionBorders()
       } else {
@@ -730,6 +727,23 @@ export default {
     addGlow,
     processReceiveMessage,
     getTechnology,
+    updateCanvasHeight () {
+      this.$nextTick(() => {
+        let maxBottom = 0
+        let maxRight = 0
+        $('#canvas .block').each(function () {
+          const bottom = (parseFloat($(this).css('top')) || 0) + ($(this).outerHeight() || 0)
+          const right = (parseFloat($(this).css('left')) || 0) + ($(this).outerWidth() || 0)
+          if (bottom > maxBottom) maxBottom = bottom
+          if (right > maxRight) maxRight = right
+        })
+        const inner = document.getElementById('canvas-inner')
+        if (inner && maxBottom > 0) {
+          inner.style.height = maxBottom + 200 + 'px'
+          inner.style.width = maxRight + 200 + 'px'
+        }
+      })
+    },
     listenForIframeClose () {
       window.addEventListener('message', (event) => {
         if (event.data === 'question-saved' || event.data === 'question-cancelled') {
@@ -809,14 +823,7 @@ export default {
 
       // Set canvas height to contain all content plus padding
       await this.$nextTick()
-      let maxBottom = 0
-      $('#canvas .block').each(function () {
-        const bottom = (parseFloat($(this).css('top')) || 0) + ($(this).outerHeight() || 0)
-        if (bottom > maxBottom) maxBottom = bottom
-      })
-      if (maxBottom > 0) {
-        document.getElementById('canvas').style.minHeight = maxBottom + 100 + 'px'
-      }
+      this.updateCanvasHeight()
       flowy.rearrange()
     },
     async logVisitedLearningTreeNode () {
@@ -1282,6 +1289,7 @@ export default {
         }
         this.$noty[data.type](data.message)
         this.canUndo = data.can_undo
+        this.updateCanvasHeight()
       } catch (error) {
         this.$noty.error(error.message)
       }
@@ -1335,6 +1343,12 @@ export default {
       const blocklist = document.getElementById('blocklist')
       if (blocklist) {
         blocklist.innerHTML = newBlockElem
+      }
+      // Scroll canvas to top so drop targets are visible
+      await this.$nextTick()
+      const canvas = document.getElementById('canvas')
+      if (canvas) {
+        canvas.scrollTop = 0
       }
       this.questionId = ''
     }
@@ -1434,10 +1448,20 @@ body, html {
   width: 100%;
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: scroll;
   z-index: 0;
   background-repeat: repeat;
   background-size: 30px 30px;
+}
+
+#canvas::after {
+  content: '';
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 3000px;
 }
 
 /* =====================
@@ -1692,4 +1716,5 @@ body, html {
   src: local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfBBc4AMP6lQ.woff2) format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
+
 </style>
