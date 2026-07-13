@@ -48,10 +48,7 @@
             <b-nav-item v-show="!isAnonymousUser && !(user && (user.fake_student || user.testing_student))"
                         @click="contactUsWidget()"
             >
-              <div :class="{
-    'mt-1': !localEnvironment,
-    'hidden-nav-link': isLearningTreesEditor
-}"
+              <div class="mt-1"
               >Support
               </div>
             </b-nav-item>
@@ -104,7 +101,7 @@
             <b-button size="sm" variant="outline-danger" @click="exitLoginAs">Exit Login As</b-button>
           </span>
           <span
-            v-if="isAdmin && (user !== null) && (!user.logged_in_as_user) && !user.fake_student && ('instructors.learning_trees.editor' !== $route.name)"
+            v-if="isAdmin && (user !== null) && (!user.logged_in_as_user) && !user.fake_student"
           >
             <router-link :to="{ name: 'login.as' }">
               <b-button size="sm" variant="outline-primary">Control Panel</b-button>
@@ -112,7 +109,6 @@
           </span>
           <span v-if="user && [2, 4, 5].includes(user.role)">
            <b-dropdown
-             v-show="'instructors.learning_trees.editor' !== $route.name"
              id="dropdown-right"
              :left="isPhone()"
              :right="!isPhone()"

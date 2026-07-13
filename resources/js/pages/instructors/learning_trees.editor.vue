@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="learning-tree-editor">
     <AllFormErrors :all-form-errors="allFormErrors" :modal-id="'modal-form-errors-learning-tree'"/>
     <LearningTreeProperties :learning-tree-form="learningTreeForm"
                             :learning-tree-id="learningTreeId"
@@ -27,7 +27,6 @@
             >
               <font-awesome-icon :icon="copyIcon" class="text-muted pl-1"/>
             </a>
-
           </div>
         </div>
         <button type="button" aria-label="Close" class="close"
@@ -79,95 +78,30 @@
       </ul>
     </b-modal>
     <b-modal
-      id="modal-learning-tree-instructions"
-      ref="modal-learning-tree-instructions"
-      title="Instructions"
-      size="lg"
-    >
-      <p>
-        You can add nodes
-        using the
-        <b-button size="sm" aria-label="New Node" variant="outline-secondary" class="inline-button">
-          New Node
-        </b-button>
-        button
-        to create an empty node which can then be populated with a newly created question.
-      </p>
-      <p>
-        To create a node based on an existing question, you can specify its contents by using the single number ADAPT
-        ID
-        found in
-        "My Questions".
-        Alternatively, if you already
-        have a question in
-        one of your assignments, you can visit that assignment and go to the Questions tab under Assignment
-        Information
-        to find the
-        ADAPT ID; this ID will be of the form {number}-{number}.
-      </p>
-      <p>
-        Next, drag the new node from the side panel to the main editing area. Each of the non-root assessment
-        nodes should then be given a Branch
-        Description to
-        help students decide which nodes to visit as they navigate the tree. Using command+click on any of the nodes
-        will open that node's editor.
-      </p>
-      <p>
-        To remove a node, just drag it to the left of the screen. And, if you make a mistake, you can always use the
-        undo icon (
-        <font-awesome-icon
-          aria-label="Undo"
-          scale="1.1"
-          :icon="undoIcon"
-        />
-        ).
-      </p>
-      <p>
-        Finally, nodes are color-coded to help differentiate between the different types based on their
-        contents:
-      </p>
-      <b-container class="pb-4">
-        <b-row>
-          <b-col style="width:200px">
-            <div class="blockelem empty-node-border text-center pb-3">
-              Empty learning tree nodes
-            </div>
-          </b-col>
-          <b-col style="width:200px">
-            <div class="blockelem exposition-border text-center pb-3">
-              Exposition nodes
-            </div>
-          </b-col>
-          <b-col>
-            <div class="blockelem question-border text-center pb-3">
-              Question nodes
-            </div>
-          </b-col>
-        </b-row>
-      </b-container>
-      <template #modal-footer="{ ok }">
-        <b-button size="sm" variant="primary" @click="$bvModal.hide('modal-learning-tree-instructions')">
-          OK
-        </b-button>
-      </template>
-    </b-modal>
-    <b-modal
-      v-if="nodeQuestion.title"
       id="modal-assignment-question-node"
       ref="modal"
       size="xl"
       no-close-on-backdrop
       no-close-on-esc
       hide-footer
+      hide-header
       @hidden="updateLearningNodeToCompleted"
-      @shown="logVisitedLearningTreeNode"
     >
-      <template #modal-title>
-        {{ nodeQuestion.title }}
-        <div v-show="nodeQuestion.node_description" class="text-muted" style="font-size:16px;">
-          {{ nodeQuestion.node_description }}
+      <div class="d-flex align-items-start justify-content-between pb-2 mb-2" style="border-bottom: 1px solid #dee2e6;">
+        <div>
+          <h2 class="h5 mb-0">
+            {{ nodeQuestion.title }}
+          </h2>
+          <div v-show="nodeQuestion.node_description" class="text-muted" style="font-size:16px;">
+            {{ nodeQuestion.node_description }}
+          </div>
         </div>
-      </template>
+        <button type="button" aria-label="Close" class="close"
+                @click="$bvModal.hide('modal-assignment-question-node')"
+        >
+          ×
+        </button>
+      </div>
       <div v-if="!showNodeModalContents">
         <div class="d-flex justify-content-center mb-3">
           <div class="text-center">
@@ -176,9 +110,61 @@
           </div>
         </div>
       </div>
+      <div v-if="isRootNode && rootAssessmentSubmissionInfo" class="pb-3">
+        <div v-if="!rootAssessmentSubmissionInfo.submissionArray">
+          <span class="font-weight-bold">Last submitted:</span>
+          <span :class="{ 'text-danger': rootAssessmentSubmissionInfo.lastSubmitted === 'N/A' }">
+            {{ rootAssessmentSubmissionInfo.studentResponse }}
+          </span>
+          <span v-if="rootAssessmentSubmissionInfo.lastSubmitted && rootAssessmentSubmissionInfo.lastSubmitted !== 'N/A'">
+            on {{ rootAssessmentSubmissionInfo.lastSubmitted }}
+          </span>
+        </div>
+        <div v-if="rootAssessmentSubmissionInfo.submissionArray && rootAssessmentSubmissionInfo.submissionArray.length"
+             class="table-responsive"
+        >
+          <span class="font-weight-bold">Last submitted:</span>
+          <table class="table table-striped table-sm pb-3">
+            <thead>
+            <tr>
+              <th scope="col">
+                Submission
+              </th>
+              <th scope="col">
+                Result
+              </th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr v-for="(item, itemIndex) in rootAssessmentSubmissionInfo.submissionArray"
+                :key="`root-submission-result-${itemIndex}`"
+            >
+              <td>
+                <span v-show="!item.submission_has_html"
+                      :class="item.correct ? 'text-success' : 'text-danger'"
+                >
+                  {{ item.submission ? item.submission : 'Nothing submitted' }}
+                </span>
+                <div v-show="item.submission_has_html"
+                     :class="item.correct ? 'text-success' : 'text-danger'"
+                     v-html="item.submission ? item.submission : 'Nothing submitted'"
+                />
+              </td>
+              <td>
+                <span v-show="item.correct" class="text-success">Correct</span>
+                <span v-show="!item.correct" class="text-danger">
+                  {{ item.partial_credit ? 'Partial Credit' : 'Incorrect' }}
+                </span>
+              </td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+        <hr>
+      </div>
       <ViewQuestionWithoutModal :key="`question-to-view-${questionToViewKey}`"
                                 :question-to-view="nodeQuestion"
-                                :show-submit="true"
+                                :show-submit="!isRootNode"
                                 @receiveMessage="receiveMessage"
       />
       <div v-show="completedNodeMessage" style="width:100%">
@@ -203,8 +189,10 @@
       ref="modal"
       size="xl"
       no-close-on-backdrop
+      no-close-on-esc
       hide-footer
       :modal-class="nodeModalBorderClass"
+      @hidden="fixNavBar"
     >
       <template #modal-header="{ close }">
         <div>
@@ -218,10 +206,9 @@
           >
             <font-awesome-icon :icon="copyIcon" class="text-muted"/>
           </a>
-
         </div>
         <div>
-          <b-button size="sm" variant="outline-secondary" @click="close()">
+          <b-button size="sm" variant="outline-secondary" @click="$bvModal.hide('modal-update-node')">
             Exit Node
           </b-button>
         </div>
@@ -263,10 +250,21 @@
                 @keydown="nodeForm.errors.clear('question_id')"
               />
               <has-error :form="nodeForm" field="question_id"/>
-              <span class="pl-2"><b-button size="sm" variant="info" @click="editSource">
-        <b-icon icon="pencil"/> {{ questionToView.can_edit ? 'Edit' : 'View' }} Source
-      </b-button></span>
+              <span class="pl-2">
+                <b-button size="sm" variant="outline-secondary" @click="refreshNodeSourcePreview">
+                  <b-icon icon="arrow-clockwise"/> Refresh Preview
+                </b-button>
+              </span>
+              <span v-if="!nodeSourceIsDefaultTemplateQuestion" class="pl-2">
+                <b-button size="sm" variant="info" @click="editSource">
+                  <b-icon icon="pencil"/> {{ questionToView && questionToView.can_edit ? 'Edit' : 'View' }} Source
+                </b-button>
+              </span>
             </div>
+            <b-alert v-if="isAuthor" :show="nodeSourceIsDefaultTemplateQuestion" variant="warning" class="mt-2">
+              This node is still using a placeholder question from the default template. Please enter the ADAPT ID
+              of the question you'd like to use for this node above.
+            </b-alert>
           </b-form-group>
           <div v-if="!isAuthor">
             <div>
@@ -276,7 +274,7 @@
               <b-tooltip target="source-id-non-author" delay="500" triggers="hover focus">
                 The ADAPT ID of the question used as the source for this node.
               </b-tooltip>
-              <b-button size="sm" variant="info" @click="editSource">
+              <b-button v-if="!nodeSourceIsDefaultTemplateQuestion" size="sm" variant="info" @click="editSource">
                 View Source
               </b-button>
             </div>
@@ -339,7 +337,6 @@
             />
           </b-form-group>
         </div>
-        </b-form>
         <div class="float-right">
           <b-button size="sm" variant="outline-secondary" @click="$bvModal.hide('modal-update-node')">
             Exit Node
@@ -357,114 +354,86 @@
         </div>
       </div>
     </b-modal>
+    <!-- TOP TOOLBAR -->
+    <div v-if="isAuthor && !inIFrame" id="toolbar">
+      <b-icon id="properties-tooltip"
+              icon="gear"
+              :class="{ 'disabled': learningTreeId === 0}"
+              :aria-disabled="learningTreeId === 0"
+              scale="1.1"
+              class="toolbar-icon"
+              @click="learningTreeId === 0 ? '' : editLearningTree()"
+      />
+      <b-tooltip target="properties-tooltip" delay="250" triggers="hover">
+        Edit properties
+      </b-tooltip>
 
-    <b-modal
-      id="modal-delete-learning-tree"
-      ref="modal"
-      title="Confirm Delete Learning Tree"
-    >
-      <p>Please note that once a Learning Tree is deleted, it can not be retrieved.</p>
-      <template #modal-footer>
-        <b-button
-          size="sm"
-          class="float-right"
-          @click="$bvModal.hide('modal-delete-learning-tree')"
-        >
-          Cancel
-        </b-button>
-        <b-button
-          variant="danger"
-          size="sm"
-          class="float-right"
-          @click="handleDeleteLearningTree"
-        >
-          Yes, delete learning tree!
-        </b-button>
-      </template>
-    </b-modal>
-    <div v-if="isAuthor" style="margin-left:-100px;">
-      <span v-if="!isLearningTreeView" class="pr-4">
-        <b-button size="sm"
-                  variant="outline-info"
-                  @click="$bvModal.show('modal-learning-tree-instructions')"
-        >
-          Instructions
-        </b-button>
-      </span>
-      <toggle-button
-        v-if="(user !== null)"
-        tabindex="0"
-        class="mt-2"
-        :width="170"
-        :value="isLearningTreeView"
-        :sync="true"
-        :font-size="14"
-        :margin="4"
-        :color="{checked: '#28a745', unchecked: '#6c757d'}"
-        :labels="{checked: 'Learning Tree Only', unchecked: 'Editor/Learning Tree'}"
-        @change="toggleLearningTreeView()"
+      <font-awesome-icon id="undo-action-tooltip"
+                         :class="{ 'disabled': !canUndo}"
+                         aria-label="Undo"
+                         class="toolbar-icon"
+                         scale="1.1"
+                         :icon="undoIcon"
+                         @click="!canUndo ? '' : undo()"
+      />
+      <b-tooltip target="undo-action-tooltip" delay="250" triggers="hover">
+        Undo the last action
+      </b-tooltip>
+
+      <font-awesome-icon id="redo-action-tooltip"
+                         :class="{ 'disabled': !canRedo}"
+                         aria-label="Redo"
+                         class="toolbar-icon"
+                         scale="1.1"
+                         :icon="redoIcon"
+                         @click="!canRedo ? '' : redo()"
+      />
+      <b-tooltip target="redo-action-tooltip" delay="250" triggers="hover">
+        Redo the last undone action
+      </b-tooltip>
+
+      <b-spinner v-if="isRefreshingTree" small variant="secondary" class="toolbar-icon" label="Refreshing"/>
+      <font-awesome-icon v-else
+                         id="refresh-tree-tooltip"
+                         :class="{ 'disabled': learningTreeId === 0}"
+                         :aria-disabled="learningTreeId === 0"
+                         aria-label="Refresh tree layout"
+                         class="toolbar-icon"
+                         scale="1.1"
+                         :icon="refreshIcon"
+                         @click="learningTreeId === 0 ? '' : refreshLearningTreeLayout()"
+      />
+      <b-tooltip target="refresh-tree-tooltip" delay="250" triggers="hover">
+        Recenters the tree and reconnects any arrows that aren't lining up correctly.
+      </b-tooltip>
+
+      <b-button :class="{ 'disabled': learningTreeId === 0 || nodeIsPending }"
+                :aria-disabled="learningTreeId === 0 || nodeIsPending"
+                :disabled="learningTreeId === 0 || nodeIsPending"
+                variant="outline-secondary"
+                size="sm"
+                class="toolbar-btn"
+                @click="addRemediation"
+      >
+        <b-spinner v-if="validatingQuestionId" small label="Spinning"/>
+        New Node
+      </b-button>
+
+      <div class="toolbar-spacer"/>
+      <ConsultInsight :url="'https://commons.libretexts.org/insight/creating-and-editing-learning-trees'"
       />
     </div>
-    <div v-show="user.role === 2 && !isLearningTreeView && isAuthor" id="leftcard">
-      <div id="actions">
-        <b-icon id="properties-tooltip"
-                icon="gear"
-                :class="{ 'disabled': learningTreeId === 0}"
-                :aria-disabled="learningTreeId === 0"
-                scale="1.1"
-                class="mr-2"
-                @click="learningTreeId === 0 ? '' : editLearningTree()"
-        />
-        <b-tooltip target="properties-tooltip"
-                   delay="250"
-                   triggers="hover"
-        >
-          Edit properties
-        </b-tooltip>
-        <b-icon-trash id="delete-tree-tooltip"
-                      :class="{ 'disabled': learningTreeId === 0}"
-                      :aria-disabled="learningTreeId === 0"
-                      scale="1.1"
-                      class="mr-2"
-                      @click="learningTreeId === 0 ? '' : deleteLearningTree()"
-        />
 
-        <b-tooltip target="delete-tree-tooltip"
-                   delay="250"
-                   triggers="hover"
-        >
-          Delete the current learning tree
-        </b-tooltip>
-
-        <font-awesome-icon id="undo-action-tooltip"
-                           :class="{ 'disabled': !canUndo}"
-                           aria-label="Undo"
-                           class="mr-2"
-                           scale="1.1"
-                           :icon="undoIcon"
-                           @click="!canUndo ? '' : undo()"
-        />
-        <b-tooltip target="undo-action-tooltip"
-                   delay="250"
-                   triggers="hover"
-        >
-          Undo the last action
-        </b-tooltip>
-        <b-button :class="{ 'disabled': learningTreeId === 0}"
-                  class="ml-2 mr-2"
-                  :aria-disabled="learningTreeId === 0"
-                  :disabled="learningTreeId === 0"
-                  variant="outline-secondary"
-                  size="sm"
-                  @click="addRemediation"
-        >
-          <b-spinner v-if="validatingQuestionId" small label="Spinning"/>
-          New Node
-        </b-button>
-      </div>
+    <!-- STAGING AREA: shown when a new node is pending placement -->
+    <div v-if="isAuthor && nodeIsPending" id="staging-area">
+      <span class="staging-hint">↓ Drag this node onto the canvas below</span>
       <div id="blocklist"/>
     </div>
-    <div id="canvas" :class="isLearningTreeView ? 'learningTreeView' : 'learningTreeAndEditorView'"/>
+
+    <!-- CANVAS -->
+    <div id="canvas">
+      <div id="canvas-inner"/>
+    </div>
   </div>
 </template>
 
@@ -477,10 +446,9 @@ import axios from 'axios'
 import Form from 'vform'
 import { mapGetters } from 'vuex'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-import { faUndo } from '@fortawesome/free-solid-svg-icons'
+import { faUndo, faRedo, faSyncAlt } from '@fortawesome/free-solid-svg-icons'
 import { faCopy } from '@fortawesome/free-regular-svg-icons'
 import AllFormErrors from '~/components/AllFormErrors'
-import { ToggleButton } from 'vue-js-toggle-button'
 import ViewQuestionWithoutModal from '~/components/ViewQuestionWithoutModal'
 import { h5pResizer } from '~/helpers/H5PResizer'
 import 'vue-select/dist/vue-select.css'
@@ -488,23 +456,26 @@ import { getLearningOutcomes, subjectOptions } from '~/helpers/LearningOutcomes'
 import { processReceiveMessage, addGlow, getTechnology, getTechnologySrcDoc } from '~/helpers/HandleTechnologyResponse'
 import LearningTreeProperties from '../../components/LearningTreeProperties.vue'
 import { doCopy } from '../../helpers/Copy'
+import ConsultInsight from '../../components/ConsultInsight.vue'
 
 window.onmousemove = function (e) {
   window.doNotDrag = e.ctrlKey || e.metaKey
 }
-export default {
 
+export default {
   metaInfo () {
     return { title: 'Learning Trees Editor' }
   },
   components: {
+    ConsultInsight,
     LearningTreeProperties,
     FontAwesomeIcon,
-    ToggleButton,
     AllFormErrors,
     ViewQuestionWithoutModal
   },
   data: () => ({
+    inIFrame: false,
+    rootAssessmentSubmissionInfo: null,
     questionToEdit: {},
     nodeModalTitle: '',
     nodeModalBorderClass: '',
@@ -521,6 +492,7 @@ export default {
     uncompletedNodes: [],
     learningTreeNodeUncompletedParentNodeTitlesByQuestionId: [],
     completedNodeMessage: false,
+    isSavingLearningTree: false,
     timeLeft: 0,
     nodeQuestion: {},
     rootNodeQuestionId: 0,
@@ -537,11 +509,15 @@ export default {
     showNodeModalContents: false,
     questionToView: {},
     allFormErrors: [],
-    isLearningTreeView: false,
     nodeSrc: '',
     nodeIframeId: '',
     canUndo: false,
     undoIcon: faUndo,
+    canRedo: false,
+    redoIcon: faRedo,
+    refreshIcon: faSyncAlt,
+    isRefreshingTree: false,
+    nodeIsPending: false,
     nodeForm: new Form({
       question_id: '',
       title: '',
@@ -580,6 +556,19 @@ export default {
           return 'darkgray'
       }
     },
+    defaultTemplateQuestionIds () {
+      const ids = []
+      LEARNING_TREE_TEMPLATE.blocks.forEach(block => {
+        const questionIdEntry = block.data.find(entry => entry.name === 'question_id')
+        if (questionIdEntry) {
+          ids.push(String(questionIdEntry.value))
+        }
+      })
+      return ids
+    },
+    nodeSourceIsDefaultTemplateQuestion () {
+      return this.defaultTemplateQuestionIds.includes(String(this.nodeForm.question_id))
+    }
   },
   created () {
     h5pResizer()
@@ -595,16 +584,32 @@ export default {
     }
   },
   async mounted () {
-    if (this.user.role === 3) {
+    try {
+      this.inIFrame = window.self !== window.top
+    } catch (e) {
+      this.inIFrame = false
+    }
+    document.querySelector('.container')?.classList.add('lt-editor-wide')
+    // EK: lock page scroll only while this editor is mounted, and remember
+    // the previous values so we can restore them on beforeDestroy instead
+    // of leaving body/html permanently locked (which was clipping the
+    // navbar out of the viewport once this component had ever loaded).
+    this._prevBodyOverflow = document.body.style.overflow
+    this._prevHtmlOverflow = document.documentElement.style.overflow
+    document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
+    if (this.inIFrame) {
       this.assignmentId = this.$route.params.assignmentId
       this.rootNodeQuestionId = this.$route.params.rootNodeQuestionId
-      console.log(this.xCenter)
+      if (this.user.role === 3) {
+        window.parent.postMessage('learning-tree-ready', '*')
+      }
     }
     this.xCenter = this.$route.params.xCenter
 
     let tempblock
     let tempblock2
-    console.log(document.getElementById('canvas'))
+    let vm = this
 
     flowy(document.getElementById('canvas'), drag, release, snapping, rearranging, 20, 30)
 
@@ -624,22 +629,19 @@ export default {
       grab.parentNode.removeChild(grab)
 
       let blockin = drag.querySelector('.blockin')
-
       blockin.parentNode.removeChild(blockin)
+
       let isAssessmentNode = (drag.querySelector('.blockelemtype').value === '1')
-
-      // let title = isAssessmentNode ? 'Assessment' : 'Remediation'
-
-      //  let questionId = isAssessmentNode ? '' : blockin.querySelector('.question-id').innerHTML
       let title = blockin.querySelector('.title').innerHTML
       let blockynameContents = blockin.querySelector('.blockyname').innerHTML
       let body = isAssessmentNode ? 'The original question'
-        : `${blockynameContents}
-<span class="extra"></span></div>`
+        : `${blockynameContents}<span class="extra"></span></div>`
+
       drag.innerHTML += `
-<span class="blockyname" style="margin-bottom:0;">${body}</span>
-<div class="blockyinfo">${title}
-</div>`
+        <span class="blockyname" style="margin-bottom:0;">${body}</span>
+        <div class="blockyinfo">${title}</div>`
+
+      vm.nodeIsPending = false
       return true
     }
 
@@ -650,39 +652,49 @@ export default {
 
     function release () {
       if (tempblock2) {
-        // if it's reloading a saved learning tree, this won't exist
         tempblock2.classList.remove('blockdisabled')
       }
+      vm.nodeIsPending = false
     }
 
     let aclick = false
     let noinfo = false
+    let mouseDownX = 0
+    let mouseDownY = 0
 
-    let vm = this
-    let beginTouch = function (event) {
+    this._learningTreeBeginTouch = function (event) {
       aclick = true
       noinfo = false
+      mouseDownX = event.clientX
+      mouseDownY = event.clientY
       vm.touchingBlock = event.target.closest('#canvas') || event.target.closest('#blocklist')
       if (event.target.closest('.create-flowy')) {
         noinfo = true
       }
     }
-    let checkTouch = function (event) {
-      if (Math.abs(event.movementX) > 3 || Math.abs(event.movementY) > 3) {
+
+    this._learningTreeCheckTouch = function (event) {
+      const totalMovement = Math.abs(event.clientX - mouseDownX) + Math.abs(event.clientY - mouseDownY)
+      if (totalMovement > 8) {
         aclick = false
       }
     }
-    let doneTouch = function (event) {
-      // console.log(event.target.className)
-      // console.log(event.type)
-      if (vm.touchingBlock) {
-        vm.saveLearningTree()
+
+    this._learningTreeDoneTouch = function (event) {
+      document.querySelectorAll('.block.dragging').forEach(el => el.classList.remove('dragging'))
+      if (vm.touchingBlock && !aclick) {
+        vm.updateLocation()
+        vm.isSavingLearningTree = true
+        document.getElementById('canvas').style.cursor = 'wait'
+        vm.saveLearningTree().finally(() => {
+          vm.isSavingLearningTree = false
+          document.getElementById('canvas').style.cursor = 'default'
+        })
       }
+
       if (event.type === 'mouseup' && aclick && !noinfo) {
         if (event.target.closest('.block') && !event.target.closest('.block').classList.contains('dragging')) {
-          // alert(event.target.closest('.block') && !event.target.closest('.block').classList.contains('dragging'))
           vm.openNodeModal(event.target.closest('.block'))
-          console.log(event.target.closest('.block').classList.contains('dragging'))
           tempblock = event.target.closest('.block')
           if (document.getElementById('properties')) {
             document.getElementById('properties').classList.add('expanded')
@@ -691,30 +703,34 @@ export default {
         }
       }
     }
-    let openNodeModal = function (event) {
+
+    this._learningTreeOpenNodeModal = function (event) {
       vm.openNodeModal(event.target.closest('.block'))
-      console.log('double click')
     }
-    addEventListener('dblclick', openNodeModal, false)
-    addEventListener('mousedown', beginTouch, false)
-    addEventListener('mousemove', checkTouch, false)
-    addEventListener('mouseup', doneTouch, false)
-    addEventListenerMulti('touchstart', beginTouch, false, '.block')
+
+    addEventListener('dblclick', this._learningTreeOpenNodeModal, false)
+    addEventListener('mousedown', this._learningTreeBeginTouch, false)
+    addEventListener('mousemove', this._learningTreeCheckTouch, false)
+    addEventListener('mouseup', this._learningTreeDoneTouch, false)
+    addEventListenerMulti('touchstart', this._learningTreeBeginTouch, false, '.block')
+
     this.learningTreeId = parseInt(this.$route.params.learningTreeId)
     this.fromAllLearningTrees = this.$route.params.fromAllLearningTrees
+
     if (this.learningTreeId === 0) {
       this.isAuthor = true
       this.$bvModal.show('modal-learning-tree-properties')
     } else {
       await this.getLearningTreeLearningTreeId(this.learningTreeId)
-      this.updateLocation()
-      if (this.user.role === 3) {
+      await this.$nextTick()
+      this.updateCanvasHeight()
+      await this.updateLocation()
+      if (this.assignmentId) {
         await this.updateCompletionBorders()
       } else {
         let questionIds = this.getQuestionIdsFromNodes()
         let questionTypes = await this.getQuestionTypes(questionIds)
         this.updateBorders(questionTypes)
-        console.log(questionTypes)
       }
     }
   },
@@ -728,6 +744,25 @@ export default {
   },
   beforeDestroy () {
     window.removeEventListener('message', this.receiveMessage)
+    if (typeof flowy.destroy === 'function') {
+      flowy.destroy()
+    }
+    if (this._learningTreeOpenNodeModal) {
+      removeEventListener('dblclick', this._learningTreeOpenNodeModal, false)
+    }
+    if (this._learningTreeBeginTouch) {
+      removeEventListener('mousedown', this._learningTreeBeginTouch, false)
+      document.querySelectorAll('.block').forEach(el => el.removeEventListener('touchstart', this._learningTreeBeginTouch, false))
+    }
+    if (this._learningTreeCheckTouch) {
+      removeEventListener('mousemove', this._learningTreeCheckTouch, false)
+    }
+    if (this._learningTreeDoneTouch) {
+      removeEventListener('mouseup', this._learningTreeDoneTouch, false)
+    }
+    document.querySelector('.container')?.classList.remove('lt-editor-wide')
+    document.body.style.overflow = this._prevBodyOverflow || ''
+    document.documentElement.style.overflow = this._prevHtmlOverflow || ''
   },
   methods: {
     doCopy,
@@ -735,6 +770,41 @@ export default {
     addGlow,
     processReceiveMessage,
     getTechnology,
+    fixNavBar () {
+      requestAnimationFrame(() => {
+        document.body.scrollTop = 0
+        document.documentElement.scrollTop = 0
+      })
+    },
+    syncBlockPositions () {
+      const canvas = document.getElementById('canvas')
+      const blocks = flowy.getBlocks && flowy.getBlocks()
+      if (!canvas || !blocks || !blocks.length) return
+      blocks.forEach(block => {
+        const blockEl = canvas.querySelector('.blockid[value="' + block.id + '"]')
+        if (!blockEl) return
+        const elRect = blockEl.parentNode.getBoundingClientRect()
+        block.x = elRect.left + window.scrollX + (block.width / 2) + canvas.scrollLeft
+        block.y = elRect.top + window.scrollY + (block.height / 2) + canvas.scrollTop
+      })
+    },
+    updateCanvasHeight () {
+      this.$nextTick(() => {
+        let maxBottom = 0
+        let maxRight = 0
+        $('#canvas .block').each(function () {
+          const bottom = (parseFloat($(this).css('top')) || 0) + ($(this).outerHeight() || 0)
+          const right = (parseFloat($(this).css('left')) || 0) + ($(this).outerWidth() || 0)
+          if (bottom > maxBottom) maxBottom = bottom
+          if (right > maxRight) maxRight = right
+        })
+        const inner = document.getElementById('canvas-inner')
+        if (inner && maxBottom > 0) {
+          inner.style.height = maxBottom + 200 + 'px'
+          inner.style.width = maxRight + 200 + 'px'
+        }
+      })
+    },
     listenForIframeClose () {
       window.addEventListener('message', (event) => {
         if (event.data === 'question-saved' || event.data === 'question-cancelled') {
@@ -752,10 +822,6 @@ export default {
         return
       }
       const blockElem = this.nodeToUpdate.querySelector('.blockelem') || this.nodeToUpdate
-      console.error('question_type:', this.questionToView.question_type)
-      console.error('nodeToUpdate classes:', this.nodeToUpdate.className)
-      console.error('blockElem classes:', blockElem.className)
-      console.error('isRootNode:', this.isRootNode)
       if (this.isRootNode) {
         this.nodeModalTitle = 'Root Assessment Node'
         this.nodeModalBorderClass = 'modal-border-blue'
@@ -770,38 +836,80 @@ export default {
         this.nodeModalBorderClass = 'modal-border-gray'
       }
     },
-    updateLocation () {
-      if (!+this.xCenter) {
+    async updateLocation () {
+      const canvas = document.getElementById('canvas')
+      const blockElems = $('.blockelem')
+      if (!blockElems.length) return
+
+      let minTop = Infinity
+      $('.blockelem, .arrowblock').each(function () {
+        const top = parseFloat($(this).css('top')) || 0
+        if (top < minTop) minTop = top
+      })
+
+      const rootBlockId = canvas.querySelector('.blockid[value="0"]')
+      const rootBlock = rootBlockId ? rootBlockId.parentNode : blockElems.first()[0]
+      const rootLeft = parseFloat($(rootBlock).css('left')) || 0
+      const rootWidth = rootBlock.offsetWidth || 242
+      const canvasWidth = canvas.offsetWidth
+      const rootCenter = rootLeft + (rootWidth / 2)
+      const xShift = (canvasWidth / 2) - rootCenter
+      const yShift = 20 - minTop
+
+      // Shift all DOM elements
+      $('.blockelem, .arrowblock').each(function () {
+        const currentLeft = parseFloat($(this).css('left')) || 0
+        const currentTop = parseFloat($(this).css('top')) || 0
+        $(this).css('left', `${currentLeft + xShift}px`)
+        $(this).css('top', `${currentTop + yShift}px`)
+      })
+
+      // Resync blocks array from actual DOM positions after shifting
+      const blocks = flowy.getBlocks()
+      if (blocks && blocks.length) {
+        const canvasRect = canvas.getBoundingClientRect()
+        blocks.forEach(block => {
+          const blockEl = canvas.querySelector('.blockid[value="' + block.id + '"]')
+          if (blockEl) {
+            const el = blockEl.parentNode
+            const elRect = el.getBoundingClientRect()
+            block.x = elRect.left + window.scrollX + (block.width / 2) + canvas.scrollLeft
+            block.y = elRect.top + window.scrollY + (block.height / 2) + canvas.scrollTop
+          }
+        })
+      }
+      flowy.rearrange()
+
+      // Set canvas height to contain all content plus padding
+      await this.$nextTick()
+      this.updateCanvasHeight()
+      flowy.rearrange()
+    },
+    async refreshLearningTreeLayout () {
+      if (this.isRefreshingTree) {
         return
       }
-      const blockElem = $('.blockelem')
-      const leftCardWidth = +$('#leftcard').css('width').replace('px', '')
-      const firstBlockElem = +blockElem.first().css('left').replace('px', '')
-      const yOffset = +blockElem.first().css('top').replace('px', '')
-      const halfWidthOfNode = blockElem.first().width() / 2
-      const xCenter = +this.xCenter.replace('px', '')
-      const firstBlockElemOffset = firstBlockElem + leftCardWidth + (leftCardWidth - xCenter) - halfWidthOfNode
-      $('.blockelem, .arrowblock').each(function () {
-        const currentX = $(this).css('left').replace('px', '')
-        const currentY = $(this).css('top').replace('px', '')
-        const newX = currentX - firstBlockElemOffset
-        const newY = currentY - yOffset + 20 // give it extra margin
-        $(this).css('left', `${newX}px`)
-        $(this).css('top', `${newY}px`)
-      })
+      this.isRefreshingTree = true
+      try {
+        await this.updateLocation()
+        await this.saveLearningTree()
+        this.$noty.success('The tree layout has been refreshed.')
+      } catch (error) {
+        this.$noty.error(error.message)
+      }
+      this.isRefreshingTree = false
     },
     async logVisitedLearningTreeNode () {
       try {
         const { data } = await axios.post(`/api/learning-tree-node-assignment-question/assignment/${this.assignmentId}/learning-tree/${this.learningTreeId}/question/${this.nodeQuestion.id}/log-visit`)
         if (data.type === 'error') {
-          console.log(`Error logging visit to learning tree node: ${data.message}`)
+          console.error(`Error logging visit to learning tree node: ${data.message}`)
         }
       } catch (error) {
         this.$noty.error(error.message)
       }
     },
     closeLearningTreeModal () {
-      console.log('posting message')
       this.$bvModal.hide('modal-learning-node-submission-response')
       window.parent.postMessage('Close learning tree modal', '*')
     },
@@ -809,8 +917,6 @@ export default {
       $('#' + modalId + '___BV_modal_body_').hide()
     },
     async showResponse (response) {
-      console.warn(response)
-
       try {
         const { data } = await axios.get(`/api/learning-tree-node-submission/${response.learning_tree_node_submission_id}`)
         if (data.type === 'error') {
@@ -823,29 +929,18 @@ export default {
           this.earnedReset = data.earned_reset
           this.$bvModal.show('modal-learning-node-submission-response')
         }
-
-        let info = ['last_submitted',
-          'student_response',
-          'submission_count',
-          'session_jwt',
-          'qti_answer_json',
-          'qti_json',
-          'technology_iframe_src',
-          'submission_array'
-        ]
+        let info = ['last_submitted', 'student_response', 'submission_count', 'session_jwt',
+          'qti_answer_json', 'qti_json', 'technology_iframe_src', 'submission_array']
         for (let i = 0; i < info.length; i++) {
           this.nodeQuestion[info[i]] = data[info[i]]
         }
         if (this.nodeQuestion['technology'] === 'webwork') {
           if (data.technology_iframe_src) {
-            // need to re-load the question potentially for alogrithmic solutions
             this.nodeQuestion.technology_iframe = data.technology_iframe_src
             let vm = this
             await this.getTechnologySrcDoc(vm, data.technology_iframe_src, this.assignmentId, this.nodeQuestion.id, 'learning_tree_node_submissions', this.learningTreeId)
             this.cacheIndex++
           }
-          // next line screwed things up because there was no initial event.
-          // this.addGlow(this.event, data['submission_array'], this.nodeQuestion['technology'])
         }
         if (this.nodeQuestion['technology'] === 'imathas') {
           this.nodeQuestion.technology_iframe = data.technology_iframe_src
@@ -853,7 +948,6 @@ export default {
         if (['webwork', 'imathas'].includes(this.nodeQuestion['technology'])) {
           this.submissionArray = data['submission_array']
         }
-
         this.qtiJson = this.nodeQuestion['qti_json']
       } catch (error) {
         this.learningNodeModalTitle = error.message
@@ -872,11 +966,25 @@ export default {
         }
         return false
       }
+      if (typeof event.data === 'string' && event.data.length && event.data[0] === '{') {
+        let parsed
+        try {
+          parsed = JSON.parse(event.data)
+        } catch (e) {
+          parsed = null
+        }
+        if (parsed && parsed.source === 'root_assessment_submission_info') {
+          this.rootAssessmentSubmissionInfo = parsed
+          return false
+        }
+      }
       let vm = this
-      console.log(this.$route.name)
       this.processReceiveMessage(vm, this.$route.name, event)
     },
     updateLearningNodeToCompleted () {
+      if (this.isRootNode) {
+        return
+      }
       location.reload()
     },
     async giveCreditForCompletingLearningTreeNode () {
@@ -898,10 +1006,8 @@ export default {
       this.updateBorders(learningTreeNodeCompletions)
     },
     getTimeLeftMessage (props) {
-      let message = ''
-      message = '<span class="font-weight-bold">Time Left For Credit:</span> '
+      let message = '<span class="font-weight-bold">Time Left For Credit:</span> '
       let timeLeft = parseInt(this.timeLeft) / 1000
-
       let pluralSec = props.seconds > 1 ? 's' : ''
       if (timeLeft > 60) {
         let pluralMin = props.minutes > 1 ? 's' : ''
@@ -950,7 +1056,6 @@ export default {
       }
       try {
         const { data } = await axios.get(`/api/learning-trees/validate-remediation-by-assignment-question-id/${assignmentQuestionId}/${Number(isRootNode)}`)
-        console.log(data)
         if (data.type === 'error') {
           this.$noty.error(data.message)
           return false
@@ -976,14 +1081,25 @@ export default {
         this.$noty.error(error.message)
       }
     },
-    toggleLearningTreeView () {
-      this.$emit('toggle-learning-tree-view', this.isLearningTreeView)
-      this.isLearningTreeView = !this.isLearningTreeView
-    },
     async undo () {
       try {
         const { data } = await axios.patch(`/api/learning-tree-histories/${this.learningTreeId}`)
-        console.log(data)
+        if (data.type === 'success') {
+          window.location.href = `/instructors/learning-trees/editor/${this.learningTreeId}`
+        } else {
+          this.$noty[data.type](data.message)
+        }
+      } catch (error) {
+        this.$noty.error(error.message)
+      }
+    },
+    async redo () {
+      // EK: mirrors undo() above. Assumes a matching redo endpoint —
+      // confirm this route exists server-side (and that
+      // learning-tree-histories returns a can_redo flag alongside
+      // can_undo) before relying on this.
+      try {
+        const { data } = await axios.patch(`/api/learning-tree-histories/${this.learningTreeId}/redo`)
         if (data.type === 'success') {
           window.location.href = `/instructors/learning-trees/editor/${this.learningTreeId}`
         } else {
@@ -1004,18 +1120,20 @@ export default {
       this.showNodeModalContents = false
       let questionId = this.nodeToUpdate.querySelector('input[name="question_id"]').value
       this.isRootNode = parseInt(this.nodeToUpdate.querySelector('input[name="blockid"]').value) === 0
+      if (this.isRootNode) {
+        questionId = String(this.rootNodeQuestionId || this.assessmentQuestionId)
+      }
       this.nodeForm.is_root_node = this.isRootNode
       this.setNodeModalTitleAndBorderClass()
       if (this.assignmentId) {
         this.uncompletedNodes = []
-        if (this.learningTreeNodeUncompletedParentNodeTitlesByQuestionId[questionId].length) {
+        if (!this.isRootNode && (this.learningTreeNodeUncompletedParentNodeTitlesByQuestionId[questionId] || []).length) {
           this.uncompletedNodes = this.learningTreeNodeUncompletedParentNodeTitlesByQuestionId[questionId]
           this.$bvModal.show('modal-cannot-answer-until-complete-parents')
           return false
         }
-        this.isRootNode ? this.closeLearningTreeModal()
-          : this.$bvModal.show('modal-assignment-question-node')
-        console.log(flowy.output())
+        this.rootAssessmentSubmissionInfo = null
+        this.$bvModal.show('modal-assignment-question-node')
         await this.getAssignmentNodeQuestionToView(questionId)
       } else {
         this.$bvModal.show('modal-update-node')
@@ -1045,6 +1163,7 @@ export default {
           }
         }
         this.completedNodeMessage = false
+        await this.logVisitedLearningTreeNode()
       } catch (error) {
         this.$noty.error(error.message)
       }
@@ -1058,7 +1177,6 @@ export default {
           return false
         }
         this.questionToView = data.question
-        let vm = this
         this.questionToViewKey++
         if (updateModalStyle) {
           const blockElem = this.nodeToUpdate.querySelector('.blockelem') || this.nodeToUpdate
@@ -1078,10 +1196,17 @@ export default {
         }
       }
     },
+    async refreshNodeSourcePreview () {
+      const questionId = (this.nodeForm.question_id || '').toString().trim()
+      if (!questionId) {
+        this.$noty.info('Please enter a Source ID first.')
+        return
+      }
+      await this.getQuestionToView(questionId, true)
+    },
     async getNodeMetaInformation (questionId) {
       try {
         const { data } = await axios.get(`/api/learning-tree-node/meta-info/${this.learningTreeId}/${questionId}`)
-        console.log(data)
         if (data.type !== 'success') {
           this.$noty.error(data.message)
           return false
@@ -1109,7 +1234,6 @@ export default {
       this.nodeForm.learning_outcome = this.learningOutcome ? this.learningOutcome.id : ''
       try {
         const { data } = await this.nodeForm.patch(`/api/learning-trees/nodes/${this.learningTreeId}`)
-        console.log(data)
         if (data.type === 'success') {
           this.nodeToUpdate.querySelector('input[name="question_id"]').value = this.nodeForm.question_id
           this.nodeToUpdate.querySelector('.blockyinfo').innerHTML = data.title
@@ -1132,26 +1256,7 @@ export default {
     resetAll () {
       this.learningTreeId = 0
       document.getElementById('canvas').innerHTML = ''
-      document.getElementById('blocklist').innerHTML = ''
       this.learningTreeForm.question_id = ''
-    },
-    initCreateNew () {
-      location.replace('/instructors/learning-trees/editor/0')
-    },
-    deleteLearningTree () {
-      this.$bvModal.show('modal-delete-learning-tree')
-    },
-    async handleDeleteLearningTree () {
-      try {
-        const { data } = await axios.delete(`/api/learning-trees/${this.learningTreeId}`)
-        this.$noty[data.type](data.message)
-        if (data.type === 'info') {
-          this.resetAll()
-        }
-        this.$bvModal.hide('modal-delete-learning-tree')
-      } catch (error) {
-        this.$noty.error(error.message)
-      }
     },
     editLearningTree () {
       this.learningTreeForm.title = this.title
@@ -1167,7 +1272,6 @@ export default {
     },
     resetLearningTreeModal (modalId) {
       this.resetLearningTreePropertiesModal()
-      // Hide the modal manually
       this.$nextTick(() => {
         this.$bvModal.hide(modalId)
       })
@@ -1177,6 +1281,9 @@ export default {
     },
     async createLearningTree () {
       try {
+        if (!this.learningTreeForm.question_id) {
+          this.learningTreeForm.question_id = this.getDefaultTemplateRootQuestionId()
+        }
         const { data } = await this.learningTreeForm.post('/api/learning-trees/info')
         this.$noty[data.type](data.message)
         if (data.type === 'success') {
@@ -1188,6 +1295,9 @@ export default {
           this.assessmentQuestionId = this.learningTreeForm.question_id
           this.$bvModal.hide('modal-learning-tree-properties')
           flowy.import(LEARNING_TREE_TEMPLATE)
+          await this.$nextTick()
+          this.updateCanvasHeight()
+          await this.updateLocation()
           await this.saveLearningTree()
         }
       } catch (error) {
@@ -1220,17 +1330,14 @@ export default {
     async getLearningTreeLearningTreeId (learningTreeId) {
       try {
         const { data } = await axios.get(`/api/learning-trees/${learningTreeId}`)
-
         this.title = data.title
         this.description = data.description
         this.public = data.public
         this.notes = data.notes
         this.assessmentQuestionId = data.question_id
         this.canUndo = data.can_undo
+        this.canRedo = Boolean(data.can_redo)
         this.isAuthor = data.author_id === this.user.id
-        if (!this.isAuthor) {
-          this.isLearningTreeView = true
-        }
         if (data.learning_tree) {
           let learningTree = data.learning_tree.replaceAll('/assets/img', this.asset('assets/img'))
           flowy.import(JSON.parse(learningTree))
@@ -1262,6 +1369,18 @@ export default {
         let div = $(this).parent('div')
         div.removeClass('question-border exposition-border empty-node-border').addClass(classToAdd)
       })
+      if (this.inIFrame) {
+        this.forceRootNodeBorderGreen()
+      }
+    },
+    forceRootNodeBorderGreen () {
+      const rootBlockIdInput = document.querySelector('.blockid[value="0"]')
+      if (!rootBlockIdInput) {
+        return
+      }
+      const rootBlockDiv = rootBlockIdInput.parentNode
+      rootBlockDiv.classList.remove('question-border', 'exposition-border', 'empty-node-border', 'non-completed-border', 'completed-border')
+      rootBlockDiv.classList.add('completed-border')
     },
     async saveLearningTree () {
       if (!this.isAuthor) {
@@ -1282,10 +1401,13 @@ export default {
           if (document.getElementById('blocklist')) {
             document.getElementById('blocklist').innerHTML = ''
           }
+          this.nodeIsPending = false
           this.questionId = ''
         }
         this.$noty[data.type](data.message)
         this.canUndo = data.can_undo
+        this.canRedo = Boolean(data.can_redo)
+        this.updateCanvasHeight()
       } catch (error) {
         this.$noty.error(error.message)
       }
@@ -1298,6 +1420,17 @@ export default {
       })
       return questionIds
     },
+    getDefaultTemplateRootQuestionId () {
+      const rootBlock = LEARNING_TREE_TEMPLATE.blocks.find(block => {
+        const blockIdEntry = block.data.find(entry => entry.name === 'blockid')
+        return blockIdEntry && parseInt(blockIdEntry.value) === 0
+      })
+      if (!rootBlock) {
+        return ''
+      }
+      const questionIdEntry = rootBlock.data.find(entry => entry.name === 'question_id')
+      return questionIdEntry ? String(questionIdEntry.value) : ''
+    },
     getBlockyNameHTML (questionId) {
       return `<span class="question_id">${questionId}</span>`
     },
@@ -1306,7 +1439,6 @@ export default {
       let title = ''
       let question
       question = await this.validateAssignmentAndQuestionId(this.questionId, isRootNode)
-      console.log(question)
       if (question) {
         title = question.title ? question.title : 'None'
         this.questionId = question.id
@@ -1314,463 +1446,162 @@ export default {
       if (!title) {
         return false
       }
+
+      this.nodeIsPending = true
+
       let blockElems = document.querySelectorAll('div.blockelem.create-flowy.noselect')
       let blockyNameHTML = this.getBlockyNameHTML(this.questionId)
-      let borderClass
-      borderClass = 'empty-node-border'
+      let borderClass = 'empty-node-border'
       if (question && !question.empty_learning_tree_node) {
         borderClass = question.question_type === 'assessment' ? 'question-border' : 'exposition-border'
       }
       let newBlockElem = `<div class="blockelem create-flowy noselect ${borderClass}">
         <input type="hidden" name="blockelemtype" class="blockelemtype" value="${blockElems.length + 2}">
         <input type="hidden" name="question_id" value="${this.questionId}">
-
-<div class="grabme">
-</div>
-      <div class="blockin">
+        <div class="grabme"></div>
+        <div class="blockin">
           <span class="blockyname"> ${blockyNameHTML} </span>
           <div class="blockin-info">
-          <span class="blockdesc"><span class="title">${title}</span>
-          <span class="extra"></span>
+            <span class="blockdesc"><span class="title">${title}</span>
+            <span class="extra"></span>
+          </div>
         </div>
-        </div>
-    </div>`
-      if (blockElems.length > 0) {
-        let lastBlockElem = blockElems[blockElems.length - 1]
-        lastBlockElem.insertAdjacentHTML('afterend', newBlockElem)
-      } else {
-        document.getElementById('blocklist').innerHTML += newBlockElem
+      </div>`
+
+      await this.$nextTick()
+      const blocklist = document.getElementById('blocklist')
+      if (blocklist) {
+        blocklist.innerHTML = newBlockElem
+      }
+      // Scroll canvas to top so drop targets are visible
+      await this.$nextTick()
+      const canvas = document.getElementById('canvas')
+      if (canvas) {
+        canvas.scrollTop = 0
+        this.syncBlockPositions()
       }
       this.questionId = ''
     }
   }
 }
 </script>
+
 <style>
-.blockyinfo span.remediation-info {
-  border-bottom: none;
-  color: #808292;
-}
-
-/* cyrillic-ext */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu72xKKTU1Kvnz.woff2) format('woff2');
-  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
-}
-
-/* cyrillic */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu5mxKKTU1Kvnz.woff2) format('woff2');
-  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-
-/* greek-ext */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu7mxKKTU1Kvnz.woff2) format('woff2');
-  unicode-range: U+1F00-1FFF;
-}
-
-/* greek */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu4WxKKTU1Kvnz.woff2) format('woff2');
-  unicode-range: U+0370-03FF;
-}
-
-/* vietnamese */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu7WxKKTU1Kvnz.woff2) format('woff2');
-  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+1EA0-1EF9, U+20AB;
-}
-
-/* latin-ext */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu7GxKKTU1Kvnz.woff2) format('woff2');
-  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-
-/* latin */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu4mxKKTU1Kg.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-/* cyrillic-ext */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: local('Roboto Medium'), local('Roboto-Medium'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmEU9fCRc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
-}
-
-/* cyrillic */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: local('Roboto Medium'), local('Roboto-Medium'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmEU9fABc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-
-/* greek-ext */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: local('Roboto Medium'), local('Roboto-Medium'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmEU9fCBc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+1F00-1FFF;
-}
-
-/* greek */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: local('Roboto Medium'), local('Roboto-Medium'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmEU9fBxc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+0370-03FF;
-}
-
-/* vietnamese */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: local('Roboto Medium'), local('Roboto-Medium'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmEU9fCxc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+1EA0-1EF9, U+20AB;
-}
-
-/* latin-ext */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: local('Roboto Medium'), local('Roboto-Medium'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmEU9fChc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-
-/* latin */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: local('Roboto Medium'), local('Roboto-Medium'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmEU9fBBc4AMP6lQ.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-/* cyrillic-ext */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfCRc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
-}
-
-/* cyrillic */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfABc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-
-/* greek-ext */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfCBc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+1F00-1FFF;
-}
-
-/* greek */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfBxc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+0370-03FF;
-}
-
-/* vietnamese */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfCxc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+1EA0-1EF9, U+20AB;
-}
-
-/* latin-ext */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfChc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-
-/* latin */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfBBc4AMP6lQ.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
+/* =====================
+   LAYOUT
+   ===================== */
 body, html {
-  margin: 0px;
-  padding: 0px;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+.learning-tree-editor {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--editor-offset, 0px));
   overflow: hidden;
+}
+
+/* =====================
+   TOOLBAR
+   ===================== */
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background-color: #F8F8F8;
+  border-bottom: 1px solid #E8E8EF;
+  height: 48px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.toolbar-icon {
+  font-size: 1.1rem;
+  color: #393C44;
+  cursor: pointer;
+  transition: opacity .2s;
+}
+
+.toolbar-icon:hover {
+  opacity: .6;
+}
+
+.toolbar-icon.disabled {
+  opacity: .3;
+  cursor: not-allowed;
+}
+
+.toolbar-btn {
+  font-size: 13px;
+}
+
+.toolbar-spacer {
+  flex: 1 1 auto;
+}
+
+/* =====================
+   STAGING AREA
+   ===================== */
+#staging-area {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background-color: #EEF4FF;
+  border-bottom: 1px solid #C5D8FF;
+  min-height: 48px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.staging-hint {
+  font-family: Roboto, sans-serif;
+  font-size: 13px;
+  color: #217CE8;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+#blocklist {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* =====================
+   CANVAS
+   ===================== */
+#canvas {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow: scroll;
+  z-index: 0;
   background-repeat: repeat;
   background-size: 30px 30px;
 }
 
-#navigation {
-  height: 71px;
-  background-color: #FFF;
-  border: 1px solid #E8E8EF;
-  width: 100%;
-  display: table;
-  box-sizing: border-box;
-  position: fixed;
+#canvas::after {
+  content: '';
+  display: block;
+  position: absolute;
   top: 0;
-  z-index: 9
+  left: 0;
+  width: 1px;
+  height: 3000px;
 }
 
-#back {
-  width: 40px;
-  height: 40px;
-  border-radius: 100px;
-  background-color: #F1F4FC;
-  text-align: center;
-  display: inline-block;
-  vertical-align: top;
-  margin-top: 12px;
-  margin-right: 10px
-}
-
-#back img {
-  margin-top: 13px;
-}
-
-#names {
-  display: inline-block;
-  vertical-align: top;
-}
-
-#title {
-  font-family: Roboto;
-  font-weight: 500;
-  font-size: 16px;
-  color: #393C44;
-  margin-bottom: 0px;
-}
-
-#subtitle {
-  font-family: Roboto;
-  color: #808292;
-  font-size: 14px;
-  margin-top: 5px;
-}
-
-#leftside {
-  display: inline-block;
-  vertical-align: middle;
-  margin-left: 20px;
-}
-
-#centerswitch {
-  position: absolute;
-  width: 222px;
-  left: 50%;
-  margin-left: -111px;
-  top: 15px;
-}
-
-#leftswitch {
-  border: 1px solid #E8E8EF;
-  background-color: #FBFBFB;
-  width: 111px;
-  height: 39px;
-  line-height: 39px;
-  border-radius: 5px 0px 0px 5px;
-  font-family: Roboto;
-  color: #393C44;
-  display: inline-block;
-  font-size: 14px;
-  text-align: center;
-}
-
-#rightswitch {
-  font-family: Roboto;
-  color: #808292;
-  border-radius: 0px 5px 5px 0px;
-  border: 1px solid #E8E8EF;
-  height: 39px;
-  width: 102px;
-  display: inline-block;
-  font-size: 14px;
-  line-height: 39px;
-  text-align: center;
-  margin-left: -5px;
-}
-
-#discard {
-  font-family: Roboto;
-  font-weight: 500;
-  font-size: 14px;
-  color: #A6A6B3;
-  width: 95px;
-  height: 38px;
-  border: 1px solid #E8E8EF;
-  border-radius: 5px;
-  text-align: center;
-  line-height: 38px;
-  display: inline-block;
-  vertical-align: top;
-  transition: all .2s cubic-bezier(.05, .03, .35, 1);
-}
-
-#discard:hover {
-  cursor: pointer;
-  opacity: .7;
-}
-
-#publish {
-  font-family: Roboto;
-  font-weight: 500;
-  font-size: 14px;
-  color: #FFF;
-  background-color: #217CE8;
-  border-radius: 5px;
-  width: 143px;
-  height: 38px;
-  margin-left: 10px;
-  display: inline-block;
-  vertical-align: top;
-  text-align: center;
-  line-height: 38px;
-  margin-right: 20px;
-  transition: all .2s cubic-bezier(.05, .03, .35, 1);
-}
-
-#publish:hover {
-  cursor: pointer;
-  opacity: .7;
-}
-
-#buttonsright {
-  float: right;
-  margin-top: 15px;
-}
-
-#get-more-assignment-questions {
-  width: 300px;
-  text-align: center;
-  margin-left: -100px;
-  margin-top: -10px;
-  margin-bottom: 5px;
-}
-
-#leftcard {
-  width: 300px;
-  background-color: #F8F8F8;
-  border: 1px solid #E8E8EF;
-  box-sizing: border-box;
-  padding-top: 15px;
-  padding-left: 20px;
-  height: 500px;
-  margin-left: -100px;
-  position: absolute;
-  z-index: 2;
-}
-
-::-webkit-input-placeholder { /* Edge */
-  color: #C9C9D5;
-}
-
-:-ms-input-placeholder { /* Internet Explorer 10-11 */
-  color: #C9C9D5
-}
-
-::placeholder {
-  color: #C9C9D5;
-}
-
-#header {
-  font-size: 20px;
-  font-family: Roboto;
-  font-weight: bold;
-  color: #393C44;
-}
-
-#subnav {
-  border-bottom: 1px solid #E8E8EF;
-  width: calc(100% + 20px);
-  margin-left: -20px;
-  margin-top: 10px;
-}
-
-.navdisabled {
-  transition: all .3s cubic-bezier(.05, .03, .35, 1);
-}
-
-.navdisabled:hover {
-  cursor: pointer;
-  opacity: .5;
-}
-
-.navactive {
-  color: #393C44 !important;
-}
-
+/* =====================
+   BLOCKS
+   ===================== */
 .blockelem:first-child {
-  margin-top: 20px
+  margin-top: 20px;
 }
 
 .blockelem {
@@ -1794,36 +1625,24 @@ body, html {
   cursor: pointer;
 }
 
-#blocklist {
-  height: calc(100% - 220px);
-  overflow-y: auto;
-}
-
-#proplist {
-  height: calc(100% - 305px);
-  overflow: auto;
-  margin-top: -30px;
-  padding-top: 30px;
-}
-
 .blocktext {
   display: inline-block;
   width: 220px;
   vertical-align: top;
-  margin-left: 12px
+  margin-left: 12px;
 }
 
 .blocktitle {
   margin: 0px !important;
   padding: 0px !important;
-  font-family: Roboto;
+  font-family: Roboto, sans-serif;
   font-weight: 500;
   font-size: 16px;
   color: #393C44;
 }
 
 .blockdesc, .blockyinfo, .blockin-info {
-  font-family: Roboto;
+  font-family: Roboto, sans-serif;
   color: #808292;
   font-size: 14px;
   line-height: 21px;
@@ -1837,7 +1656,7 @@ body, html {
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
-  -webkit-line-clamp: 3; /* number of lines to show */
+  -webkit-line-clamp: 3;
   line-clamp: 3;
   -webkit-box-orient: vertical;
 }
@@ -1845,209 +1664,6 @@ body, html {
 .blockdisabled {
   background-color: #F0F2F9;
   opacity: .5;
-}
-
-/*
-#canvas {
-  position: absolute;
-  width: calc(100% - 361px);
-  height: 900px;
-  top: 0px;
-  left: 341px;
-  z-index: 0;
-  overflow: auto;
-}*/
-
-.learningTreeAndEditorView {
-  position: absolute;
-  width: calc(100% - 361px);
-  height: 900px;
-  top: 0px;
-  left: 341px;
-  z-index: 0;
-  overflow: auto;
-}
-
-.learningTreeView {
-  position: absolute;
-  width: calc(100% - 361px);
-  height: 900px;
-  top: 0px;
-  left: 341px;
-  z-index: 500;
-}
-
-#properties {
-  position: absolute;
-  height: 100%;
-  width: 311px;
-  background-color: #FFF;
-  right: -150px;
-  opacity: 0;
-  z-index: 2;
-  top: 0;
-  box-shadow: -4px 0px 40px rgba(26, 26, 73, 0);
-  padding-left: 20px;
-  transition: all .25s cubic-bezier(.05, .03, .35, 1);
-}
-
-.itson {
-  z-index: 2 !important;
-}
-
-.expanded {
-  right: 0 !important;
-  opacity: 1 !important;
-  box-shadow: -4px 0px 40px rgba(26, 26, 73, 0.05);
-  z-index: 2;
-}
-
-#header2 {
-  font-size: 20px;
-  font-family: Roboto;
-  font-weight: bold;
-  color: #393C44;
-  margin-top: 101px;
-}
-
-#propswitch {
-  border-bottom: 1px solid #E8E8EF;
-  width: 331px;
-  margin-top: 10px;
-  margin-left: -20px;
-  margin-bottom: 30px;
-}
-
-#dataprop {
-  font-family: Roboto;
-  font-weight: 500;
-  font-size: 14px;
-  text-align: center;
-  color: #393C44;
-  width: calc(88% / 3);
-  height: 48px;
-  line-height: 48px;
-  display: inline-block;
-  float: left;
-  margin-left: 20px;
-}
-
-#dataprop:after {
-  display: block;
-  content: "";
-  width: 100%;
-  height: 4px;
-  background-color: #217CE8;
-  margin-top: -4px;
-}
-
-#alertprop {
-  display: inline-block;
-  font-family: Roboto;
-  font-weight: 500;
-  color: #808292;
-  font-size: 14px;
-  height: 48px;
-  line-height: 48px;
-  width: calc(88% / 3);
-  text-align: center;
-  float: left;
-}
-
-#logsprop {
-  width: calc(88% / 3);
-  display: inline-block;
-  font-family: Roboto;
-  font-weight: 500;
-  color: #808292;
-  font-size: 14px;
-  height: 48px;
-  line-height: 48px;
-  text-align: center;
-}
-
-.inputlabel {
-  font-family: Roboto;
-  font-size: 14px;
-  color: #253134;
-}
-
-.dropme {
-  background-color: #FFF;
-  border-radius: 5px;
-  border: 1px solid #E8E8EF;
-  box-shadow: 0px 2px 8px rgba(34, 34, 87, 0.05);
-  font-family: Roboto;
-  font-size: 14px;
-  color: #253134;
-  text-indent: 20px;
-  height: 40px;
-  line-height: 40px;
-  width: 287px;
-  margin-bottom: 25px;
-}
-
-.dropme img {
-  margin-top: 17px;
-  float: right;
-  margin-right: 15px;
-}
-
-.checkus {
-  margin-bottom: 10px;
-}
-
-.checkus img {
-  display: inline-block;
-  vertical-align: middle;
-}
-
-.checkus p {
-  display: inline-block;
-  font-family: Roboto;
-  font-size: 14px;
-  vertical-align: middle;
-  margin-left: 10px;
-}
-
-#divisionthing {
-  height: 1px;
-  width: 100%;
-  background-color: #E8E8EF;
-  position: absolute;
-  right: 0;
-  bottom: 80px;
-}
-
-#removeblock {
-  border-radius: 5px;
-  position: absolute;
-  bottom: 20px;
-  font-family: Roboto;
-  font-size: 14px;
-  text-align: center;
-  width: 287px;
-  height: 38px;
-  line-height: 38px;
-  color: #253134;
-  border: 1px solid #E8E8EF;
-  transition: all .3s cubic-bezier(.05, .03, .35, 1);
-}
-
-#removeblock:hover {
-  cursor: pointer;
-  opacity: .5;
-}
-
-.noselect {
-  -webkit-touch-callout: none; /* iOS Safari */
-  -webkit-user-select: none; /* Safari */
-  -khtml-user-select: none; /* Konqueror HTML */
-  -moz-user-select: none; /* Old versions of Firefox */
-  -ms-user-select: none; /* Internet Explorer/Edge */
-  user-select: none;
-  /* Non-prefixed version, currently
-                                  supported by Chrome, Opera and Firefox */
 }
 
 .blockyname {
@@ -2074,14 +1690,12 @@ body, html {
   cursor: pointer;
 }
 
-.blockyright img {
-  margin-top: 12px;
-}
-
 .block {
   background-color: #FFF;
   margin-top: 0px !important;
   box-shadow: 0px 4px 30px rgba(22, 33, 74, 0.05);
+  position: absolute;
+  z-index: 9;
 }
 
 .selectedblock {
@@ -2089,27 +1703,13 @@ body, html {
   box-shadow: 0px 4px 30px rgba(22, 33, 74, 0.08);
 }
 
-@media only screen and (max-width: 832px) {
-  #centerswitch {
-    display: none;
-  }
-}
-
-@media only screen and (max-width: 560px) {
-  #names {
-    display: none;
-  }
-}
-
 .dragging {
-  z-index: 111 !important
+  z-index: 111 !important;
 }
 
-.block {
-  position: absolute;
-  z-index: 9
-}
-
+/* =====================
+   INDICATOR
+   ===================== */
 .indicator {
   width: 12px;
   height: 12px;
@@ -2120,12 +1720,12 @@ body, html {
   transition: all .3s cubic-bezier(.05, .03, .35, 1);
   transform: scale(1);
   position: absolute;
-  z-index: 2
+  z-index: 2;
 }
 
 .invisible {
   opacity: 0 !important;
-  transform: scale(0)
+  transform: scale(0);
 }
 
 .indicator:after {
@@ -2136,14 +1736,17 @@ body, html {
   background-color: #217ce8;
   transform: scale(1.7);
   opacity: .2;
-  border-radius: 60px
+  border-radius: 60px;
 }
 
+/* =====================
+   ARROWS
+   ===================== */
 .arrowblock {
   position: absolute;
   width: 100%;
   overflow: visible;
-  pointer-events: none
+  pointer-events: none;
 }
 
 .arrowblock svg {
@@ -2151,6 +1754,9 @@ body, html {
   overflow: visible;
 }
 
+/* =====================
+   BORDER VARIANTS
+   ===================== */
 .empty-node-border {
   border: 2px solid darkgray;
 }
@@ -2171,6 +1777,9 @@ body, html {
   border: 2px solid #dc3545;
 }
 
+/* =====================
+   MODAL BORDERS
+   ===================== */
 .modal-border-blue .modal-content {
   border: 3px solid cornflowerblue;
 }
@@ -2192,5 +1801,57 @@ body, html {
   padding: 0;
   max-height: 85vh;
   overflow-y: auto;
+}
+
+/* =====================
+   MISC
+   ===================== */
+.blockyinfo span.remediation-info {
+  border-bottom: none;
+  color: #808292;
+}
+
+.noselect {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* =====================
+   FONTS
+   ===================== */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu4mxKKTU1Kg.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: local('Roboto Medium'), local('Roboto-Medium'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmEU9fBBc4AMP6lQ.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfBBc4AMP6lQ.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+.container.lt-editor-wide {
+  width: 90%;
+  max-width: 90%;
 }
 </style>

@@ -152,6 +152,9 @@ class LearningTreeController extends Controller
                 $learningTreeHistory->root_node_question_id = $learning_tree_to_clone->root_node_question_id;
                 $learningTreeHistory->save();
 
+                $learning_tree_to_clone->current_history_id = $learningTreeHistory->id;
+                $learning_tree_to_clone->save();
+
             }
             $plural = str_contains($request->learning_tree_ids, ',') ? "s have been" : ' was';
             $response['type'] = 'success';
@@ -197,6 +200,10 @@ class LearningTreeController extends Controller
             $learningTreeHistory->learning_tree = $new_learning_tree->learning_tree;
             $learningTreeHistory->learning_tree_id = $new_learning_tree->id;
             $learningTreeHistory->save();
+
+            $new_learning_tree->current_history_id = $learningTreeHistory->id;
+            $new_learning_tree->save();
+
             DB::commit();
             $response['message'] = "The Learning Tree has been created.";
             $response['type'] = 'success';
@@ -327,6 +334,7 @@ class LearningTreeController extends Controller
                 $response['question_types'] = $question_types;
                 $response['no_change'] = false;
                 $response['can_undo'] = $learningTreeHistory->where('learning_tree_id', $learningTree->id)->get()->count() > 1;
+                $response['can_redo'] = false;
                 DB::commit();
             } catch (Exception $e) {
                 DB::rollback();
@@ -339,12 +347,26 @@ class LearningTreeController extends Controller
 
     }
 
+    /**
+     * EK: writes a new row to the append-only learning_tree_histories
+     * log for this edit, then re-points learningTree.current_history_id
+     * at the row that was just created.
+     *
+     * Because a real edit always moves the pointer to the newest row,
+     * any older rows that a previous undo had left "ahead" of the
+     * pointer are simply left behind — never pointed at again — which is
+     * what makes redo naturally unavailable again after a new edit,
+     * without needing to delete or flag anything in the history table.
+     */
     public function saveLearningTreeToHistory(int $question_id, LearningTree $learningTree, LearningTreeHistory $learningTreeHistory)
     {
         $learningTreeHistory->root_node_question_id = $question_id;
         $learningTreeHistory->learning_tree_id = $learningTree->id;
         $learningTreeHistory->learning_tree = $learningTree->learning_tree;
         $learningTreeHistory->save();
+
+        $learningTree->current_history_id = $learningTreeHistory->id;
+        $learningTree->save();
     }
 
     /**
@@ -476,7 +498,29 @@ class LearningTreeController extends Controller
             $response['public'] = $learningTree->public;
             $response['author_id'] = $learningTree->user_id;
             $response['notes'] = $learningTree->user_id === request()->user()->id ? $learningTree->notes : '';
-            $response['can_undo'] = $learningTreeHistory->where('learning_tree_id', $learningTree->id)->get()->count() > 1;
+
+            $current_history_id = $learningTree->current_history_id;
+            if (!$current_history_id) {
+                // Tree predates the current_history_id column, or has no
+                // history rows at all yet: fall back to "most recent row
+                // is current," matching what the old count()>1 check
+                // assumed.
+                $latest = $learningTreeHistory->where('learning_tree_id', $learningTree->id)
+                    ->orderBy('id', 'desc')
+                    ->first();
+                $current_history_id = $latest ? $latest->id : null;
+            }
+            $response['can_undo'] = $current_history_id
+                ? $learningTreeHistory->where('learning_tree_id', $learningTree->id)
+                    ->where('id', '<', $current_history_id)
+                    ->exists()
+                : false;
+            $response['can_redo'] = $current_history_id
+                ? $learningTreeHistory->where('learning_tree_id', $learningTree->id)
+                    ->where('id', '>', $current_history_id)
+                    ->exists()
+                : false;
+
             $response['type'] = 'success';
         } catch (Exception $e) {
             $h = new Handler(app());

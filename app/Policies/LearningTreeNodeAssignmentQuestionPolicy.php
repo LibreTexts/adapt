@@ -103,8 +103,10 @@ class LearningTreeNodeAssignmentQuestionPolicy
         $message = '';
         $assignment = Assignment::find($assignment_id);
         $is_student_in_course = $assignment->course->enrollments->contains('user_id', $user->id);
+        $is_instructor_of_course = $assignment->course->user_id === $user->id;
         $question_in_assignment = in_array($learningTree->root_node_question_id, $assignment->questions->pluck('id')->toArray());
-        if (!$is_student_in_course) {
+
+        if (!$is_student_in_course && !$is_instructor_of_course) {
             $has_access = false;
             $message = "You are not a student in this course.";
         }

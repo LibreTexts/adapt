@@ -79,7 +79,7 @@ class LearningTreeNodeTest extends TestCase
     /** @test */
     public function only_valid_student_can_get_credit_for_completion()
     {
-        $this->actingAs($this->user)
+        $this->actingAs($this->user_2)
             ->postJson("/api/learning-tree-node-assignment-question/assignment/{$this->assignment->id}/learning-tree/{$this->learning_tree->id}/question/$this->node_question_id/give-credit-for-completion")
             ->assertJson(['message' => 'You are not a student in this course.']);
 

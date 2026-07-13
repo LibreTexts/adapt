@@ -388,7 +388,7 @@ class AssignmentPolicy
     public function getAssignmentSummary(User $user, Assignment $assignment): Response
     {
         $has_access = $this->canView($user, $assignment);
-        if ($user->role ===3 && !$assignment->shown){
+        if ($user->role ===3 && !$assignment->shown && !$user->fake_student){
             $has_access = false;
         }
         return $has_access

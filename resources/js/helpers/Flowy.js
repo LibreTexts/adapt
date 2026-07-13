@@ -58,10 +58,22 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
     var mouse_x, mouse_y
     var dragblock = false
     var prevblock = 0
+    // EK: safeguard against accidental rearranges caused by the tiny mouse
+    // movement that naturally happens during a plain click. We remember
+    // where the mousedown happened and only let moveBlock() commit to a
+    // real "pick up and detach the node" drag once the cursor has moved
+    // past this many pixels from that point.
+    var DRAG_THRESHOLD = 8
+    var dragstartx = 0
+    var dragstarty = 0
     var el = document.createElement('DIV')
     el.classList.add('indicator')
     el.classList.add('invisible')
     canvas_div.appendChild(el)
+
+    // EK: Expose blocks array so updateLocation() can sync coordinates after shifting
+    flowy.getBlocks = function () { return blocks }
+    flowy.rearrange = function () { rearrangeMe() }
     flowy.import = function (output) {
       canvas_div.innerHTML = output.html
       for (var a = 0; a < output.blockarr.length; a++) {
@@ -208,10 +220,12 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
           drag.parentNode.removeChild(drag)
         } else if (active) {
           var xpos = (drag.getBoundingClientRect().left + window.scrollX) + (parseInt(window.getComputedStyle(drag).width) / 2) + canvas_div.scrollLeft
-          var ypos = (drag.getBoundingClientRect().top + window.scrollY) + canvas_div.scrollTop
+          var ypos = (drag.getBoundingClientRect().top + window.scrollY) + (parseInt(window.getComputedStyle(drag).height) / 2) + canvas_div.scrollTop
           var blocko = blocks.map(a => a.id)
           for (var i = 0; i < blocks.length; i++) {
-            if (xpos >= blocks.filter(a => a.id == blocko[i])[0].x - (blocks.filter(a => a.id == blocko[i])[0].width / 2) - paddingx && xpos <= blocks.filter(a => a.id == blocko[i])[0].x + (blocks.filter(a => a.id == blocko[i])[0].width / 2) + paddingx && ypos >= blocks.filter(a => a.id == blocko[i])[0].y - (blocks.filter(a => a.id == blocko[i])[0].height / 2) && ypos <= blocks.filter(a => a.id == blocko[i])[0].y + blocks.filter(a => a.id == blocko[i])[0].height) {
+            if (xpos >= blocks.filter(a => a.id == blocko[i])[0].x - (blocks.filter(a => a.id == blocko[i])[0].width / 2) - paddingx && xpos <= blocks.filter(a => a.id == blocko[i])[0].x + (blocks.filter(a => a.id == blocko[i])[0].width / 2) + paddingx
+              && ypos >= blocks.filter(a => a.id == blocko[i])[0].y + (blocks.filter(a => a.id == blocko[i])[0].height) &&
+              ypos <= blocks.filter(a => a.id == blocko[i])[0].y + (blocks.filter(a => a.id == blocko[i])[0].height) + paddingy) {
               active = false
               if (blockSnap(drag, false, document.querySelector('.blockid[value=\'' + blocko[i] + '\']').parentNode)) {
                 snap(drag, i, blocko)
@@ -372,7 +386,7 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
     }
 
     function touchblock (event) {
-//EK don't let it drag if cntrl key or command key is down
+      // EK don't let it drag if cntrl key or command key is down
       if (window.doNotDrag) {
         return false
       }
@@ -404,6 +418,8 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
           if (event.which != 3) {
             if (!active && !rearrange) {
               dragblock = true
+              dragstartx = mouse_x
+              dragstarty = mouse_y
               drag = theblock
               dragx = mouse_x - (drag.getBoundingClientRect().left + window.scrollX)
               dragy = mouse_y - (drag.getBoundingClientRect().top + window.scrollY)
@@ -429,6 +445,13 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
         mouse_y = event.clientY
       }
       if (dragblock) {
+        // EK: ignore sub-threshold movement so a plain click (which always
+        // produces a pixel or two of mousemove between down and up) doesn't
+        // get treated as a real drag and detach the node from the tree.
+        var moveDist = Math.abs(mouse_x - dragstartx) + Math.abs(mouse_y - dragstarty)
+        if (moveDist < DRAG_THRESHOLD) {
+          return
+        }
         rearrange = true
         drag.classList.add('dragging')
         var blockid = parseInt(drag.querySelector('.blockid').value)
@@ -488,8 +511,10 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
         drag.style.left = mouse_x - dragx + 'px'
         drag.style.top = mouse_y - dragy + 'px'
       } else if (rearrange) {
-        drag.style.left = mouse_x - dragx - (canvas_div.getBoundingClientRect().left + window.scrollX) + canvas_div.scrollLeft + 'px'
-        drag.style.top = mouse_y - dragy - (canvas_div.getBoundingClientRect().top + window.scrollY) + canvas_div.scrollTop + 'px'
+        const newLeft = mouse_x - dragx - (canvas_div.getBoundingClientRect().left + window.scrollX) + canvas_div.scrollLeft
+        const newTop = mouse_y - dragy - (canvas_div.getBoundingClientRect().top + window.scrollY) + canvas_div.scrollTop
+        drag.style.left = newLeft + 'px'
+        drag.style.top = Math.max(0, newTop) + 'px'
         blockstemp.filter(a => a.id == parseInt(drag.querySelector('.blockid').value)).x = (drag.getBoundingClientRect().left + window.scrollX) + (parseInt(window.getComputedStyle(drag).width) / 2) + canvas_div.scrollLeft
         blockstemp.filter(a => a.id == parseInt(drag.querySelector('.blockid').value)).y = (drag.getBoundingClientRect().left + window.scrollX) + (parseInt(window.getComputedStyle(drag).height) / 2) + canvas_div.scrollTop
       }
@@ -504,10 +529,13 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
           canvas_div.scrollLeft -= 10
         }
         var xpos = (drag.getBoundingClientRect().left + window.scrollX) + (parseInt(window.getComputedStyle(drag).width) / 2) + canvas_div.scrollLeft
-        var ypos = (drag.getBoundingClientRect().top + window.scrollY) + canvas_div.scrollTop
+        var ypos = (drag.getBoundingClientRect().top + window.scrollY) + (parseInt(window.getComputedStyle(drag).height) / 2) + canvas_div.scrollTop
         var blocko = blocks.map(a => a.id)
         for (var i = 0; i < blocks.length; i++) {
-          if (xpos >= blocks.filter(a => a.id == blocko[i])[0].x - (blocks.filter(a => a.id == blocko[i])[0].width / 2) - paddingx && xpos <= blocks.filter(a => a.id == blocko[i])[0].x + (blocks.filter(a => a.id == blocko[i])[0].width / 2) + paddingx && ypos >= blocks.filter(a => a.id == blocko[i])[0].y + (blocks.filter(a => a.id == blocko[i])[0].height / 2) && ypos <= blocks.filter(a => a.id == blocko[i])[0].y + blocks.filter(a => a.id == blocko[i])[0].height) {
+          if (xpos >= blocks.filter(a => a.id == blocko[i])[0].x - (blocks.filter(a => a.id == blocko[i])[0].width / 2) - paddingx &&
+            xpos <= blocks.filter(a => a.id == blocko[i])[0].x + (blocks.filter(a => a.id == blocko[i])[0].width / 2) + paddingx &&
+            ypos >= blocks.filter(a => a.id == blocko[i])[0].y + (blocks.filter(a => a.id == blocko[i])[0].height) &&
+            ypos <= blocks.filter(a => a.id == blocko[i])[0].y + (blocks.filter(a => a.id == blocko[i])[0].height) + paddingy) {
             document.querySelector('.blockid[value=\'' + blocko[i] + '\']').parentNode.appendChild(document.querySelector('.indicator'))
             document.querySelector('.indicator').style.left = (document.querySelector('.blockid[value=\'' + blocko[i] + '\']').parentNode.offsetWidth / 2) - 5 + 'px'
             document.querySelector('.indicator').style.top = document.querySelector('.blockid[value=\'' + blocko[i] + '\']').parentNode.offsetHeight + 'px'
@@ -577,7 +605,6 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
     }
 
     function rearrangeMe () {
-
       var result = blocks.map(a => a.parent)
       for (var z = 0; z < result.length; z++) {
         if (result[z] == -1) {
@@ -636,6 +663,19 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
           }
         }
       }
+    }
+
+    flowy.destroy = function () {
+      document.removeEventListener('mousedown', touchblock, false)
+      document.removeEventListener('touchstart', touchblock, false)
+      document.removeEventListener('mouseup', touchblock, false)
+      document.removeEventListener('mousedown', flowy.beginDrag)
+      document.removeEventListener('touchstart', flowy.beginDrag)
+      document.removeEventListener('mouseup', flowy.endDrag, false)
+      document.removeEventListener('touchend', flowy.endDrag, false)
+      document.removeEventListener('mousemove', flowy.moveBlock, false)
+      document.removeEventListener('touchmove', flowy.moveBlock, false)
+      loaded = false
     }
   }
   flowy.load()
