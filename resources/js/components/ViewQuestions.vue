@@ -16,6 +16,7 @@
     </div>
     <div>
       <SolutionFileHtml
+        v-if="showSolutionFileHtml"
         :key="`solution-file-html-${question.id}`"
         :questions="[question]"
         :current-page="1"
@@ -65,6 +66,10 @@ export default {
   name: 'ViewQuestions',
   components: { SolutionFileHtml, QtiJsonQuestionViewer },
   props: {
+    showSolutionFileHTML: {
+      type: Boolean,
+      default: true
+    },
     showSolutions: {
       type: Boolean,
       default: false

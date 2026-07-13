@@ -367,6 +367,7 @@
       </div>
       <ViewQuestions :key="`view-selected-questions-clicked-${numViewSelectedQuestionsClicked}-${questionSourceKey}`"
                      :question-ids-to-view="selectedQuestionIds"
+                     :showSolutionFileHTML="false"
                      @questionToViewSet="setQuestionToView"
       />
     </b-modal>
@@ -1231,7 +1232,9 @@
                       Update Results
                     </b-button>
                     <span class="font-weight-bold ml-5">
-  {{ Number(allQuestionsTotalRows).toLocaleString() }} {{ Number(allQuestionsTotalRows) === 1 ? 'question' : 'questions' }}
+  {{ Number(allQuestionsTotalRows).toLocaleString() }} {{
+                        Number(allQuestionsTotalRows) === 1 ? 'question' : 'questions'
+                      }}
 </span>
                   </div>
                 </b-form>
@@ -1302,7 +1305,9 @@
                       </a>
                     </template>
                     <template v-slot:cell(technology)="data">
-                      {{ allQuestionsTechnologyOptions.find(item => item.value === data.item.technology) ? allQuestionsTechnologyOptions.find(item => item.value === data.item.technology).text : 'None' }}
+                      {{
+                        allQuestionsTechnologyOptions.find(item => item.value === data.item.technology) ? allQuestionsTechnologyOptions.find(item => item.value === data.item.technology).text : 'None'
+                      }}
                     </template>
                     <template v-slot:cell(tag)="data">
                       <span v-html="data.item.tag"/>
