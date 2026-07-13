@@ -619,10 +619,8 @@ export default {
 
     let doneTouch = function (event) {
       document.querySelectorAll('.block.dragging').forEach(el => el.classList.remove('dragging'))
-
-
-
       if (vm.touchingBlock && !aclick) {
+       vm.updateLocation()
         isSaving = true
         document.getElementById('canvas').style.cursor = 'wait'
         vm.saveLearningTree().finally(() => {
@@ -632,6 +630,7 @@ export default {
       }
 
       if (event.type === 'mouseup' && aclick && !noinfo && !isSaving) {
+        alert('b')
         if (event.target.closest('.block') && !event.target.closest('.block').classList.contains('dragging')) {
           vm.openNodeModal(event.target.closest('.block'))
           tempblock = event.target.closest('.block')
