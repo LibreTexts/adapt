@@ -344,32 +344,6 @@
         </div>
       </div>
     </b-modal>
-
-    <b-modal
-      id="modal-delete-learning-tree"
-      ref="modal"
-      title="Confirm Delete Learning Tree"
-    >
-      <p>Please note that once a Learning Tree is deleted, it can not be retrieved.</p>
-      <template #modal-footer>
-        <b-button
-          size="sm"
-          class="float-right"
-          @click="$bvModal.hide('modal-delete-learning-tree')"
-        >
-          Cancel
-        </b-button>
-        <b-button
-          variant="danger"
-          size="sm"
-          class="float-right"
-          @click="handleDeleteLearningTree"
-        >
-          Yes, delete learning tree!
-        </b-button>
-      </template>
-    </b-modal>
-
     <!-- TOP TOOLBAR -->
     <div v-if="isAuthor" id="toolbar">
       <b-icon id="properties-tooltip"
@@ -382,17 +356,6 @@
       />
       <b-tooltip target="properties-tooltip" delay="250" triggers="hover">
         Edit properties
-      </b-tooltip>
-
-      <b-icon-trash id="delete-tree-tooltip"
-                    :class="{ 'disabled': learningTreeId === 0}"
-                    :aria-disabled="learningTreeId === 0"
-                    scale="1.1"
-                    class="toolbar-icon"
-                    @click="learningTreeId === 0 ? '' : deleteLearningTree()"
-      />
-      <b-tooltip target="delete-tree-tooltip" delay="250" triggers="hover">
-        Delete the current learning tree
       </b-tooltip>
 
       <font-awesome-icon id="undo-action-tooltip"
@@ -1141,24 +1104,6 @@ export default {
       this.learningTreeId = 0
       document.getElementById('canvas').innerHTML = ''
       this.learningTreeForm.question_id = ''
-    },
-    initCreateNew () {
-      location.replace('/instructors/learning-trees/editor/0')
-    },
-    deleteLearningTree () {
-      this.$bvModal.show('modal-delete-learning-tree')
-    },
-    async handleDeleteLearningTree () {
-      try {
-        const { data } = await axios.delete(`/api/learning-trees/${this.learningTreeId}`)
-        this.$noty[data.type](data.message)
-        if (data.type === 'info') {
-          this.resetAll()
-        }
-        this.$bvModal.hide('modal-delete-learning-tree')
-      } catch (error) {
-        this.$noty.error(error.message)
-      }
     },
     editLearningTree () {
       this.learningTreeForm.title = this.title

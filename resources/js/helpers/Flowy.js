@@ -215,7 +215,7 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
           var ypos = (drag.getBoundingClientRect().top + window.scrollY) + canvas_div.scrollTop
           var blocko = blocks.map(a => a.id)
           for (var i = 0; i < blocks.length; i++) {
-            if (xpos >= blocks.filter(a => a.id == blocko[i])[0].x - (blocks.filter(a => a.id == blocko[i])[0].width / 2) - paddingx && xpos <= blocks.filter(a => a.id == blocko[i])[0].x + (blocks.filter(a => a.id == blocko[i])[0].width / 2) + paddingx && ypos >= blocks.filter(a => a.id == blocko[i])[0].y - (blocks.filter(a => a.id == blocko[i])[0].height / 2) && ypos <= blocks.filter(a => a.id == blocko[i])[0].y + blocks.filter(a => a.id == blocko[i])[0].height) {
+            if (xpos >= blocks.filter(a => a.id == blocko[i])[0].x - (blocks.filter(a => a.id == blocko[i])[0].width / 2) - paddingx && xpos <= blocks.filter(a => a.id == blocko[i])[0].x + (blocks.filter(a => a.id == blocko[i])[0].width / 2) + paddingx && ypos >= blocks.filter(a => a.id == blocko[i])[0].y - (blocks.filter(a => a.id == blocko[i])[0].height / 2) && ypos <= blocks.filter(a => a.id == blocko[i])[0].y + (blocks.filter(a => a.id == blocko[i])[0].height / 2) + paddingx) {
               active = false
               if (blockSnap(drag, false, document.querySelector('.blockid[value=\'' + blocko[i] + '\']').parentNode)) {
                 snap(drag, i, blocko)
@@ -376,7 +376,7 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
     }
 
     function touchblock (event) {
-//EK don't let it drag if cntrl key or command key is down
+      // EK don't let it drag if cntrl key or command key is down
       if (window.doNotDrag) {
         return false
       }
@@ -513,7 +513,10 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
         var ypos = (drag.getBoundingClientRect().top + window.scrollY) + canvas_div.scrollTop
         var blocko = blocks.map(a => a.id)
         for (var i = 0; i < blocks.length; i++) {
-          if (xpos >= blocks.filter(a => a.id == blocko[i])[0].x - (blocks.filter(a => a.id == blocko[i])[0].width / 2) - paddingx && xpos <= blocks.filter(a => a.id == blocko[i])[0].x + (blocks.filter(a => a.id == blocko[i])[0].width / 2) + paddingx && ypos >= blocks.filter(a => a.id == blocko[i])[0].y + (blocks.filter(a => a.id == blocko[i])[0].height / 2) && ypos <= blocks.filter(a => a.id == blocko[i])[0].y + blocks.filter(a => a.id == blocko[i])[0].height) {
+          if (xpos >= blocks.filter(a => a.id == blocko[i])[0].x - (blocks.filter(a => a.id == blocko[i])[0].width / 2) - paddingx &&
+            xpos <= blocks.filter(a => a.id == blocko[i])[0].x + (blocks.filter(a => a.id == blocko[i])[0].width / 2) + paddingx &&
+            ypos >= blocks.filter(a => a.id == blocko[i])[0].y - (blocks.filter(a => a.id == blocko[i])[0].height / 2) &&
+            ypos <= blocks.filter(a => a.id == blocko[i])[0].y + (blocks.filter(a => a.id == blocko[i])[0].height / 2) + paddingx) {
             document.querySelector('.blockid[value=\'' + blocko[i] + '\']').parentNode.appendChild(document.querySelector('.indicator'))
             document.querySelector('.indicator').style.left = (document.querySelector('.blockid[value=\'' + blocko[i] + '\']').parentNode.offsetWidth / 2) - 5 + 'px'
             document.querySelector('.indicator').style.top = document.querySelector('.blockid[value=\'' + blocko[i] + '\']').parentNode.offsetHeight + 'px'
@@ -583,7 +586,6 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
     }
 
     function rearrangeMe () {
-
       var result = blocks.map(a => a.parent)
       for (var z = 0; z < result.length; z++) {
         if (result[z] == -1) {
