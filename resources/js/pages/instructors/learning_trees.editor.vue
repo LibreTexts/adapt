@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="learning-tree-editor">
     <AllFormErrors :all-form-errors="allFormErrors" :modal-id="'modal-form-errors-learning-tree'"/>
     <LearningTreeProperties :learning-tree-form="learningTreeForm"
                             :learning-tree-id="learningTreeId"
@@ -27,7 +27,6 @@
             >
               <font-awesome-icon :icon="copyIcon" class="text-muted pl-1"/>
             </a>
-
           </div>
         </div>
         <button type="button" aria-label="Close" class="close"
@@ -85,32 +84,22 @@
       size="lg"
     >
       <p>
-        You can add nodes
-        using the
+        You can add nodes using the
         <b-button size="sm" aria-label="New Node" variant="outline-secondary" class="inline-button">
           New Node
         </b-button>
-        button
-        to create an empty node which can then be populated with a newly created question.
+        button to create an empty node which can then be populated with a newly created question.
       </p>
       <p>
         To create a node based on an existing question, you can specify its contents by using the single number ADAPT
-        ID
-        found in
-        "My Questions".
-        Alternatively, if you already
-        have a question in
-        one of your assignments, you can visit that assignment and go to the Questions tab under Assignment
-        Information
-        to find the
-        ADAPT ID; this ID will be of the form {number}-{number}.
+        ID found in "My Questions". Alternatively, if you already have a question in one of your assignments, you can
+        visit that assignment and go to the Questions tab under Assignment Information to find the ADAPT ID; this ID
+        will be of the form {number}-{number}.
       </p>
       <p>
-        Next, drag the new node from the side panel to the main editing area. Each of the non-root assessment
-        nodes should then be given a Branch
-        Description to
-        help students decide which nodes to visit as they navigate the tree. Using command+click on any of the nodes
-        will open that node's editor.
+        Next, drag the new node from the staging area to the canvas below. Each of the non-root assessment nodes
+        should then be given a Branch Description to help students decide which nodes to visit as they navigate the
+        tree. Using command+click on any of the nodes will open that node's editor.
       </p>
       <p>
         To remove a node, just drag it to the left of the screen. And, if you make a mistake, you can always use the
@@ -123,8 +112,7 @@
         ).
       </p>
       <p>
-        Finally, nodes are color-coded to help differentiate between the different types based on their
-        contents:
+        Finally, nodes are color-coded to help differentiate between the different types based on their contents:
       </p>
       <b-container class="pb-4">
         <b-row>
@@ -203,6 +191,7 @@
       ref="modal"
       size="xl"
       no-close-on-backdrop
+      no-close-on-esc
       hide-footer
       :modal-class="nodeModalBorderClass"
     >
@@ -218,7 +207,6 @@
           >
             <font-awesome-icon :icon="copyIcon" class="text-muted"/>
           </a>
-
         </div>
         <div>
           <b-button size="sm" variant="outline-secondary" @click="close()">
@@ -264,8 +252,8 @@
               />
               <has-error :form="nodeForm" field="question_id"/>
               <span class="pl-2"><b-button size="sm" variant="info" @click="editSource">
-        <b-icon icon="pencil"/> {{ questionToView.can_edit ? 'Edit' : 'View' }} Source
-      </b-button></span>
+                <b-icon icon="pencil"/> {{ questionToView.can_edit ? 'Edit' : 'View' }} Source
+              </b-button></span>
             </div>
           </b-form-group>
           <div v-if="!isAuthor">
@@ -339,7 +327,6 @@
             />
           </b-form-group>
         </div>
-        </b-form>
         <div class="float-right">
           <b-button size="sm" variant="outline-secondary" @click="$bvModal.hide('modal-update-node')">
             Exit Node
@@ -382,89 +369,80 @@
         </b-button>
       </template>
     </b-modal>
-    <div v-if="isAuthor" style="margin-left:-100px;">
-      <span v-if="!isLearningTreeView" class="pr-4">
-        <b-button size="sm"
-                  variant="outline-info"
-                  @click="$bvModal.show('modal-learning-tree-instructions')"
-        >
-          Instructions
-        </b-button>
-      </span>
-      <toggle-button
-        v-if="(user !== null)"
-        tabindex="0"
-        class="mt-2"
-        :width="170"
-        :value="isLearningTreeView"
-        :sync="true"
-        :font-size="14"
-        :margin="4"
-        :color="{checked: '#28a745', unchecked: '#6c757d'}"
-        :labels="{checked: 'Learning Tree Only', unchecked: 'Editor/Learning Tree'}"
-        @change="toggleLearningTreeView()"
+
+    <!-- TOP TOOLBAR -->
+    <div v-if="isAuthor" id="toolbar">
+      <b-icon id="properties-tooltip"
+              icon="gear"
+              :class="{ 'disabled': learningTreeId === 0}"
+              :aria-disabled="learningTreeId === 0"
+              scale="1.1"
+              class="toolbar-icon"
+              @click="learningTreeId === 0 ? '' : editLearningTree()"
       />
+      <b-tooltip target="properties-tooltip" delay="250" triggers="hover">
+        Edit properties
+      </b-tooltip>
+
+      <b-icon-trash id="delete-tree-tooltip"
+                    :class="{ 'disabled': learningTreeId === 0}"
+                    :aria-disabled="learningTreeId === 0"
+                    scale="1.1"
+                    class="toolbar-icon"
+                    @click="learningTreeId === 0 ? '' : deleteLearningTree()"
+      />
+      <b-tooltip target="delete-tree-tooltip" delay="250" triggers="hover">
+        Delete the current learning tree
+      </b-tooltip>
+
+      <font-awesome-icon id="undo-action-tooltip"
+                         :class="{ 'disabled': !canUndo}"
+                         aria-label="Undo"
+                         class="toolbar-icon"
+                         scale="1.1"
+                         :icon="undoIcon"
+                         @click="!canUndo ? '' : undo()"
+      />
+      <b-tooltip target="undo-action-tooltip" delay="250" triggers="hover">
+        Undo the last action
+      </b-tooltip>
+
+      <b-button :class="{ 'disabled': learningTreeId === 0 || nodeIsPending }"
+                :aria-disabled="learningTreeId === 0 || nodeIsPending"
+                :disabled="learningTreeId === 0 || nodeIsPending"
+                variant="outline-secondary"
+                size="sm"
+                class="toolbar-btn"
+                @click="addRemediation"
+      >
+        <b-spinner v-if="validatingQuestionId" small label="Spinning"/>
+        New Node
+      </b-button>
+
+      <b-button size="sm"
+                variant="outline-info"
+                class="toolbar-btn"
+                @click="$bvModal.show('modal-learning-tree-instructions')"
+      >
+        Instructions
+      </b-button>
+      <b-button size="sm"
+                variant="outline-secondary"
+                class="toolbar-btn"
+                @click="updateLocation()"
+      >
+        Recenter
+      </b-button>
     </div>
-    <div v-show="user.role === 2 && !isLearningTreeView && isAuthor" id="leftcard">
-      <div id="actions">
-        <b-icon id="properties-tooltip"
-                icon="gear"
-                :class="{ 'disabled': learningTreeId === 0}"
-                :aria-disabled="learningTreeId === 0"
-                scale="1.1"
-                class="mr-2"
-                @click="learningTreeId === 0 ? '' : editLearningTree()"
-        />
-        <b-tooltip target="properties-tooltip"
-                   delay="250"
-                   triggers="hover"
-        >
-          Edit properties
-        </b-tooltip>
-        <b-icon-trash id="delete-tree-tooltip"
-                      :class="{ 'disabled': learningTreeId === 0}"
-                      :aria-disabled="learningTreeId === 0"
-                      scale="1.1"
-                      class="mr-2"
-                      @click="learningTreeId === 0 ? '' : deleteLearningTree()"
-        />
 
-        <b-tooltip target="delete-tree-tooltip"
-                   delay="250"
-                   triggers="hover"
-        >
-          Delete the current learning tree
-        </b-tooltip>
-
-        <font-awesome-icon id="undo-action-tooltip"
-                           :class="{ 'disabled': !canUndo}"
-                           aria-label="Undo"
-                           class="mr-2"
-                           scale="1.1"
-                           :icon="undoIcon"
-                           @click="!canUndo ? '' : undo()"
-        />
-        <b-tooltip target="undo-action-tooltip"
-                   delay="250"
-                   triggers="hover"
-        >
-          Undo the last action
-        </b-tooltip>
-        <b-button :class="{ 'disabled': learningTreeId === 0}"
-                  class="ml-2 mr-2"
-                  :aria-disabled="learningTreeId === 0"
-                  :disabled="learningTreeId === 0"
-                  variant="outline-secondary"
-                  size="sm"
-                  @click="addRemediation"
-        >
-          <b-spinner v-if="validatingQuestionId" small label="Spinning"/>
-          New Node
-        </b-button>
-      </div>
+    <!-- STAGING AREA: shown when a new node is pending placement -->
+    <div v-if="isAuthor && nodeIsPending" id="staging-area">
+      <span class="staging-hint">↓ Drag this node onto the canvas below</span>
       <div id="blocklist"/>
     </div>
-    <div id="canvas" :class="isLearningTreeView ? 'learningTreeView' : 'learningTreeAndEditorView'"/>
+
+    <!-- CANVAS -->
+    <div id="canvas"/>
   </div>
 </template>
 
@@ -480,7 +458,6 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { faUndo } from '@fortawesome/free-solid-svg-icons'
 import { faCopy } from '@fortawesome/free-regular-svg-icons'
 import AllFormErrors from '~/components/AllFormErrors'
-import { ToggleButton } from 'vue-js-toggle-button'
 import ViewQuestionWithoutModal from '~/components/ViewQuestionWithoutModal'
 import { h5pResizer } from '~/helpers/H5PResizer'
 import 'vue-select/dist/vue-select.css'
@@ -492,15 +469,14 @@ import { doCopy } from '../../helpers/Copy'
 window.onmousemove = function (e) {
   window.doNotDrag = e.ctrlKey || e.metaKey
 }
-export default {
 
+export default {
   metaInfo () {
     return { title: 'Learning Trees Editor' }
   },
   components: {
     LearningTreeProperties,
     FontAwesomeIcon,
-    ToggleButton,
     AllFormErrors,
     ViewQuestionWithoutModal
   },
@@ -537,11 +513,11 @@ export default {
     showNodeModalContents: false,
     questionToView: {},
     allFormErrors: [],
-    isLearningTreeView: false,
     nodeSrc: '',
     nodeIframeId: '',
     canUndo: false,
     undoIcon: faUndo,
+    nodeIsPending: false,
     nodeForm: new Form({
       question_id: '',
       title: '',
@@ -579,7 +555,7 @@ export default {
         default:
           return 'darkgray'
       }
-    },
+    }
   },
   created () {
     h5pResizer()
@@ -598,13 +574,12 @@ export default {
     if (this.user.role === 3) {
       this.assignmentId = this.$route.params.assignmentId
       this.rootNodeQuestionId = this.$route.params.rootNodeQuestionId
-      console.log(this.xCenter)
     }
     this.xCenter = this.$route.params.xCenter
 
     let tempblock
     let tempblock2
-    console.log(document.getElementById('canvas'))
+    let vm = this
 
     flowy(document.getElementById('canvas'), drag, release, snapping, rearranging, 20, 30)
 
@@ -624,22 +599,19 @@ export default {
       grab.parentNode.removeChild(grab)
 
       let blockin = drag.querySelector('.blockin')
-
       blockin.parentNode.removeChild(blockin)
+
       let isAssessmentNode = (drag.querySelector('.blockelemtype').value === '1')
-
-      // let title = isAssessmentNode ? 'Assessment' : 'Remediation'
-
-      //  let questionId = isAssessmentNode ? '' : blockin.querySelector('.question-id').innerHTML
       let title = blockin.querySelector('.title').innerHTML
       let blockynameContents = blockin.querySelector('.blockyname').innerHTML
       let body = isAssessmentNode ? 'The original question'
-        : `${blockynameContents}
-<span class="extra"></span></div>`
+        : `${blockynameContents}<span class="extra"></span></div>`
+
       drag.innerHTML += `
-<span class="blockyname" style="margin-bottom:0;">${body}</span>
-<div class="blockyinfo">${title}
-</div>`
+        <span class="blockyname" style="margin-bottom:0;">${body}</span>
+        <div class="blockyinfo">${title}</div>`
+
+      vm.nodeIsPending = false
       return true
     }
 
@@ -650,39 +622,59 @@ export default {
 
     function release () {
       if (tempblock2) {
-        // if it's reloading a saved learning tree, this won't exist
         tempblock2.classList.remove('blockdisabled')
       }
+      vm.nodeIsPending = false
     }
 
     let aclick = false
     let noinfo = false
+    let isSaving = false
+    let mouseDownX = 0
+    let mouseDownY = 0
 
-    let vm = this
     let beginTouch = function (event) {
       aclick = true
       noinfo = false
+      mouseDownX = event.clientX
+      mouseDownY = event.clientY
+      console.error('beginTouch scrollLeft:', document.getElementById('canvas').scrollLeft)
       vm.touchingBlock = event.target.closest('#canvas') || event.target.closest('#blocklist')
       if (event.target.closest('.create-flowy')) {
         noinfo = true
       }
     }
+
     let checkTouch = function (event) {
-      if (Math.abs(event.movementX) > 3 || Math.abs(event.movementY) > 3) {
+      const totalMovement = Math.abs(event.clientX - mouseDownX) + Math.abs(event.clientY - mouseDownY)
+      if (totalMovement > 8) {
         aclick = false
       }
     }
+
     let doneTouch = function (event) {
-      // console.log(event.target.className)
-      // console.log(event.type)
-      if (vm.touchingBlock) {
-        vm.saveLearningTree()
+      document.querySelectorAll('.block.dragging').forEach(el => el.classList.remove('dragging'))
+
+      console.error('doneTouch:', {
+        aclick,
+        isSaving,
+        totalMovement: Math.abs(event.clientX - mouseDownX) + Math.abs(event.clientY - mouseDownY),
+        target: event.target.className,
+        scrollLeft: document.getElementById('canvas').scrollLeft
+      })
+
+      if (vm.touchingBlock && !aclick) {
+        isSaving = true
+        document.getElementById('canvas').style.cursor = 'wait'
+        vm.saveLearningTree().finally(() => {
+          isSaving = false
+          document.getElementById('canvas').style.cursor = 'default'
+        })
       }
-      if (event.type === 'mouseup' && aclick && !noinfo) {
+
+      if (event.type === 'mouseup' && aclick && !noinfo && !isSaving) {
         if (event.target.closest('.block') && !event.target.closest('.block').classList.contains('dragging')) {
-          // alert(event.target.closest('.block') && !event.target.closest('.block').classList.contains('dragging'))
           vm.openNodeModal(event.target.closest('.block'))
-          console.log(event.target.closest('.block').classList.contains('dragging'))
           tempblock = event.target.closest('.block')
           if (document.getElementById('properties')) {
             document.getElementById('properties').classList.add('expanded')
@@ -691,22 +683,26 @@ export default {
         }
       }
     }
+
     let openNodeModal = function (event) {
       vm.openNodeModal(event.target.closest('.block'))
-      console.log('double click')
     }
+
     addEventListener('dblclick', openNodeModal, false)
     addEventListener('mousedown', beginTouch, false)
     addEventListener('mousemove', checkTouch, false)
     addEventListener('mouseup', doneTouch, false)
     addEventListenerMulti('touchstart', beginTouch, false, '.block')
+
     this.learningTreeId = parseInt(this.$route.params.learningTreeId)
     this.fromAllLearningTrees = this.$route.params.fromAllLearningTrees
+
     if (this.learningTreeId === 0) {
       this.isAuthor = true
       this.$bvModal.show('modal-learning-tree-properties')
     } else {
       await this.getLearningTreeLearningTreeId(this.learningTreeId)
+      await this.$nextTick()
       this.updateLocation()
       if (this.user.role === 3) {
         await this.updateCompletionBorders()
@@ -714,7 +710,6 @@ export default {
         let questionIds = this.getQuestionIdsFromNodes()
         let questionTypes = await this.getQuestionTypes(questionIds)
         this.updateBorders(questionTypes)
-        console.log(questionTypes)
       }
     }
   },
@@ -752,10 +747,6 @@ export default {
         return
       }
       const blockElem = this.nodeToUpdate.querySelector('.blockelem') || this.nodeToUpdate
-      console.error('question_type:', this.questionToView.question_type)
-      console.error('nodeToUpdate classes:', this.nodeToUpdate.className)
-      console.error('blockElem classes:', blockElem.className)
-      console.error('isRootNode:', this.isRootNode)
       if (this.isRootNode) {
         this.nodeModalTitle = 'Root Assessment Node'
         this.nodeModalBorderClass = 'modal-border-blue'
@@ -770,38 +761,75 @@ export default {
         this.nodeModalBorderClass = 'modal-border-gray'
       }
     },
-    updateLocation () {
-      if (!+this.xCenter) {
-        return
-      }
-      const blockElem = $('.blockelem')
-      const leftCardWidth = +$('#leftcard').css('width').replace('px', '')
-      const firstBlockElem = +blockElem.first().css('left').replace('px', '')
-      const yOffset = +blockElem.first().css('top').replace('px', '')
-      const halfWidthOfNode = blockElem.first().width() / 2
-      const xCenter = +this.xCenter.replace('px', '')
-      const firstBlockElemOffset = firstBlockElem + leftCardWidth + (leftCardWidth - xCenter) - halfWidthOfNode
+    async updateLocation () {
+      console.error('canvas getBoundingClientRect:', document.getElementById('canvas').getBoundingClientRect())
+      console.error('window.scrollY:', window.scrollY)
+      const canvas = document.getElementById('canvas')
+      const blockElems = $('.blockelem')
+      if (!blockElems.length) return
+
+      let minTop = Infinity
       $('.blockelem, .arrowblock').each(function () {
-        const currentX = $(this).css('left').replace('px', '')
-        const currentY = $(this).css('top').replace('px', '')
-        const newX = currentX - firstBlockElemOffset
-        const newY = currentY - yOffset + 20 // give it extra margin
-        $(this).css('left', `${newX}px`)
-        $(this).css('top', `${newY}px`)
+        const top = parseFloat($(this).css('top')) || 0
+        if (top < minTop) minTop = top
       })
+
+      const rootBlockId = canvas.querySelector('.blockid[value="0"]')
+      const rootBlock = rootBlockId ? rootBlockId.parentNode : blockElems.first()[0]
+      const rootLeft = parseFloat($(rootBlock).css('left')) || 0
+      const rootWidth = rootBlock.offsetWidth || 242
+      const canvasWidth = canvas.offsetWidth
+      const rootCenter = rootLeft + (rootWidth / 2)
+      const xShift = (canvasWidth / 2) - rootCenter
+      const yShift = 20 - minTop
+
+      // Shift all DOM elements
+      $('.blockelem, .arrowblock').each(function () {
+        const currentLeft = parseFloat($(this).css('left')) || 0
+        const currentTop = parseFloat($(this).css('top')) || 0
+        $(this).css('left', `${currentLeft + xShift}px`)
+        $(this).css('top', `${currentTop + yShift}px`)
+      })
+
+      // Resync blocks array from actual DOM positions after shifting
+      const blocks = flowy.getBlocks()
+      if (blocks && blocks.length) {
+        const canvasRect = canvas.getBoundingClientRect()
+        blocks.forEach(block => {
+          const blockEl = canvas.querySelector('.blockid[value="' + block.id + '"]')
+          if (blockEl) {
+            const el = blockEl.parentNode
+            const elRect = el.getBoundingClientRect()
+            block.x = elRect.left + window.scrollX + (block.width / 2) + canvas.scrollLeft
+            block.y = elRect.top + window.scrollY + (block.height / 2) + canvas.scrollTop
+          }
+        })
+      }
+      flowy.rearrange()
+
+      // Set canvas height to contain all content plus padding
+      await this.$nextTick()
+      let maxBottom = 0
+      $('#canvas .block').each(function () {
+        const bottom = (parseFloat($(this).css('top')) || 0) + ($(this).outerHeight() || 0)
+        if (bottom > maxBottom) maxBottom = bottom
+      })
+      if (maxBottom > 0) {
+        document.getElementById('canvas').style.minHeight = maxBottom + 100 + 'px'
+      }
+      flowy.rearrange()
     },
     async logVisitedLearningTreeNode () {
       try {
         const { data } = await axios.post(`/api/learning-tree-node-assignment-question/assignment/${this.assignmentId}/learning-tree/${this.learningTreeId}/question/${this.nodeQuestion.id}/log-visit`)
         if (data.type === 'error') {
-          console.log(`Error logging visit to learning tree node: ${data.message}`)
+          console.error(`Error logging visit to learning tree node: ${data.message}`)
         }
       } catch (error) {
         this.$noty.error(error.message)
       }
     },
     closeLearningTreeModal () {
-      console.log('posting message')
       this.$bvModal.hide('modal-learning-node-submission-response')
       window.parent.postMessage('Close learning tree modal', '*')
     },
@@ -809,8 +837,6 @@ export default {
       $('#' + modalId + '___BV_modal_body_').hide()
     },
     async showResponse (response) {
-      console.warn(response)
-
       try {
         const { data } = await axios.get(`/api/learning-tree-node-submission/${response.learning_tree_node_submission_id}`)
         if (data.type === 'error') {
@@ -823,29 +849,18 @@ export default {
           this.earnedReset = data.earned_reset
           this.$bvModal.show('modal-learning-node-submission-response')
         }
-
-        let info = ['last_submitted',
-          'student_response',
-          'submission_count',
-          'session_jwt',
-          'qti_answer_json',
-          'qti_json',
-          'technology_iframe_src',
-          'submission_array'
-        ]
+        let info = ['last_submitted', 'student_response', 'submission_count', 'session_jwt',
+          'qti_answer_json', 'qti_json', 'technology_iframe_src', 'submission_array']
         for (let i = 0; i < info.length; i++) {
           this.nodeQuestion[info[i]] = data[info[i]]
         }
         if (this.nodeQuestion['technology'] === 'webwork') {
           if (data.technology_iframe_src) {
-            // need to re-load the question potentially for alogrithmic solutions
             this.nodeQuestion.technology_iframe = data.technology_iframe_src
             let vm = this
             await this.getTechnologySrcDoc(vm, data.technology_iframe_src, this.assignmentId, this.nodeQuestion.id, 'learning_tree_node_submissions', this.learningTreeId)
             this.cacheIndex++
           }
-          // next line screwed things up because there was no initial event.
-          // this.addGlow(this.event, data['submission_array'], this.nodeQuestion['technology'])
         }
         if (this.nodeQuestion['technology'] === 'imathas') {
           this.nodeQuestion.technology_iframe = data.technology_iframe_src
@@ -853,7 +868,6 @@ export default {
         if (['webwork', 'imathas'].includes(this.nodeQuestion['technology'])) {
           this.submissionArray = data['submission_array']
         }
-
         this.qtiJson = this.nodeQuestion['qti_json']
       } catch (error) {
         this.learningNodeModalTitle = error.message
@@ -873,7 +887,6 @@ export default {
         return false
       }
       let vm = this
-      console.log(this.$route.name)
       this.processReceiveMessage(vm, this.$route.name, event)
     },
     updateLearningNodeToCompleted () {
@@ -898,10 +911,8 @@ export default {
       this.updateBorders(learningTreeNodeCompletions)
     },
     getTimeLeftMessage (props) {
-      let message = ''
-      message = '<span class="font-weight-bold">Time Left For Credit:</span> '
+      let message = '<span class="font-weight-bold">Time Left For Credit:</span> '
       let timeLeft = parseInt(this.timeLeft) / 1000
-
       let pluralSec = props.seconds > 1 ? 's' : ''
       if (timeLeft > 60) {
         let pluralMin = props.minutes > 1 ? 's' : ''
@@ -950,7 +961,6 @@ export default {
       }
       try {
         const { data } = await axios.get(`/api/learning-trees/validate-remediation-by-assignment-question-id/${assignmentQuestionId}/${Number(isRootNode)}`)
-        console.log(data)
         if (data.type === 'error') {
           this.$noty.error(data.message)
           return false
@@ -976,14 +986,9 @@ export default {
         this.$noty.error(error.message)
       }
     },
-    toggleLearningTreeView () {
-      this.$emit('toggle-learning-tree-view', this.isLearningTreeView)
-      this.isLearningTreeView = !this.isLearningTreeView
-    },
     async undo () {
       try {
         const { data } = await axios.patch(`/api/learning-tree-histories/${this.learningTreeId}`)
-        console.log(data)
         if (data.type === 'success') {
           window.location.href = `/instructors/learning-trees/editor/${this.learningTreeId}`
         } else {
@@ -1015,7 +1020,6 @@ export default {
         }
         this.isRootNode ? this.closeLearningTreeModal()
           : this.$bvModal.show('modal-assignment-question-node')
-        console.log(flowy.output())
         await this.getAssignmentNodeQuestionToView(questionId)
       } else {
         this.$bvModal.show('modal-update-node')
@@ -1058,7 +1062,6 @@ export default {
           return false
         }
         this.questionToView = data.question
-        let vm = this
         this.questionToViewKey++
         if (updateModalStyle) {
           const blockElem = this.nodeToUpdate.querySelector('.blockelem') || this.nodeToUpdate
@@ -1081,7 +1084,6 @@ export default {
     async getNodeMetaInformation (questionId) {
       try {
         const { data } = await axios.get(`/api/learning-tree-node/meta-info/${this.learningTreeId}/${questionId}`)
-        console.log(data)
         if (data.type !== 'success') {
           this.$noty.error(data.message)
           return false
@@ -1109,7 +1111,6 @@ export default {
       this.nodeForm.learning_outcome = this.learningOutcome ? this.learningOutcome.id : ''
       try {
         const { data } = await this.nodeForm.patch(`/api/learning-trees/nodes/${this.learningTreeId}`)
-        console.log(data)
         if (data.type === 'success') {
           this.nodeToUpdate.querySelector('input[name="question_id"]').value = this.nodeForm.question_id
           this.nodeToUpdate.querySelector('.blockyinfo').innerHTML = data.title
@@ -1132,7 +1133,6 @@ export default {
     resetAll () {
       this.learningTreeId = 0
       document.getElementById('canvas').innerHTML = ''
-      document.getElementById('blocklist').innerHTML = ''
       this.learningTreeForm.question_id = ''
     },
     initCreateNew () {
@@ -1167,7 +1167,6 @@ export default {
     },
     resetLearningTreeModal (modalId) {
       this.resetLearningTreePropertiesModal()
-      // Hide the modal manually
       this.$nextTick(() => {
         this.$bvModal.hide(modalId)
       })
@@ -1220,7 +1219,6 @@ export default {
     async getLearningTreeLearningTreeId (learningTreeId) {
       try {
         const { data } = await axios.get(`/api/learning-trees/${learningTreeId}`)
-
         this.title = data.title
         this.description = data.description
         this.public = data.public
@@ -1228,9 +1226,6 @@ export default {
         this.assessmentQuestionId = data.question_id
         this.canUndo = data.can_undo
         this.isAuthor = data.author_id === this.user.id
-        if (!this.isAuthor) {
-          this.isLearningTreeView = true
-        }
         if (data.learning_tree) {
           let learningTree = data.learning_tree.replaceAll('/assets/img', this.asset('assets/img'))
           flowy.import(JSON.parse(learningTree))
@@ -1282,6 +1277,7 @@ export default {
           if (document.getElementById('blocklist')) {
             document.getElementById('blocklist').innerHTML = ''
           }
+          this.nodeIsPending = false
           this.questionId = ''
         }
         this.$noty[data.type](data.message)
@@ -1306,7 +1302,6 @@ export default {
       let title = ''
       let question
       question = await this.validateAssignmentAndQuestionId(this.questionId, isRootNode)
-      console.log(question)
       if (question) {
         title = question.title ? question.title : 'None'
         this.questionId = question.id
@@ -1314,463 +1309,142 @@ export default {
       if (!title) {
         return false
       }
+
+      this.nodeIsPending = true
+
       let blockElems = document.querySelectorAll('div.blockelem.create-flowy.noselect')
       let blockyNameHTML = this.getBlockyNameHTML(this.questionId)
-      let borderClass
-      borderClass = 'empty-node-border'
+      let borderClass = 'empty-node-border'
       if (question && !question.empty_learning_tree_node) {
         borderClass = question.question_type === 'assessment' ? 'question-border' : 'exposition-border'
       }
       let newBlockElem = `<div class="blockelem create-flowy noselect ${borderClass}">
         <input type="hidden" name="blockelemtype" class="blockelemtype" value="${blockElems.length + 2}">
         <input type="hidden" name="question_id" value="${this.questionId}">
-
-<div class="grabme">
-</div>
-      <div class="blockin">
+        <div class="grabme"></div>
+        <div class="blockin">
           <span class="blockyname"> ${blockyNameHTML} </span>
           <div class="blockin-info">
-          <span class="blockdesc"><span class="title">${title}</span>
-          <span class="extra"></span>
+            <span class="blockdesc"><span class="title">${title}</span>
+            <span class="extra"></span>
+          </div>
         </div>
-        </div>
-    </div>`
-      if (blockElems.length > 0) {
-        let lastBlockElem = blockElems[blockElems.length - 1]
-        lastBlockElem.insertAdjacentHTML('afterend', newBlockElem)
-      } else {
-        document.getElementById('blocklist').innerHTML += newBlockElem
+      </div>`
+
+      await this.$nextTick()
+      const blocklist = document.getElementById('blocklist')
+      if (blocklist) {
+        blocklist.innerHTML = newBlockElem
       }
       this.questionId = ''
     }
   }
 }
 </script>
+
 <style>
-.blockyinfo span.remediation-info {
-  border-bottom: none;
-  color: #808292;
-}
-
-/* cyrillic-ext */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu72xKKTU1Kvnz.woff2) format('woff2');
-  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
-}
-
-/* cyrillic */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu5mxKKTU1Kvnz.woff2) format('woff2');
-  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-
-/* greek-ext */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu7mxKKTU1Kvnz.woff2) format('woff2');
-  unicode-range: U+1F00-1FFF;
-}
-
-/* greek */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu4WxKKTU1Kvnz.woff2) format('woff2');
-  unicode-range: U+0370-03FF;
-}
-
-/* vietnamese */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu7WxKKTU1Kvnz.woff2) format('woff2');
-  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+1EA0-1EF9, U+20AB;
-}
-
-/* latin-ext */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu7GxKKTU1Kvnz.woff2) format('woff2');
-  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-
-/* latin */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu4mxKKTU1Kg.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-/* cyrillic-ext */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: local('Roboto Medium'), local('Roboto-Medium'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmEU9fCRc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
-}
-
-/* cyrillic */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: local('Roboto Medium'), local('Roboto-Medium'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmEU9fABc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-
-/* greek-ext */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: local('Roboto Medium'), local('Roboto-Medium'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmEU9fCBc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+1F00-1FFF;
-}
-
-/* greek */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: local('Roboto Medium'), local('Roboto-Medium'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmEU9fBxc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+0370-03FF;
-}
-
-/* vietnamese */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: local('Roboto Medium'), local('Roboto-Medium'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmEU9fCxc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+1EA0-1EF9, U+20AB;
-}
-
-/* latin-ext */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: local('Roboto Medium'), local('Roboto-Medium'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmEU9fChc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-
-/* latin */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: local('Roboto Medium'), local('Roboto-Medium'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmEU9fBBc4AMP6lQ.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-/* cyrillic-ext */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfCRc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
-}
-
-/* cyrillic */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfABc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
-}
-
-/* greek-ext */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfCBc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+1F00-1FFF;
-}
-
-/* greek */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfBxc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+0370-03FF;
-}
-
-/* vietnamese */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfCxc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+1EA0-1EF9, U+20AB;
-}
-
-/* latin-ext */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfChc4AMP6lbBP.woff2) format('woff2');
-  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-
-/* latin */
-@font-face {
-  font-family: 'Roboto';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfBBc4AMP6lQ.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
+/* =====================
+   LAYOUT
+   ===================== */
 body, html {
-  margin: 0px;
-  padding: 0px;
+  margin: 0;
+  padding: 0;
   overflow: hidden;
+  height: 100%;
+}
+
+.learning-tree-editor {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--editor-offset, 0px));
+  overflow: hidden;
+}
+
+/* =====================
+   TOOLBAR
+   ===================== */
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background-color: #F8F8F8;
+  border-bottom: 1px solid #E8E8EF;
+  height: 48px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.toolbar-icon {
+  font-size: 1.1rem;
+  color: #393C44;
+  cursor: pointer;
+  transition: opacity .2s;
+}
+
+.toolbar-icon:hover {
+  opacity: .6;
+}
+
+.toolbar-icon.disabled {
+  opacity: .3;
+  cursor: not-allowed;
+}
+
+.toolbar-btn {
+  font-size: 13px;
+}
+
+/* =====================
+   STAGING AREA
+   ===================== */
+#staging-area {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background-color: #EEF4FF;
+  border-bottom: 1px solid #C5D8FF;
+  min-height: 48px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.staging-hint {
+  font-family: Roboto, sans-serif;
+  font-size: 13px;
+  color: #217CE8;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+#blocklist {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* =====================
+   CANVAS
+   ===================== */
+#canvas {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  z-index: 0;
   background-repeat: repeat;
   background-size: 30px 30px;
 }
 
-#navigation {
-  height: 71px;
-  background-color: #FFF;
-  border: 1px solid #E8E8EF;
-  width: 100%;
-  display: table;
-  box-sizing: border-box;
-  position: fixed;
-  top: 0;
-  z-index: 9
-}
-
-#back {
-  width: 40px;
-  height: 40px;
-  border-radius: 100px;
-  background-color: #F1F4FC;
-  text-align: center;
-  display: inline-block;
-  vertical-align: top;
-  margin-top: 12px;
-  margin-right: 10px
-}
-
-#back img {
-  margin-top: 13px;
-}
-
-#names {
-  display: inline-block;
-  vertical-align: top;
-}
-
-#title {
-  font-family: Roboto;
-  font-weight: 500;
-  font-size: 16px;
-  color: #393C44;
-  margin-bottom: 0px;
-}
-
-#subtitle {
-  font-family: Roboto;
-  color: #808292;
-  font-size: 14px;
-  margin-top: 5px;
-}
-
-#leftside {
-  display: inline-block;
-  vertical-align: middle;
-  margin-left: 20px;
-}
-
-#centerswitch {
-  position: absolute;
-  width: 222px;
-  left: 50%;
-  margin-left: -111px;
-  top: 15px;
-}
-
-#leftswitch {
-  border: 1px solid #E8E8EF;
-  background-color: #FBFBFB;
-  width: 111px;
-  height: 39px;
-  line-height: 39px;
-  border-radius: 5px 0px 0px 5px;
-  font-family: Roboto;
-  color: #393C44;
-  display: inline-block;
-  font-size: 14px;
-  text-align: center;
-}
-
-#rightswitch {
-  font-family: Roboto;
-  color: #808292;
-  border-radius: 0px 5px 5px 0px;
-  border: 1px solid #E8E8EF;
-  height: 39px;
-  width: 102px;
-  display: inline-block;
-  font-size: 14px;
-  line-height: 39px;
-  text-align: center;
-  margin-left: -5px;
-}
-
-#discard {
-  font-family: Roboto;
-  font-weight: 500;
-  font-size: 14px;
-  color: #A6A6B3;
-  width: 95px;
-  height: 38px;
-  border: 1px solid #E8E8EF;
-  border-radius: 5px;
-  text-align: center;
-  line-height: 38px;
-  display: inline-block;
-  vertical-align: top;
-  transition: all .2s cubic-bezier(.05, .03, .35, 1);
-}
-
-#discard:hover {
-  cursor: pointer;
-  opacity: .7;
-}
-
-#publish {
-  font-family: Roboto;
-  font-weight: 500;
-  font-size: 14px;
-  color: #FFF;
-  background-color: #217CE8;
-  border-radius: 5px;
-  width: 143px;
-  height: 38px;
-  margin-left: 10px;
-  display: inline-block;
-  vertical-align: top;
-  text-align: center;
-  line-height: 38px;
-  margin-right: 20px;
-  transition: all .2s cubic-bezier(.05, .03, .35, 1);
-}
-
-#publish:hover {
-  cursor: pointer;
-  opacity: .7;
-}
-
-#buttonsright {
-  float: right;
-  margin-top: 15px;
-}
-
-#get-more-assignment-questions {
-  width: 300px;
-  text-align: center;
-  margin-left: -100px;
-  margin-top: -10px;
-  margin-bottom: 5px;
-}
-
-#leftcard {
-  width: 300px;
-  background-color: #F8F8F8;
-  border: 1px solid #E8E8EF;
-  box-sizing: border-box;
-  padding-top: 15px;
-  padding-left: 20px;
-  height: 500px;
-  margin-left: -100px;
-  position: absolute;
-  z-index: 2;
-}
-
-::-webkit-input-placeholder { /* Edge */
-  color: #C9C9D5;
-}
-
-:-ms-input-placeholder { /* Internet Explorer 10-11 */
-  color: #C9C9D5
-}
-
-::placeholder {
-  color: #C9C9D5;
-}
-
-#header {
-  font-size: 20px;
-  font-family: Roboto;
-  font-weight: bold;
-  color: #393C44;
-}
-
-#subnav {
-  border-bottom: 1px solid #E8E8EF;
-  width: calc(100% + 20px);
-  margin-left: -20px;
-  margin-top: 10px;
-}
-
-.navdisabled {
-  transition: all .3s cubic-bezier(.05, .03, .35, 1);
-}
-
-.navdisabled:hover {
-  cursor: pointer;
-  opacity: .5;
-}
-
-.navactive {
-  color: #393C44 !important;
-}
-
+/* =====================
+   BLOCKS
+   ===================== */
 .blockelem:first-child {
-  margin-top: 20px
+  margin-top: 20px;
 }
 
 .blockelem {
@@ -1794,36 +1468,24 @@ body, html {
   cursor: pointer;
 }
 
-#blocklist {
-  height: calc(100% - 220px);
-  overflow-y: auto;
-}
-
-#proplist {
-  height: calc(100% - 305px);
-  overflow: auto;
-  margin-top: -30px;
-  padding-top: 30px;
-}
-
 .blocktext {
   display: inline-block;
   width: 220px;
   vertical-align: top;
-  margin-left: 12px
+  margin-left: 12px;
 }
 
 .blocktitle {
   margin: 0px !important;
   padding: 0px !important;
-  font-family: Roboto;
+  font-family: Roboto, sans-serif;
   font-weight: 500;
   font-size: 16px;
   color: #393C44;
 }
 
 .blockdesc, .blockyinfo, .blockin-info {
-  font-family: Roboto;
+  font-family: Roboto, sans-serif;
   color: #808292;
   font-size: 14px;
   line-height: 21px;
@@ -1837,7 +1499,7 @@ body, html {
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
-  -webkit-line-clamp: 3; /* number of lines to show */
+  -webkit-line-clamp: 3;
   line-clamp: 3;
   -webkit-box-orient: vertical;
 }
@@ -1845,209 +1507,6 @@ body, html {
 .blockdisabled {
   background-color: #F0F2F9;
   opacity: .5;
-}
-
-/*
-#canvas {
-  position: absolute;
-  width: calc(100% - 361px);
-  height: 900px;
-  top: 0px;
-  left: 341px;
-  z-index: 0;
-  overflow: auto;
-}*/
-
-.learningTreeAndEditorView {
-  position: absolute;
-  width: calc(100% - 361px);
-  height: 900px;
-  top: 0px;
-  left: 341px;
-  z-index: 0;
-  overflow: auto;
-}
-
-.learningTreeView {
-  position: absolute;
-  width: calc(100% - 361px);
-  height: 900px;
-  top: 0px;
-  left: 341px;
-  z-index: 500;
-}
-
-#properties {
-  position: absolute;
-  height: 100%;
-  width: 311px;
-  background-color: #FFF;
-  right: -150px;
-  opacity: 0;
-  z-index: 2;
-  top: 0;
-  box-shadow: -4px 0px 40px rgba(26, 26, 73, 0);
-  padding-left: 20px;
-  transition: all .25s cubic-bezier(.05, .03, .35, 1);
-}
-
-.itson {
-  z-index: 2 !important;
-}
-
-.expanded {
-  right: 0 !important;
-  opacity: 1 !important;
-  box-shadow: -4px 0px 40px rgba(26, 26, 73, 0.05);
-  z-index: 2;
-}
-
-#header2 {
-  font-size: 20px;
-  font-family: Roboto;
-  font-weight: bold;
-  color: #393C44;
-  margin-top: 101px;
-}
-
-#propswitch {
-  border-bottom: 1px solid #E8E8EF;
-  width: 331px;
-  margin-top: 10px;
-  margin-left: -20px;
-  margin-bottom: 30px;
-}
-
-#dataprop {
-  font-family: Roboto;
-  font-weight: 500;
-  font-size: 14px;
-  text-align: center;
-  color: #393C44;
-  width: calc(88% / 3);
-  height: 48px;
-  line-height: 48px;
-  display: inline-block;
-  float: left;
-  margin-left: 20px;
-}
-
-#dataprop:after {
-  display: block;
-  content: "";
-  width: 100%;
-  height: 4px;
-  background-color: #217CE8;
-  margin-top: -4px;
-}
-
-#alertprop {
-  display: inline-block;
-  font-family: Roboto;
-  font-weight: 500;
-  color: #808292;
-  font-size: 14px;
-  height: 48px;
-  line-height: 48px;
-  width: calc(88% / 3);
-  text-align: center;
-  float: left;
-}
-
-#logsprop {
-  width: calc(88% / 3);
-  display: inline-block;
-  font-family: Roboto;
-  font-weight: 500;
-  color: #808292;
-  font-size: 14px;
-  height: 48px;
-  line-height: 48px;
-  text-align: center;
-}
-
-.inputlabel {
-  font-family: Roboto;
-  font-size: 14px;
-  color: #253134;
-}
-
-.dropme {
-  background-color: #FFF;
-  border-radius: 5px;
-  border: 1px solid #E8E8EF;
-  box-shadow: 0px 2px 8px rgba(34, 34, 87, 0.05);
-  font-family: Roboto;
-  font-size: 14px;
-  color: #253134;
-  text-indent: 20px;
-  height: 40px;
-  line-height: 40px;
-  width: 287px;
-  margin-bottom: 25px;
-}
-
-.dropme img {
-  margin-top: 17px;
-  float: right;
-  margin-right: 15px;
-}
-
-.checkus {
-  margin-bottom: 10px;
-}
-
-.checkus img {
-  display: inline-block;
-  vertical-align: middle;
-}
-
-.checkus p {
-  display: inline-block;
-  font-family: Roboto;
-  font-size: 14px;
-  vertical-align: middle;
-  margin-left: 10px;
-}
-
-#divisionthing {
-  height: 1px;
-  width: 100%;
-  background-color: #E8E8EF;
-  position: absolute;
-  right: 0;
-  bottom: 80px;
-}
-
-#removeblock {
-  border-radius: 5px;
-  position: absolute;
-  bottom: 20px;
-  font-family: Roboto;
-  font-size: 14px;
-  text-align: center;
-  width: 287px;
-  height: 38px;
-  line-height: 38px;
-  color: #253134;
-  border: 1px solid #E8E8EF;
-  transition: all .3s cubic-bezier(.05, .03, .35, 1);
-}
-
-#removeblock:hover {
-  cursor: pointer;
-  opacity: .5;
-}
-
-.noselect {
-  -webkit-touch-callout: none; /* iOS Safari */
-  -webkit-user-select: none; /* Safari */
-  -khtml-user-select: none; /* Konqueror HTML */
-  -moz-user-select: none; /* Old versions of Firefox */
-  -ms-user-select: none; /* Internet Explorer/Edge */
-  user-select: none;
-  /* Non-prefixed version, currently
-                                  supported by Chrome, Opera and Firefox */
 }
 
 .blockyname {
@@ -2074,14 +1533,12 @@ body, html {
   cursor: pointer;
 }
 
-.blockyright img {
-  margin-top: 12px;
-}
-
 .block {
   background-color: #FFF;
   margin-top: 0px !important;
   box-shadow: 0px 4px 30px rgba(22, 33, 74, 0.05);
+  position: absolute;
+  z-index: 9;
 }
 
 .selectedblock {
@@ -2089,27 +1546,13 @@ body, html {
   box-shadow: 0px 4px 30px rgba(22, 33, 74, 0.08);
 }
 
-@media only screen and (max-width: 832px) {
-  #centerswitch {
-    display: none;
-  }
-}
-
-@media only screen and (max-width: 560px) {
-  #names {
-    display: none;
-  }
-}
-
 .dragging {
-  z-index: 111 !important
+  z-index: 111 !important;
 }
 
-.block {
-  position: absolute;
-  z-index: 9
-}
-
+/* =====================
+   INDICATOR
+   ===================== */
 .indicator {
   width: 12px;
   height: 12px;
@@ -2120,12 +1563,12 @@ body, html {
   transition: all .3s cubic-bezier(.05, .03, .35, 1);
   transform: scale(1);
   position: absolute;
-  z-index: 2
+  z-index: 2;
 }
 
 .invisible {
   opacity: 0 !important;
-  transform: scale(0)
+  transform: scale(0);
 }
 
 .indicator:after {
@@ -2136,14 +1579,17 @@ body, html {
   background-color: #217ce8;
   transform: scale(1.7);
   opacity: .2;
-  border-radius: 60px
+  border-radius: 60px;
 }
 
+/* =====================
+   ARROWS
+   ===================== */
 .arrowblock {
   position: absolute;
   width: 100%;
   overflow: visible;
-  pointer-events: none
+  pointer-events: none;
 }
 
 .arrowblock svg {
@@ -2151,6 +1597,9 @@ body, html {
   overflow: visible;
 }
 
+/* =====================
+   BORDER VARIANTS
+   ===================== */
 .empty-node-border {
   border: 2px solid darkgray;
 }
@@ -2171,6 +1620,9 @@ body, html {
   border: 2px solid #dc3545;
 }
 
+/* =====================
+   MODAL BORDERS
+   ===================== */
 .modal-border-blue .modal-content {
   border: 3px solid cornflowerblue;
 }
@@ -2192,5 +1644,52 @@ body, html {
   padding: 0;
   max-height: 85vh;
   overflow-y: auto;
+}
+
+/* =====================
+   MISC
+   ===================== */
+.blockyinfo span.remediation-info {
+  border-bottom: none;
+  color: #808292;
+}
+
+.noselect {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* =====================
+   FONTS
+   ===================== */
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu4mxKKTU1Kg.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: local('Roboto Medium'), local('Roboto-Medium'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmEU9fBBc4AMP6lQ.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Roboto';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfBBc4AMP6lQ.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 </style>

@@ -62,6 +62,10 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
     el.classList.add('indicator')
     el.classList.add('invisible')
     canvas_div.appendChild(el)
+
+    // EK: Expose blocks array so updateLocation() can sync coordinates after shifting
+    flowy.getBlocks = function () { return blocks }
+    flowy.rearrange = function () { rearrangeMe() }
     flowy.import = function (output) {
       canvas_div.innerHTML = output.html
       for (var a = 0; a < output.blockarr.length; a++) {
@@ -488,8 +492,10 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
         drag.style.left = mouse_x - dragx + 'px'
         drag.style.top = mouse_y - dragy + 'px'
       } else if (rearrange) {
-        drag.style.left = mouse_x - dragx - (canvas_div.getBoundingClientRect().left + window.scrollX) + canvas_div.scrollLeft + 'px'
-        drag.style.top = mouse_y - dragy - (canvas_div.getBoundingClientRect().top + window.scrollY) + canvas_div.scrollTop + 'px'
+        const newLeft = mouse_x - dragx - (canvas_div.getBoundingClientRect().left + window.scrollX) + canvas_div.scrollLeft
+        const newTop = mouse_y - dragy - (canvas_div.getBoundingClientRect().top + window.scrollY) + canvas_div.scrollTop
+        drag.style.left = newLeft + 'px'
+        drag.style.top = Math.max(0, newTop) + 'px'
         blockstemp.filter(a => a.id == parseInt(drag.querySelector('.blockid').value)).x = (drag.getBoundingClientRect().left + window.scrollX) + (parseInt(window.getComputedStyle(drag).width) / 2) + canvas_div.scrollLeft
         blockstemp.filter(a => a.id == parseInt(drag.querySelector('.blockid').value)).y = (drag.getBoundingClientRect().left + window.scrollX) + (parseInt(window.getComputedStyle(drag).height) / 2) + canvas_div.scrollTop
       }
