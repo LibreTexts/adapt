@@ -194,6 +194,7 @@
       no-close-on-esc
       hide-footer
       :modal-class="nodeModalBorderClass"
+      @hidden="fixNavBar"
     >
       <template #modal-header="{ close }">
         <div>
@@ -209,7 +210,7 @@
           </a>
         </div>
         <div>
-          <b-button size="sm" variant="outline-secondary" @click="close()">
+          <b-button size="sm" variant="outline-secondary" @click="$bvModal.hide('modal-update-node')">
             Exit Node
           </b-button>
         </div>
@@ -390,6 +391,7 @@
         Instructions
       </b-button>
       <b-button size="sm"
+                v-if="false"
                 variant="outline-secondary"
                 class="toolbar-btn"
                 @click="updateLocation()"
@@ -537,6 +539,14 @@ export default {
   },
   async mounted () {
     document.querySelector('.container')?.classList.add('lt-editor-wide')
+    // EK: lock page scroll only while this editor is mounted, and remember
+    // the previous values so we can restore them on beforeDestroy instead
+    // of leaving body/html permanently locked (which was clipping the
+    // navbar out of the viewport once this component had ever loaded).
+    this._prevBodyOverflow = document.body.style.overflow
+    this._prevHtmlOverflow = document.documentElement.style.overflow
+    document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
     if (this.user.role === 3) {
       this.assignmentId = this.$route.params.assignmentId
       this.rootNodeQuestionId = this.$route.params.rootNodeQuestionId
@@ -682,6 +692,8 @@ export default {
   beforeDestroy () {
     window.removeEventListener('message', this.receiveMessage)
     document.querySelector('.container')?.classList.remove('lt-editor-wide')
+    document.body.style.overflow = this._prevBodyOverflow || ''
+    document.documentElement.style.overflow = this._prevHtmlOverflow || ''
   },
   methods: {
     doCopy,
@@ -689,6 +701,12 @@ export default {
     addGlow,
     processReceiveMessage,
     getTechnology,
+    fixNavBar () {
+      requestAnimationFrame(() => {
+        document.body.scrollTop = 0
+        document.documentElement.scrollTop = 0
+      })
+    },
     syncBlockPositions () {
       const canvas = document.getElementById('canvas')
       const blocks = flowy.getBlocks && flowy.getBlocks()
@@ -1318,7 +1336,6 @@ export default {
 body, html {
   margin: 0;
   padding: 0;
-  overflow: hidden;
   height: 100%;
 }
 
@@ -1671,6 +1688,7 @@ body, html {
   src: local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfBBc4AMP6lQ.woff2) format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
+
 .container.lt-editor-wide {
   width: 90%;
   max-width: 90%;
