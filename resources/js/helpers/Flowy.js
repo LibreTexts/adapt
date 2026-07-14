@@ -58,6 +58,14 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
     var mouse_x, mouse_y
     var dragblock = false
     var prevblock = 0
+    // EK: safeguard against accidental rearranges caused by the tiny mouse
+    // movement that naturally happens during a plain click. We remember
+    // where the mousedown happened and only let moveBlock() commit to a
+    // real "pick up and detach the node" drag once the cursor has moved
+    // past this many pixels from that point.
+    var DRAG_THRESHOLD = 8
+    var dragstartx = 0
+    var dragstarty = 0
     var el = document.createElement('DIV')
     el.classList.add('indicator')
     el.classList.add('invisible')
@@ -144,12 +152,6 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
         blockGrabbed(event.target.closest('.create-flowy'))
         drag.classList.add('dragging')
         active = true
-        const canvas = document.getElementById('canvas')
-        flowy.getBlocks().forEach(b => {
-          const el = document.querySelector('.blockid[value="' + b.id + '"]').parentNode
-          const liveY = el.getBoundingClientRect().top + window.scrollY + b.height/2 + canvas.scrollTop
-          console.error('id', b.id, 'cached', Math.round(b.y), 'live', Math.round(liveY), 'Δ', Math.round(liveY - b.y))
-        })
         dragx = mouse_x - (event.target.closest('.create-flowy').getBoundingClientRect().left)
         dragy = mouse_y - (event.target.closest('.create-flowy').getBoundingClientRect().top)
         drag.style.left = mouse_x - dragx + 'px'
@@ -242,7 +244,6 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
         } else if (rearrange) {
           var xpos = (drag.getBoundingClientRect().left + window.scrollX) + (parseInt(window.getComputedStyle(drag).width) / 2) + canvas_div.scrollLeft
           var ypos = (drag.getBoundingClientRect().top + window.scrollY) + canvas_div.scrollTop
-          console.error(ypos)
           var blocko = blocks.map(a => a.id)
           for (var i = 0; i < blocks.length; i++) {
             if (xpos >= blocks.filter(a => a.id == blocko[i])[0].x - (blocks.filter(a => a.id == blocko[i])[0].width / 2) - paddingx && xpos <= blocks.filter(a => a.id == blocko[i])[0].x + (blocks.filter(a => a.id == blocko[i])[0].width / 2) + paddingx && ypos >= blocks.filter(a => a.id == blocko[i])[0].y - (blocks.filter(a => a.id == blocko[i])[0].height / 2) && ypos <= blocks.filter(a => a.id == blocko[i])[0].y + blocks.filter(a => a.id == blocko[i])[0].height) {
@@ -417,13 +418,9 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
           if (event.which != 3) {
             if (!active && !rearrange) {
               dragblock = true
+              dragstartx = mouse_x
+              dragstarty = mouse_y
               drag = theblock
-              const canvas = document.getElementById('canvas')
-              flowy.getBlocks().forEach(b => {
-                const el = document.querySelector('.blockid[value="' + b.id + '"]').parentNode
-                const liveY = el.getBoundingClientRect().top + window.scrollY + b.height/2 + canvas.scrollTop
-                console.error('id', b.id, 'cached', Math.round(b.y), 'live', Math.round(liveY), 'Δ', Math.round(liveY - b.y))
-              })
               dragx = mouse_x - (drag.getBoundingClientRect().left + window.scrollX)
               dragy = mouse_y - (drag.getBoundingClientRect().top + window.scrollY)
             }
@@ -448,6 +445,13 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
         mouse_y = event.clientY
       }
       if (dragblock) {
+        // EK: ignore sub-threshold movement so a plain click (which always
+        // produces a pixel or two of mousemove between down and up) doesn't
+        // get treated as a real drag and detach the node from the tree.
+        var moveDist = Math.abs(mouse_x - dragstartx) + Math.abs(mouse_y - dragstarty)
+        if (moveDist < DRAG_THRESHOLD) {
+          return
+        }
         rearrange = true
         drag.classList.add('dragging')
         var blockid = parseInt(drag.querySelector('.blockid').value)

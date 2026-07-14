@@ -604,7 +604,6 @@ export default {
       noinfo = false
       mouseDownX = event.clientX
       mouseDownY = event.clientY
-      console.error('beginTouch scrollLeft:', document.getElementById('canvas').scrollLeft)
       vm.touchingBlock = event.target.closest('#canvas') || event.target.closest('#blocklist')
       if (event.target.closest('.create-flowy')) {
         noinfo = true
@@ -621,7 +620,7 @@ export default {
     let doneTouch = function (event) {
       document.querySelectorAll('.block.dragging').forEach(el => el.classList.remove('dragging'))
       if (vm.touchingBlock && !aclick) {
-       vm.updateLocation()
+        vm.updateLocation()
         isSaving = true
         document.getElementById('canvas').style.cursor = 'wait'
         vm.saveLearningTree().finally(() => {
@@ -751,8 +750,6 @@ export default {
       }
     },
     async updateLocation () {
-      console.error('canvas getBoundingClientRect:', document.getElementById('canvas').getBoundingClientRect())
-      console.error('window.scrollY:', window.scrollY)
       const canvas = document.getElementById('canvas')
       const blockElems = $('.blockelem')
       if (!blockElems.length) return
