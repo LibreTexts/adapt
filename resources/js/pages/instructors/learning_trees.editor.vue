@@ -78,68 +78,6 @@
       </ul>
     </b-modal>
     <b-modal
-      id="modal-learning-tree-instructions"
-      ref="modal-learning-tree-instructions"
-      title="Instructions"
-      size="lg"
-    >
-      <p>
-        You can add nodes using the
-        <b-button size="sm" aria-label="New Node" variant="outline-secondary" class="inline-button">
-          New Node
-        </b-button>
-        button to create an empty node which can then be populated with a newly created question.
-      </p>
-      <p>
-        To create a node based on an existing question, you can specify its contents by using the single number ADAPT
-        ID found in "My Questions". Alternatively, if you already have a question in one of your assignments, you can
-        visit that assignment and go to the Questions tab under Assignment Information to find the ADAPT ID; this ID
-        will be of the form {number}-{number}.
-      </p>
-      <p>
-        Next, drag the new node from the staging area to the canvas below. Each of the non-root assessment nodes
-        should then be given a Branch Description to help students decide which nodes to visit as they navigate the
-        tree. Using command+click on any of the nodes will open that node's editor.
-      </p>
-      <p>
-        To remove a node, just drag it to the left of the screen. And, if you make a mistake, you can always use the
-        undo icon (
-        <font-awesome-icon
-          aria-label="Undo"
-          scale="1.1"
-          :icon="undoIcon"
-        />
-        ).
-      </p>
-      <p>
-        Finally, nodes are color-coded to help differentiate between the different types based on their contents:
-      </p>
-      <b-container class="pb-4">
-        <b-row>
-          <b-col style="width:200px">
-            <div class="blockelem empty-node-border text-center pb-3">
-              Empty learning tree nodes
-            </div>
-          </b-col>
-          <b-col style="width:200px">
-            <div class="blockelem exposition-border text-center pb-3">
-              Exposition nodes
-            </div>
-          </b-col>
-          <b-col>
-            <div class="blockelem question-border text-center pb-3">
-              Question nodes
-            </div>
-          </b-col>
-        </b-row>
-      </b-container>
-      <template #modal-footer="{ ok }">
-        <b-button size="sm" variant="primary" @click="$bvModal.hide('modal-learning-tree-instructions')">
-          OK
-        </b-button>
-      </template>
-    </b-modal>
-    <b-modal
       v-if="nodeQuestion.title"
       id="modal-assignment-question-node"
       ref="modal"
@@ -371,6 +309,18 @@
         Undo the last action
       </b-tooltip>
 
+      <font-awesome-icon id="redo-action-tooltip"
+                         :class="{ 'disabled': !canRedo}"
+                         aria-label="Redo"
+                         class="toolbar-icon"
+                         scale="1.1"
+                         :icon="redoIcon"
+                         @click="!canRedo ? '' : redo()"
+      />
+      <b-tooltip target="redo-action-tooltip" delay="250" triggers="hover">
+        Redo the last undone action
+      </b-tooltip>
+
       <b-button :class="{ 'disabled': learningTreeId === 0 || nodeIsPending }"
                 :aria-disabled="learningTreeId === 0 || nodeIsPending"
                 :disabled="learningTreeId === 0 || nodeIsPending"
@@ -383,13 +333,9 @@
         New Node
       </b-button>
 
-      <b-button size="sm"
-                variant="outline-info"
-                class="toolbar-btn"
-                @click="$bvModal.show('modal-learning-tree-instructions')"
-      >
-        Instructions
-      </b-button>
+      <div class="toolbar-spacer"/>
+      <ConsultInsight :url="'https://commons.libretexts.org/insight/creating-and-editing-learning-trees'"
+      />
       <b-button size="sm"
                 v-if="false"
                 variant="outline-secondary"
@@ -422,7 +368,7 @@ import axios from 'axios'
 import Form from 'vform'
 import { mapGetters } from 'vuex'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-import { faUndo } from '@fortawesome/free-solid-svg-icons'
+import { faUndo, faRedo } from '@fortawesome/free-solid-svg-icons'
 import { faCopy } from '@fortawesome/free-regular-svg-icons'
 import AllFormErrors from '~/components/AllFormErrors'
 import ViewQuestionWithoutModal from '~/components/ViewQuestionWithoutModal'
@@ -432,6 +378,7 @@ import { getLearningOutcomes, subjectOptions } from '~/helpers/LearningOutcomes'
 import { processReceiveMessage, addGlow, getTechnology, getTechnologySrcDoc } from '~/helpers/HandleTechnologyResponse'
 import LearningTreeProperties from '../../components/LearningTreeProperties.vue'
 import { doCopy } from '../../helpers/Copy'
+import ConsultInsight from '../../components/ConsultInsight.vue'
 
 window.onmousemove = function (e) {
   window.doNotDrag = e.ctrlKey || e.metaKey
@@ -442,6 +389,7 @@ export default {
     return { title: 'Learning Trees Editor' }
   },
   components: {
+    ConsultInsight,
     LearningTreeProperties,
     FontAwesomeIcon,
     AllFormErrors,
@@ -484,6 +432,8 @@ export default {
     nodeIframeId: '',
     canUndo: false,
     undoIcon: faUndo,
+    canRedo: false,
+    redoIcon: faRedo,
     nodeIsPending: false,
     nodeForm: new Form({
       question_id: '',
@@ -995,6 +945,22 @@ export default {
         this.$noty.error(error.message)
       }
     },
+    async redo () {
+      // EK: mirrors undo() above. Assumes a matching redo endpoint —
+      // confirm this route exists server-side (and that
+      // learning-tree-histories returns a can_redo flag alongside
+      // can_undo) before relying on this.
+      try {
+        const { data } = await axios.patch(`/api/learning-tree-histories/${this.learningTreeId}/redo`)
+        if (data.type === 'success') {
+          window.location.href = `/instructors/learning-trees/editor/${this.learningTreeId}`
+        } else {
+          this.$noty[data.type](data.message)
+        }
+      } catch (error) {
+        this.$noty.error(error.message)
+      }
+    },
     async openNodeModal (nodeToUpdate) {
       if (!nodeToUpdate) {
         return false
@@ -1204,6 +1170,7 @@ export default {
         this.notes = data.notes
         this.assessmentQuestionId = data.question_id
         this.canUndo = data.can_undo
+        this.canRedo = Boolean(data.can_redo)
         this.isAuthor = data.author_id === this.user.id
         if (data.learning_tree) {
           let learningTree = data.learning_tree.replaceAll('/assets/img', this.asset('assets/img'))
@@ -1261,6 +1228,7 @@ export default {
         }
         this.$noty[data.type](data.message)
         this.canUndo = data.can_undo
+        this.canRedo = Boolean(data.can_redo)
         this.updateCanvasHeight()
       } catch (error) {
         this.$noty.error(error.message)
@@ -1380,6 +1348,10 @@ body, html {
 
 .toolbar-btn {
   font-size: 13px;
+}
+
+.toolbar-spacer {
+  flex: 1 1 auto;
 }
 
 /* =====================

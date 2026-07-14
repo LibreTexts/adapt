@@ -598,6 +598,7 @@ Route::group(['middleware' => ['auth:api', 'analytics','rate.limit.by.user']], f
 
 
     Route::patch('/learning-tree-histories/{learningTree}', 'LearningTreeHistoryController@updateLearningTreeFromHistory');
+    Route::patch('/learning-tree-histories/{learningTree}/redo', 'LearningTreeHistoryController@redoLearningTreeFromHistory');
 
 
     Route::post('/learning-trees/learning-tree-exists', 'LearningTreeController@learningTreeExists');
