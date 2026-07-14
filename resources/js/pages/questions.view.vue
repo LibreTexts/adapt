@@ -827,7 +827,7 @@
         Students receive a {{ hintPenaltyIfShownHint }}% penalty for viewing the hint.
       </b-alert>
       <div id="hint-html">
-      <span v-html="questions[currentPage - 1].hint"/>
+        <span v-html="questions[currentPage - 1].hint"/>
       </div>
       <template #modal-footer="{ ok}">
         <b-button
@@ -6943,9 +6943,7 @@ export default {
       }
       if (this.assessmentType === 'learning tree') {
         const xCenter = window.innerWidth / 2
-        this.learningTreeSrc = this.user.role === 3
-          ? `/students/learning-trees/${this.assignmentId}/${this.questions[currentPage - 1].learning_tree_id}/${this.questions[this.currentPage - 1].id}/${xCenter}`
-          : `/instructors/learning-trees/editor/${this.questions[currentPage - 1].learning_tree_id}/0/${xCenter}`
+        this.learningTreeSrc = `/students/learning-trees/${this.assignmentId}/${this.questions[currentPage - 1].learning_tree_id}/${this.questions[this.currentPage - 1].id}/${xCenter}`
       }
       this.showOpenEndedSubmissionMessage = false
       this.solutionTextForm.solution_text = this.questions[currentPage - 1].solution_text
