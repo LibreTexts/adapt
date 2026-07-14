@@ -102,7 +102,9 @@
                background="#FFFFFF"
       />
       <div v-if="!isLoading">
-        <PageTitle :title="name"/>
+        <PageTitle :title="name"
+                   :assessment-type="assessmentType"
+        />
         <b-container>
           <div v-if="!showNoAccessMessage && (assessmentType !== 'clicker' || solutionsReleased)">
             <b-row align-h="end">

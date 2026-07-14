@@ -89,7 +89,7 @@ import FormativeWarning from './FormativeWarning.vue'
 import CustomTitle from './CustomTitle.vue'
 import AlgorithmicIcon from './AlgorithmicIcon.vue'
 import { mapGetters } from 'vuex'
-import { faTree } from '@fortawesome/free-solid-svg-icons'
+
 
 export default {
   name: 'PageTitle',

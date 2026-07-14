@@ -4046,7 +4046,8 @@ class AssignmentSyncQuestionController extends Controller
                     $assignment->questions[$key]->a11y_auto_graded_question_id = null;
                     if (!$assignment->question_titles_shown) {
                         $order = $key + 1;
-                        $assignment->questions[$key]['title'] = "Question #$order";
+                        $assessment_type = $assignment->assessment_type === 'learning tree' ? 'Tree' : 'Question';
+                        $assignment->questions[$key]['title'] = "$assessment_type #$order";
                     }
 
                 }

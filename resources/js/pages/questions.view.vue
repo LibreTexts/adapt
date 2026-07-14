@@ -1752,7 +1752,11 @@
             <b-row class="align-items-end">
               <b-col>
                 <h1 class="page-title mb-0 text-primary font-weight-normal" style="font-size: 26px; line-height: 1.1;">
-                  {{ getTitle(currentPage) }}
+                  <b-icon
+                    v-if="assessmentType === 'learning tree'"
+                    icon="tree"
+                    variant="success"
+                  />{{ getTitle(currentPage) }}
                 </h1>
                 <small v-show="questionStatus"
                        :class="getQuestionStatusClass()"
@@ -6766,7 +6770,8 @@ export default {
     getTitle (currentPage) {
       if (!this.questions[currentPage - 1]) return ''
       if (this.assessmentType === 'flashcard' && this.user.role !== 2) return ''
-      return this.questions[currentPage - 1].title || `Question #${currentPage - 1}`
+      const fallbackLabel = this.assessmentType === 'learning tree' ? 'Tree' : 'Question'
+      return this.questions[currentPage - 1].title || `${fallbackLabel} #${currentPage - 1}`
     },
     getQtiJson () {
       let qtiJson
