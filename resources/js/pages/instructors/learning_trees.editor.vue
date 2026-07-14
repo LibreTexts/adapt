@@ -284,7 +284,7 @@
       </div>
     </b-modal>
     <!-- TOP TOOLBAR -->
-    <div v-if="isAuthor" id="toolbar">
+    <div v-if="isAuthor && !inIFrame" id="toolbar">
       <b-icon id="properties-tooltip"
               icon="gear"
               :class="{ 'disabled': learningTreeId === 0}"
@@ -396,6 +396,7 @@ export default {
     ViewQuestionWithoutModal
   },
   data: () => ({
+    inIFrame: false,
     questionToEdit: {},
     nodeModalTitle: '',
     nodeModalBorderClass: '',
@@ -488,6 +489,11 @@ export default {
     }
   },
   async mounted () {
+    try {
+      this.inIFrame = window.self !== window.top
+    } catch (e) {
+      this.inIFrame = false
+    }
     document.querySelector('.container')?.classList.add('lt-editor-wide')
     // EK: lock page scroll only while this editor is mounted, and remember
     // the previous values so we can restore them on beforeDestroy instead
