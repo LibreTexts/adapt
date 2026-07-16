@@ -40,6 +40,72 @@
           </b-button>
         </template>
       </b-modal>
+      <b-modal id="modal-root-assessment-submission-information"
+               title="Root Assessment Submission Information"
+      >
+        <div v-show="showScores && questions[currentPage-1].submission_score_override">
+          <b-alert show variant="info">
+            Override score provided by instructor: {{ questions[currentPage - 1].submission_score_override }}
+          </b-alert>
+        </div>
+        <ul style="list-style-type:none" class="pl-0">
+          <li
+            v-if="numberOfAllowedAttempts !== 'unlimited' && scoringType === 'p'"
+            class="font-weight-bold"
+          >
+            {{
+              numberOfRemainingAttempts
+            }}
+          </li>
+          <li v-if="studentShowPointsNonClicker() && assessmentType === 'learning tree'">
+            <span class="font-weight-bold">Current Points:</span>
+            {{
+              questions[currentPage - 1].submission_score !== null ? questions[currentPage - 1].submission_score : '-'
+            }}
+          </li>
+          <li
+            v-if="numberOfAllowedAttempts !== '1'
+                        && numberOfAllowedAttemptsPenalty"
+          >
+            <span class="font-weight-bold">Next Attempt Points:</span> {{ maximumNumberOfPointsPossible }}
+            <span>
+                        <QuestionCircleTooltip :id="'learning-tree-per-attempt-penalty-tooltip'"/>
+                        <b-tooltip target="learning-tree-per-attempt-penalty-tooltip" delay="250"
+                                   triggers="hover focus"
+                        >
+                          A per attempt penalty of {{ numberOfAllowedAttemptsPenalty }}% is applied after the first
+                          attempt.
+                          {{ getHintPenaltyMessage() }}  With the penalty, the maximum number of points possible for the next attempt is
+                          {{ maximumNumberOfPointsPossible }} points.
+                        </b-tooltip>
+                      </span>
+          </li>
+          <li>
+            <span class="font-weight-bold">Last submission:</span> <span
+            :class="{ 'text-danger': questions[currentPage - 1].last_submitted === 'N/A' }"
+          >{{
+              questions[currentPage - 1].student_response
+            }}</span>
+          </li>
+          <li>  <span class="font-weight-bold">
+              Submitted At:</span>
+            <span
+              :class="{ 'text-danger': questions[currentPage - 1].last_submitted === 'N/A' }"
+            >{{
+                questions[currentPage - 1].last_submitted
+              }} </span>
+          </li>
+        </ul>
+        <template #modal-footer>
+          <b-button
+            variant="primary"
+            size="sm"
+            @click="$bvModal.hide('modal-root-assessment-submission-information')"
+          >
+            OK
+          </b-button>
+        </template>
+      </b-modal>
       <b-modal id="modal-submission-information"
                :title="modalSubmissionInformationTitle"
       >
@@ -1756,7 +1822,8 @@
                     v-if="questions[currentPage - 1] && assessmentType === 'learning tree'"
                     icon="tree"
                     variant="success"
-                  />{{ getTitle(currentPage) }}
+                  />
+                  {{ getTitle(currentPage) }}
                 </h1>
                 <small v-show="questionStatus"
                        :class="getQuestionStatusClass()"
@@ -2885,17 +2952,18 @@
                             && !isForge()
                             && showSubmissionInformation
                             && showQuestion
-                            && assessmentType !== 'flashcard'
-                            && !['learning tree','clicker'].includes(assessmentType)
+                            && !['flashcard','clicker'].includes(assessmentType)
                             && !isFormative"
                           class="pb-2"
                     >
                       <b-button
                         variant="primary"
                         size="sm"
-                        @click="$bvModal.show('modal-submission-information')"
+                        @click="assessmentType === 'learning tree' ?  $bvModal.show('modal-root-assessment-submission-information') : $bvModal.show('modal-submission-information')"
                       >
-                        Submission Information
+                        {{
+                          assessmentType === 'learning tree' ? 'Root Assessment Submission Information' : 'Submission Information'
+                        }}
                       </b-button>
                       <span v-if="['real time','learning tree'].includes(assessmentType)
                         && canViewHintAtAssignmentLevel
@@ -3486,62 +3554,6 @@
                   Override score provided by instructor: {{ questions[currentPage - 1].submission_score_override }}
                 </b-alert>
               </div>
-              <b-row>
-                <b-card
-                  v-if="assessmentType === 'learning tree' && studentShowPointsNonClicker()"
-                  header="default"
-                  header-html="<h2 class=&quot;h7&quot;>Root Assessment Submission</h2>"
-                  :class="{ 'mt-3': zoomedOut}"
-                >
-                  <div style="font-size:large">
-                    <div
-                      v-if="numberOfAllowedAttempts !== 'unlimited' && scoringType === 'p'"
-                    >
-                      {{
-                        numberOfRemainingAttempts
-                      }}
-                    </div>
-                    <div v-if="studentShowPointsNonClicker() && assessmentType === 'learning tree'">
-                      Current Points: {{ questions[currentPage - 1].submission_score }}
-                    </div>
-                    <div
-                      v-if="numberOfAllowedAttempts !== '1'
-                        && numberOfAllowedAttemptsPenalty"
-                    >
-                      Next Attempt Points: {{ maximumNumberOfPointsPossible }}
-                      <span>
-                        <QuestionCircleTooltip :id="'learning-tree-per-attempt-penalty-tooltip'"/>
-                        <b-tooltip target="learning-tree-per-attempt-penalty-tooltip" delay="250"
-                                   triggers="hover focus"
-                        >
-                          A per attempt penalty of {{ numberOfAllowedAttemptsPenalty }}% is applied after the first
-                          attempt.
-                          {{ getHintPenaltyMessage() }}  With the penalty, the maximum number of points possible for the next attempt is
-                          {{ maximumNumberOfPointsPossible }} points.
-                        </b-tooltip>
-                      </span>
-                    </div>
-                  </div>
-                  <hr>
-                  <div style="font-size: smaller">
-                    <div>
-                      Last submission: <span
-                      :class="{ 'text-danger': questions[currentPage - 1].last_submitted === 'N/A' }"
-                    >{{
-                        questions[currentPage - 1].student_response
-                      }}</span>
-                      <div>
-                        Submitted At:
-                        <span
-                          :class="{ 'text-danger': questions[currentPage - 1].last_submitted === 'N/A' }"
-                        >{{
-                            questions[currentPage - 1].last_submitted
-                          }} </span>
-                      </div>
-                    </div>
-                  </div>
-                </b-card>
-              </b-row>
             </b-col>
 
             <div
@@ -5691,7 +5703,7 @@ export default {
       }
     },
     setQuestionCol () {
-      this.questionCol = (this.isDiscussIt() || this.assessmentType === 'flashcard' || ['clicker', 'real time', 'delayed'].includes(this.assessmentType) ||
+      this.questionCol = (this.isDiscussIt() || this.assessmentType === 'flashcard' || ['clicker', 'real time', 'delayed', 'learning tree'].includes(this.assessmentType) ||
         !this.showSubmissionInformation) && (!this.caseStudyNotesByQuestion.length) ? 12 : 8
       if (this.clickerApp || this.isPhone()) {
         this.questionCol = 12
