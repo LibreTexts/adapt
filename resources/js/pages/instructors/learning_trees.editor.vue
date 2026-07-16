@@ -78,7 +78,6 @@
       </ul>
     </b-modal>
     <b-modal
-      v-if="nodeQuestion.title"
       id="modal-assignment-question-node"
       ref="modal"
       size="xl"
@@ -102,9 +101,61 @@
           </div>
         </div>
       </div>
+      <div v-if="isRootNode && rootAssessmentSubmissionInfo" class="pb-3">
+        <div v-if="!rootAssessmentSubmissionInfo.submissionArray">
+          <span class="font-weight-bold">Last submitted:</span>
+          <span :class="{ 'text-danger': rootAssessmentSubmissionInfo.lastSubmitted === 'N/A' }">
+            {{ rootAssessmentSubmissionInfo.studentResponse }}
+          </span>
+          <span v-if="rootAssessmentSubmissionInfo.lastSubmitted && rootAssessmentSubmissionInfo.lastSubmitted !== 'N/A'">
+            on {{ rootAssessmentSubmissionInfo.lastSubmitted }}
+          </span>
+        </div>
+        <div v-if="rootAssessmentSubmissionInfo.submissionArray && rootAssessmentSubmissionInfo.submissionArray.length"
+             class="table-responsive"
+        >
+          <span class="font-weight-bold">Last submitted:</span>
+          <table class="table table-striped table-sm pb-3">
+            <thead>
+            <tr>
+              <th scope="col">
+                Submission
+              </th>
+              <th scope="col">
+                Result
+              </th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr v-for="(item, itemIndex) in rootAssessmentSubmissionInfo.submissionArray"
+                :key="`root-submission-result-${itemIndex}`"
+            >
+              <td>
+                <span v-show="!item.submission_has_html"
+                      :class="item.correct ? 'text-success' : 'text-danger'"
+                >
+                  {{ item.submission ? item.submission : 'Nothing submitted' }}
+                </span>
+                <div v-show="item.submission_has_html"
+                     :class="item.correct ? 'text-success' : 'text-danger'"
+                     v-html="item.submission ? item.submission : 'Nothing submitted'"
+                />
+              </td>
+              <td>
+                <span v-show="item.correct" class="text-success">Correct</span>
+                <span v-show="!item.correct" class="text-danger">
+                  {{ item.partial_credit ? 'Partial Credit' : 'Incorrect' }}
+                </span>
+              </td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+        <hr>
+      </div>
       <ViewQuestionWithoutModal :key="`question-to-view-${questionToViewKey}`"
                                 :question-to-view="nodeQuestion"
-                                :show-submit="true"
+                                :show-submit="!isRootNode"
                                 @receiveMessage="receiveMessage"
       />
       <div v-show="completedNodeMessage" style="width:100%">
@@ -397,6 +448,7 @@ export default {
   },
   data: () => ({
     inIFrame: false,
+    rootAssessmentSubmissionInfo: null,
     questionToEdit: {},
     nodeModalTitle: '',
     nodeModalBorderClass: '',
@@ -413,6 +465,7 @@ export default {
     uncompletedNodes: [],
     learningTreeNodeUncompletedParentNodeTitlesByQuestionId: [],
     completedNodeMessage: false,
+    isSavingLearningTree: false,
     timeLeft: 0,
     nodeQuestion: {},
     rootNodeQuestionId: 0,
@@ -506,6 +559,9 @@ export default {
     if (this.user.role === 3) {
       this.assignmentId = this.$route.params.assignmentId
       this.rootNodeQuestionId = this.$route.params.rootNodeQuestionId
+      if (this.inIFrame) {
+        window.parent.postMessage('learning-tree-ready', '*')
+      }
     }
     this.xCenter = this.$route.params.xCenter
 
@@ -561,11 +617,10 @@ export default {
 
     let aclick = false
     let noinfo = false
-    let isSaving = false
     let mouseDownX = 0
     let mouseDownY = 0
 
-    let beginTouch = function (event) {
+    this._learningTreeBeginTouch = function (event) {
       aclick = true
       noinfo = false
       mouseDownX = event.clientX
@@ -576,26 +631,26 @@ export default {
       }
     }
 
-    let checkTouch = function (event) {
+    this._learningTreeCheckTouch = function (event) {
       const totalMovement = Math.abs(event.clientX - mouseDownX) + Math.abs(event.clientY - mouseDownY)
       if (totalMovement > 8) {
         aclick = false
       }
     }
 
-    let doneTouch = function (event) {
+    this._learningTreeDoneTouch = function (event) {
       document.querySelectorAll('.block.dragging').forEach(el => el.classList.remove('dragging'))
       if (vm.touchingBlock && !aclick) {
         vm.updateLocation()
-        isSaving = true
+        vm.isSavingLearningTree = true
         document.getElementById('canvas').style.cursor = 'wait'
         vm.saveLearningTree().finally(() => {
-          isSaving = false
+          vm.isSavingLearningTree = false
           document.getElementById('canvas').style.cursor = 'default'
         })
       }
 
-      if (event.type === 'mouseup' && aclick && !noinfo && !isSaving) {
+      if (event.type === 'mouseup' && aclick && !noinfo) {
         if (event.target.closest('.block') && !event.target.closest('.block').classList.contains('dragging')) {
           vm.openNodeModal(event.target.closest('.block'))
           tempblock = event.target.closest('.block')
@@ -607,15 +662,15 @@ export default {
       }
     }
 
-    let openNodeModal = function (event) {
+    this._learningTreeOpenNodeModal = function (event) {
       vm.openNodeModal(event.target.closest('.block'))
     }
 
-    addEventListener('dblclick', openNodeModal, false)
-    addEventListener('mousedown', beginTouch, false)
-    addEventListener('mousemove', checkTouch, false)
-    addEventListener('mouseup', doneTouch, false)
-    addEventListenerMulti('touchstart', beginTouch, false, '.block')
+    addEventListener('dblclick', this._learningTreeOpenNodeModal, false)
+    addEventListener('mousedown', this._learningTreeBeginTouch, false)
+    addEventListener('mousemove', this._learningTreeCheckTouch, false)
+    addEventListener('mouseup', this._learningTreeDoneTouch, false)
+    addEventListenerMulti('touchstart', this._learningTreeBeginTouch, false, '.block')
 
     this.learningTreeId = parseInt(this.$route.params.learningTreeId)
     this.fromAllLearningTrees = this.$route.params.fromAllLearningTrees
@@ -647,6 +702,22 @@ export default {
   },
   beforeDestroy () {
     window.removeEventListener('message', this.receiveMessage)
+    if (typeof flowy.destroy === 'function') {
+      flowy.destroy()
+    }
+    if (this._learningTreeOpenNodeModal) {
+      removeEventListener('dblclick', this._learningTreeOpenNodeModal, false)
+    }
+    if (this._learningTreeBeginTouch) {
+      removeEventListener('mousedown', this._learningTreeBeginTouch, false)
+      document.querySelectorAll('.block').forEach(el => el.removeEventListener('touchstart', this._learningTreeBeginTouch, false))
+    }
+    if (this._learningTreeCheckTouch) {
+      removeEventListener('mousemove', this._learningTreeCheckTouch, false)
+    }
+    if (this._learningTreeDoneTouch) {
+      removeEventListener('mouseup', this._learningTreeDoneTouch, false)
+    }
     document.querySelector('.container')?.classList.remove('lt-editor-wide')
     document.body.style.overflow = this._prevBodyOverflow || ''
     document.documentElement.style.overflow = this._prevHtmlOverflow || ''
@@ -839,10 +910,25 @@ export default {
         }
         return false
       }
+      if (typeof event.data === 'string' && event.data.length && event.data[0] === '{') {
+        let parsed
+        try {
+          parsed = JSON.parse(event.data)
+        } catch (e) {
+          parsed = null
+        }
+        if (parsed && parsed.source === 'root_assessment_submission_info') {
+          this.rootAssessmentSubmissionInfo = parsed
+          return false
+        }
+      }
       let vm = this
       this.processReceiveMessage(vm, this.$route.name, event)
     },
     updateLearningNodeToCompleted () {
+      if (this.isRootNode) {
+        return
+      }
       location.reload()
     },
     async giveCreditForCompletingLearningTreeNode () {
@@ -982,13 +1068,13 @@ export default {
       this.setNodeModalTitleAndBorderClass()
       if (this.assignmentId) {
         this.uncompletedNodes = []
-        if (this.learningTreeNodeUncompletedParentNodeTitlesByQuestionId[questionId].length) {
+        if (!this.isRootNode && (this.learningTreeNodeUncompletedParentNodeTitlesByQuestionId[questionId] || []).length) {
           this.uncompletedNodes = this.learningTreeNodeUncompletedParentNodeTitlesByQuestionId[questionId]
           this.$bvModal.show('modal-cannot-answer-until-complete-parents')
           return false
         }
-        this.isRootNode ? this.closeLearningTreeModal()
-          : this.$bvModal.show('modal-assignment-question-node')
+        this.rootAssessmentSubmissionInfo = null
+        this.$bvModal.show('modal-assignment-question-node')
         await this.getAssignmentNodeQuestionToView(questionId)
       } else {
         this.$bvModal.show('modal-update-node')

@@ -664,6 +664,19 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
         }
       }
     }
+
+    flowy.destroy = function () {
+      document.removeEventListener('mousedown', touchblock, false)
+      document.removeEventListener('touchstart', touchblock, false)
+      document.removeEventListener('mouseup', touchblock, false)
+      document.removeEventListener('mousedown', flowy.beginDrag)
+      document.removeEventListener('touchstart', flowy.beginDrag)
+      document.removeEventListener('mouseup', flowy.endDrag, false)
+      document.removeEventListener('touchend', flowy.endDrag, false)
+      document.removeEventListener('mousemove', flowy.moveBlock, false)
+      document.removeEventListener('touchmove', flowy.moveBlock, false)
+      loaded = false
+    }
   }
   flowy.load()
 

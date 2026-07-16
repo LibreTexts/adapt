@@ -5120,9 +5120,27 @@ export default {
         $('button.close').click()
         return false
       }
+      if (event.data === 'learning-tree-ready') {
+        this.postRootAssessmentSubmissionInfo(event.source)
+        return false
+      }
       let vm = this
       console.log(this.$route.name)
       this.processReceiveMessage(vm, this.$route.name, event)
+    },
+    postRootAssessmentSubmissionInfo (targetWindow) {
+      if (!targetWindow || this.assessmentType !== 'learning tree' || !this.questions[this.currentPage - 1]) {
+        return
+      }
+      const question = this.questions[this.currentPage - 1]
+      const payload = {
+        source: 'root_assessment_submission_info',
+        technology: question.technology,
+        studentResponse: question.student_response,
+        lastSubmitted: question.last_submitted,
+        submissionArray: ['webwork', 'imathas'].includes(question.technology) ? question.submission_array : null
+      }
+      targetWindow.postMessage(JSON.stringify(payload), '*')
     },
     increaseLearningTreeModalSize () {
       this.$nextTick(() => {
