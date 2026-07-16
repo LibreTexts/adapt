@@ -1308,6 +1308,18 @@ export default {
         let div = $(this).parent('div')
         div.removeClass('question-border exposition-border empty-node-border').addClass(classToAdd)
       })
+      if (this.inIFrame) {
+        this.forceRootNodeBorderGreen()
+      }
+    },
+    forceRootNodeBorderGreen () {
+      const rootBlockIdInput = document.querySelector('.blockid[value="0"]')
+      if (!rootBlockIdInput) {
+        return
+      }
+      const rootBlockDiv = rootBlockIdInput.parentNode
+      rootBlockDiv.classList.remove('question-border', 'exposition-border', 'empty-node-border', 'non-completed-border', 'completed-border')
+      rootBlockDiv.classList.add('completed-border')
     },
     async saveLearningTree () {
       if (!this.isAuthor) {
