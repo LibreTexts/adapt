@@ -84,14 +84,24 @@
       no-close-on-backdrop
       no-close-on-esc
       hide-footer
+      hide-header
       @hidden="updateLearningNodeToCompleted"
     >
-      <template #modal-title>
-        {{ nodeQuestion.title }}
-        <div v-show="nodeQuestion.node_description" class="text-muted" style="font-size:16px;">
-          {{ nodeQuestion.node_description }}
+      <div class="d-flex align-items-start justify-content-between pb-2 mb-2" style="border-bottom: 1px solid #dee2e6;">
+        <div>
+          <h2 class="h5 mb-0">
+            {{ nodeQuestion.title }}
+          </h2>
+          <div v-show="nodeQuestion.node_description" class="text-muted" style="font-size:16px;">
+            {{ nodeQuestion.node_description }}
+          </div>
         </div>
-      </template>
+        <button type="button" aria-label="Close" class="close"
+                @click="$bvModal.hide('modal-assignment-question-node')"
+        >
+          ×
+        </button>
+      </div>
       <div v-if="!showNodeModalContents">
         <div class="d-flex justify-content-center mb-3">
           <div class="text-center">
