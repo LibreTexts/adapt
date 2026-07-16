@@ -85,7 +85,6 @@
       no-close-on-esc
       hide-footer
       @hidden="updateLearningNodeToCompleted"
-      @shown="logVisitedLearningTreeNode"
     >
       <template #modal-title>
         {{ nodeQuestion.title }}
@@ -1064,6 +1063,9 @@ export default {
       this.showNodeModalContents = false
       let questionId = this.nodeToUpdate.querySelector('input[name="question_id"]').value
       this.isRootNode = parseInt(this.nodeToUpdate.querySelector('input[name="blockid"]').value) === 0
+      if (this.isRootNode) {
+        questionId = String(this.rootNodeQuestionId || this.assessmentQuestionId)
+      }
       this.nodeForm.is_root_node = this.isRootNode
       this.setNodeModalTitleAndBorderClass()
       if (this.assignmentId) {
@@ -1104,6 +1106,7 @@ export default {
           }
         }
         this.completedNodeMessage = false
+        await this.logVisitedLearningTreeNode()
       } catch (error) {
         this.$noty.error(error.message)
       }
