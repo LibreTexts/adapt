@@ -1753,7 +1753,7 @@
               <b-col>
                 <h1 class="page-title mb-0 text-primary font-weight-normal" style="font-size: 26px; line-height: 1.1;">
                   <b-icon
-                    v-if="assessmentType === 'learning tree'"
+                    v-if="questions[currentPage - 1] && assessmentType === 'learning tree'"
                     icon="tree"
                     variant="success"
                   />{{ getTitle(currentPage) }}
