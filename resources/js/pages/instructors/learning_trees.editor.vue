@@ -221,7 +221,7 @@
           </div>
         </div>
       </div>
-      <div v-if="!isRootNode && isAuthor && showNodeModalContents" class="flex d-inline-flex pb-4" style="width:100%">
+      <div v-if="isAuthor && showNodeModalContents" class="flex d-inline-flex pb-4" style="width:100%">
         <label class="pr-2" style="width:150px">Node Title</label>
         <b-form-input
           v-model="nodeForm.title"
@@ -230,7 +230,7 @@
           type="text"
         />
       </div>
-      <div v-if="!isRootNode" v-show="showNodeModalContents" style="border: 2px solid #343a40; border-radius: 4px; padding: 10px;">
+      <div v-show="showNodeModalContents" style="border: 2px solid #343a40; border-radius: 4px; padding: 10px;">
         <b-form ref="form">
           <b-form-group>
             <div v-if="isAuthor" class="flex d-inline-flex" style="width:100%">
@@ -250,6 +250,11 @@
                 @keydown="nodeForm.errors.clear('question_id')"
               />
               <has-error :form="nodeForm" field="question_id"/>
+              <span class="pl-2">
+                <b-button size="sm" variant="outline-secondary" @click="refreshNodeSourcePreview">
+                  <b-icon icon="arrow-clockwise"/> Refresh Preview
+                </b-button>
+              </span>
               <span v-if="!nodeSourceIsDefaultTemplateQuestion" class="pl-2">
                 <b-button size="sm" variant="info" @click="editSource">
                   <b-icon icon="pencil"/> {{ questionToView && questionToView.can_edit ? 'Edit' : 'View' }} Source
@@ -295,7 +300,7 @@
           <ViewQuestionWithoutModal :key="`question-to-view-${questionToViewKey}`" :question-to-view="questionToView"/>
         </div>
       </div>
-      <div v-if="!isRootNode && showNodeModalContents">
+      <div v-if="showNodeModalContents">
         <hr>
         <div v-if="!isRootNode">
           <b-form-group
@@ -1191,6 +1196,14 @@ export default {
         }
       }
     },
+    async refreshNodeSourcePreview () {
+      const questionId = (this.nodeForm.question_id || '').toString().trim()
+      if (!questionId) {
+        this.$noty.info('Please enter a Source ID first.')
+        return
+      }
+      await this.getQuestionToView(questionId, true)
+    },
     async getNodeMetaInformation (questionId) {
       try {
         const { data } = await axios.get(`/api/learning-tree-node/meta-info/${this.learningTreeId}/${questionId}`)
@@ -1841,5 +1854,4 @@ body, html {
   width: 90%;
   max-width: 90%;
 }
-</style>git st
-
+</style>
