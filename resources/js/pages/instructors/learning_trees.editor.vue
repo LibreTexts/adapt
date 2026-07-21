@@ -221,7 +221,7 @@
           </div>
         </div>
       </div>
-      <div v-if="isAuthor && showNodeModalContents" class="flex d-inline-flex pb-4" style="width:100%">
+      <div v-if="!isRootNode && isAuthor && showNodeModalContents" class="flex d-inline-flex pb-4" style="width:100%">
         <label class="pr-2" style="width:150px">Node Title</label>
         <b-form-input
           v-model="nodeForm.title"
@@ -230,7 +230,7 @@
           type="text"
         />
       </div>
-      <div v-show="showNodeModalContents" style="border: 2px solid #343a40; border-radius: 4px; padding: 10px;">
+      <div v-if="!isRootNode" v-show="showNodeModalContents" style="border: 2px solid #343a40; border-radius: 4px; padding: 10px;">
         <b-form ref="form">
           <b-form-group>
             <div v-if="isAuthor" class="flex d-inline-flex" style="width:100%">
@@ -250,10 +250,16 @@
                 @keydown="nodeForm.errors.clear('question_id')"
               />
               <has-error :form="nodeForm" field="question_id"/>
-              <span class="pl-2"><b-button size="sm" variant="info" @click="editSource">
-                <b-icon icon="pencil"/> {{ questionToView.can_edit ? 'Edit' : 'View' }} Source
-              </b-button></span>
+              <span v-if="!nodeSourceIsDefaultTemplateQuestion" class="pl-2">
+                <b-button size="sm" variant="info" @click="editSource">
+                  <b-icon icon="pencil"/> {{ questionToView && questionToView.can_edit ? 'Edit' : 'View' }} Source
+                </b-button>
+              </span>
             </div>
+            <b-alert v-if="isAuthor" :show="nodeSourceIsDefaultTemplateQuestion" variant="warning" class="mt-2">
+              This node is still using a placeholder question from the default template. Please enter the ADAPT ID
+              of the question you'd like to use for this node above.
+            </b-alert>
           </b-form-group>
           <div v-if="!isAuthor">
             <div>
@@ -263,7 +269,7 @@
               <b-tooltip target="source-id-non-author" delay="500" triggers="hover focus">
                 The ADAPT ID of the question used as the source for this node.
               </b-tooltip>
-              <b-button size="sm" variant="info" @click="editSource">
+              <b-button v-if="!nodeSourceIsDefaultTemplateQuestion" size="sm" variant="info" @click="editSource">
                 View Source
               </b-button>
             </div>
@@ -289,7 +295,7 @@
           <ViewQuestionWithoutModal :key="`question-to-view-${questionToViewKey}`" :question-to-view="questionToView"/>
         </div>
       </div>
-      <div v-if="showNodeModalContents">
+      <div v-if="!isRootNode && showNodeModalContents">
         <hr>
         <div v-if="!isRootNode">
           <b-form-group
@@ -544,6 +550,19 @@ export default {
         default:
           return 'darkgray'
       }
+    },
+    defaultTemplateQuestionIds () {
+      const ids = []
+      LEARNING_TREE_TEMPLATE.blocks.forEach(block => {
+        const questionIdEntry = block.data.find(entry => entry.name === 'question_id')
+        if (questionIdEntry) {
+          ids.push(String(questionIdEntry.value))
+        }
+      })
+      return ids
+    },
+    nodeSourceIsDefaultTemplateQuestion () {
+      return this.defaultTemplateQuestionIds.includes(String(this.nodeForm.question_id))
     }
   },
   created () {
@@ -1249,6 +1268,9 @@ export default {
     },
     async createLearningTree () {
       try {
+        if (!this.learningTreeForm.question_id) {
+          this.learningTreeForm.question_id = this.getDefaultTemplateRootQuestionId()
+        }
         const { data } = await this.learningTreeForm.post('/api/learning-trees/info')
         this.$noty[data.type](data.message)
         if (data.type === 'success') {
@@ -1384,6 +1406,17 @@ export default {
         questionIds.push(parseInt($(this).text()))
       })
       return questionIds
+    },
+    getDefaultTemplateRootQuestionId () {
+      const rootBlock = LEARNING_TREE_TEMPLATE.blocks.find(block => {
+        const blockIdEntry = block.data.find(entry => entry.name === 'blockid')
+        return blockIdEntry && parseInt(blockIdEntry.value) === 0
+      })
+      if (!rootBlock) {
+        return ''
+      }
+      const questionIdEntry = rootBlock.data.find(entry => entry.name === 'question_id')
+      return questionIdEntry ? String(questionIdEntry.value) : ''
     },
     getBlockyNameHTML (questionId) {
       return `<span class="question_id">${questionId}</span>`
@@ -1808,4 +1841,5 @@ body, html {
   width: 90%;
   max-width: 90%;
 }
-</style>
+</style>git st
+
