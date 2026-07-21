@@ -598,10 +598,10 @@ export default {
     this._prevHtmlOverflow = document.documentElement.style.overflow
     document.body.style.overflow = 'hidden'
     document.documentElement.style.overflow = 'hidden'
-    if (this.user.role === 3) {
+    if (this.inIFrame) {
       this.assignmentId = this.$route.params.assignmentId
       this.rootNodeQuestionId = this.$route.params.rootNodeQuestionId
-      if (this.inIFrame) {
+      if (this.user.role === 3) {
         window.parent.postMessage('learning-tree-ready', '*')
       }
     }
@@ -725,7 +725,7 @@ export default {
       await this.$nextTick()
       this.updateCanvasHeight()
       await this.updateLocation()
-      if (this.user.role === 3) {
+      if (this.assignmentId) {
         await this.updateCompletionBorders()
       } else {
         let questionIds = this.getQuestionIdsFromNodes()
