@@ -164,26 +164,26 @@
           </div>
           <table class="fc-keyboard-table">
             <tbody>
-              <tr>
-                <td><kbd>Space</kbd> / <kbd>Enter</kbd></td>
-                <td>Flip card</td>
-              </tr>
-              <tr>
-                <td><kbd>&#8594;</kbd></td>
-                <td>Next card</td>
-              </tr>
-              <tr>
-                <td><kbd>&#8592;</kbd></td>
-                <td>Previous card</td>
-              </tr>
-              <tr>
-                <td><kbd>&#8593;</kbd></td>
-                <td>Mark Correct (after flip)</td>
-              </tr>
-              <tr>
-                <td><kbd>&#8595;</kbd></td>
-                <td>Mark Incorrect (after flip)</td>
-              </tr>
+            <tr>
+              <td><kbd>Space</kbd> / <kbd>Enter</kbd></td>
+              <td>Flip card</td>
+            </tr>
+            <tr>
+              <td><kbd>&#8594;</kbd></td>
+              <td>Next card</td>
+            </tr>
+            <tr>
+              <td><kbd>&#8592;</kbd></td>
+              <td>Previous card</td>
+            </tr>
+            <tr>
+              <td><kbd>&#8593;</kbd></td>
+              <td>Mark Correct (after flip)</td>
+            </tr>
+            <tr>
+              <td><kbd>&#8595;</kbd></td>
+              <td>Mark Incorrect (after flip)</td>
+            </tr>
             </tbody>
           </table>
         </div>
@@ -206,8 +206,8 @@
 
       <div v-if="orderedCards.length > 1" class="fc-header">
         <span class="fc-counter">Card {{ currentIndex + 1 }} <span class="fc-counter-of">of {{
-          cards.length
-        }}</span></span>
+            cards.length
+          }}</span></span>
       </div>
 
       <div v-if="orderedCards.length > 1" aria-live="polite" aria-atomic="true" class="sr-only">
@@ -256,16 +256,16 @@
           </div>
           <div class="fc-face-content">
             <template v-if="currentCard.frontType === 'free_form'">
-              <div class="fc-rich" v-html="currentCard.front" />
+              <div class="fc-rich math-tex" v-html="currentCard.front" />
             </template>
             <template v-else-if="currentCard.frontType === 'text_only'">
-              <div class="fc-term">
+              <div class="fc-term math-tex">
                 {{ currentCard.term }}
               </div>
             </template>
             <template v-else-if="currentCard.frontType === 'text_media'">
               <div class="fc-two-col">
-                <div class="fc-term">
+                <div class="fc-term math-tex">
                   {{ currentCard.term }}
                 </div>
                 <div :class="currentCard.frontMediaType !== 'audio' ? 'fc-media' : ''">
@@ -287,7 +287,7 @@
                 <b-icon icon="x" aria-hidden="true" />
               </button>
               <span class="fc-hint-label" aria-hidden="true">Hint</span>
-              <span class="fc-hint-text" aria-hidden="true">{{ effectiveHintText }}</span>
+              <span class="fc-hint-text math-tex" aria-hidden="true">{{ effectiveHintText }}</span>
               <span class="sr-only">{{ effectiveHintSrText }}</span>
             </div>
           </transition>
@@ -305,16 +305,16 @@
           </div>
           <div class="fc-face-content">
             <template v-if="currentCard.backType === 'free_form'">
-              <div class="fc-rich" v-html="currentCard.back" />
+              <div class="fc-rich math-tex" v-html="currentCard.back" />
             </template>
             <template v-else-if="currentCard.backType === 'text_only'">
-              <div class="fc-answer">
+              <div class="fc-answer math-tex">
                 {{ currentCard.answer }}
               </div>
             </template>
             <template v-else-if="currentCard.backType === 'text_media'">
               <div class="fc-two-col">
-                <div class="fc-answer">
+                <div class="fc-answer math-tex">
                   {{ currentCard.answer }}
                 </div>
                 <div :class="currentCard.backMediaType !== 'audio' ? 'fc-media' : ''">
@@ -405,17 +405,17 @@
             <div class="fc-stat fc-stat--correct" :aria-label="`${correctCount} correct`">
               <span class="fc-stat-num" aria-hidden="true">{{ correctCount }}</span><span class="fc-stat-lbl"
                                                                                           aria-hidden="true"
-              >Correct</span>
+            >Correct</span>
             </div>
             <div class="fc-stat fc-stat--incorrect" :aria-label="`${incorrectCount} incorrect`">
               <span class="fc-stat-num" aria-hidden="true">{{ incorrectCount }}</span><span class="fc-stat-lbl"
                                                                                             aria-hidden="true"
-              >Incorrect</span>
+            >Incorrect</span>
             </div>
             <div class="fc-stat fc-stat--unanswered" :aria-label="`${unansweredCount} skipped`">
               <span class="fc-stat-num" aria-hidden="true">{{ unansweredCount }}</span><span class="fc-stat-lbl"
                                                                                              aria-hidden="true"
-              >Skipped</span>
+            >Skipped</span>
             </div>
           </div>
           <div class="fc-summary-actions">
@@ -741,11 +741,13 @@ export default {
     },
     card () {
       this.initDeck()
+      this.typesetCurrentCard()
     },
     cards (newCards, oldCards) {
       const sameCards = newCards.length === oldCards.length && newCards.every((c, i) => c.question_id === oldCards[i].question_id)
       if (!sameCards) {
         this.initDeck()
+        this.typesetCurrentCard()
         return
       }
       newCards.forEach((card, i) => {
@@ -759,7 +761,7 @@ export default {
       this.ttsPlayingSide = null
       this.selfReport = this.cardResults[this.currentIndex] || null
       if (this.assignmentId) this.getQuestionUsageFlashcardSettings()
-      this.syncCardHeight()
+      this.typesetCurrentCard().then(() => this.syncCardHeight())
     },
     showSummary (val) {
       if (val) {
@@ -782,6 +784,7 @@ export default {
       this.loadStudentOverrides()
     }
     this.initialize()
+    this.typesetCurrentCard()
   },
 
   beforeDestroy () {
@@ -790,6 +793,26 @@ export default {
   },
   methods: {
     canEdit,
+    // Re-run MathJax typesetting scoped to the visible card faces only.
+    // Called whenever the DOM content of frontFace/backFace changes
+    // (card navigation, deck reload, TTS recording swap, etc.)
+    typesetCurrentCard () {
+      return this.$nextTick().then(() => {
+        if (!window.MathJax) {
+          console.warn('[FlashcardViewer] MathJax not found on window — check that the MathJax script has loaded before this component mounts.')
+          return
+        }
+        if (!window.MathJax.typesetPromise) {
+          console.warn('[FlashcardViewer] window.MathJax exists but has no typesetPromise — MathJax may still be starting up.')
+          return
+        }
+        const els = [this.$refs.frontFace, this.$refs.backFace].filter(Boolean)
+        if (!els.length) return
+        return MathJax.typesetPromise(els).catch(err => {
+          console.error('[FlashcardViewer] MathJax typesetPromise failed:', err)
+        })
+      })
+    },
     syncCardHeight () {
       this.$nextTick(() => {
         const front = this.$refs.frontFace
@@ -1055,6 +1078,7 @@ export default {
     toggleHint () {
       if (!this.effectiveHintText) return
       this.hintVisible = !this.hintVisible
+      if (this.hintVisible) this.typesetCurrentCard()
     },
 
     toggleAutoplay () {

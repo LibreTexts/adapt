@@ -3,7 +3,7 @@
     <div class="fc-recorder-label">
       {{ label }}
     </div>
-    <div v-if="text" class="fc-recorder-text">
+    <div v-if="text" ref="recorderText" class="fc-recorder-text math-tex">
       {{ text }}
     </div>
 
@@ -92,11 +92,31 @@ export default {
     }
   },
 
+  watch: {
+    text () {
+      this.typesetText()
+    }
+  },
+
+  mounted () {
+    this.typesetText()
+  },
+
   beforeDestroy () {
     this.cleanup()
   },
 
   methods: {
+    typesetText () {
+      return this.$nextTick().then(() => {
+        if (!window.MathJax?.typesetPromise) return
+        const el = this.$refs.recorderText
+        if (!el) return
+        return MathJax.typesetPromise([el]).catch(err => {
+          console.error('[FlashcardAudioRecorder] MathJax typesetPromise failed:', err)
+        })
+      })
+    },
     async startRecording () {
       this.errorMessage = ''
       try {
