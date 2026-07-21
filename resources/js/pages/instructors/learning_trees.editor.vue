@@ -381,6 +381,21 @@
         Redo the last undone action
       </b-tooltip>
 
+      <b-spinner v-if="isRefreshingTree" small variant="secondary" class="toolbar-icon" label="Refreshing"/>
+      <font-awesome-icon v-else
+                         id="refresh-tree-tooltip"
+                         :class="{ 'disabled': learningTreeId === 0}"
+                         :aria-disabled="learningTreeId === 0"
+                         aria-label="Refresh tree layout"
+                         class="toolbar-icon"
+                         scale="1.1"
+                         :icon="refreshIcon"
+                         @click="learningTreeId === 0 ? '' : refreshLearningTreeLayout()"
+      />
+      <b-tooltip target="refresh-tree-tooltip" delay="250" triggers="hover">
+        Recenters the tree and reconnects any arrows that aren't lining up correctly.
+      </b-tooltip>
+
       <b-button :class="{ 'disabled': learningTreeId === 0 || nodeIsPending }"
                 :aria-disabled="learningTreeId === 0 || nodeIsPending"
                 :disabled="learningTreeId === 0 || nodeIsPending"
@@ -396,14 +411,6 @@
       <div class="toolbar-spacer"/>
       <ConsultInsight :url="'https://commons.libretexts.org/insight/creating-and-editing-learning-trees'"
       />
-      <b-button size="sm"
-                v-if="false"
-                variant="outline-secondary"
-                class="toolbar-btn"
-                @click="updateLocation()"
-      >
-        Recenter
-      </b-button>
     </div>
 
     <!-- STAGING AREA: shown when a new node is pending placement -->
@@ -428,7 +435,7 @@ import axios from 'axios'
 import Form from 'vform'
 import { mapGetters } from 'vuex'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
-import { faUndo, faRedo } from '@fortawesome/free-solid-svg-icons'
+import { faUndo, faRedo, faSyncAlt } from '@fortawesome/free-solid-svg-icons'
 import { faCopy } from '@fortawesome/free-regular-svg-icons'
 import AllFormErrors from '~/components/AllFormErrors'
 import ViewQuestionWithoutModal from '~/components/ViewQuestionWithoutModal'
@@ -497,6 +504,8 @@ export default {
     undoIcon: faUndo,
     canRedo: false,
     redoIcon: faRedo,
+    refreshIcon: faSyncAlt,
+    isRefreshingTree: false,
     nodeIsPending: false,
     nodeForm: new Form({
       question_id: '',
@@ -851,6 +860,20 @@ export default {
       await this.$nextTick()
       this.updateCanvasHeight()
       flowy.rearrange()
+    },
+    async refreshLearningTreeLayout () {
+      if (this.isRefreshingTree) {
+        return
+      }
+      this.isRefreshingTree = true
+      try {
+        await this.updateLocation()
+        await this.saveLearningTree()
+        this.$noty.success('The tree layout has been refreshed.')
+      } catch (error) {
+        this.$noty.error(error.message)
+      }
+      this.isRefreshingTree = false
     },
     async logVisitedLearningTreeNode () {
       try {
