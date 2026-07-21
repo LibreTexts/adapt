@@ -1237,6 +1237,9 @@ export default {
           this.assessmentQuestionId = this.learningTreeForm.question_id
           this.$bvModal.hide('modal-learning-tree-properties')
           flowy.import(LEARNING_TREE_TEMPLATE)
+          await this.$nextTick()
+          this.updateCanvasHeight()
+          await this.updateLocation()
           await this.saveLearningTree()
         }
       } catch (error) {
