@@ -1218,6 +1218,9 @@ export default {
         return
       }
       await this.getQuestionToView(questionId, true)
+      if (this.nodeForm.title === 'Empty Learning Tree Node' && this.questionToView && this.questionToView.title) {
+        this.nodeForm.title = this.questionToView.title
+      }
     },
     async getNodeMetaInformation (questionId) {
       try {
@@ -1247,6 +1250,14 @@ export default {
       this.isUpdating = true
       this.nodeForm.question_id = this.nodeForm.question_id.split('-').pop()
       this.nodeForm.learning_outcome = this.learningOutcome ? this.learningOutcome.id : ''
+      if (this.nodeForm.title === 'Empty Learning Tree Node') {
+        if (!this.questionToView || String(this.questionToView.id) !== String(this.nodeForm.question_id)) {
+          await this.getQuestionToView(this.nodeForm.question_id)
+        }
+        if (this.questionToView && this.questionToView.title) {
+          this.nodeForm.title = this.questionToView.title
+        }
+      }
       try {
         const { data } = await this.nodeForm.patch(`/api/learning-trees/nodes/${this.learningTreeId}`)
         if (data.type === 'success') {
