@@ -3,20 +3,36 @@
     <b-modal
       :id="modalId"
       ref="modal"
-      title="Tree Properties"
       size="lg"
       no-close-on-backdrop
       :hide-footer="!canEditLearningTree"
       @hidden="$emit('resetLearningTreePropertiesModal')"
     >
+      <template #modal-header>
+        <div>
+        <h2 class="h5 modal-title">
+          Tree Properties
+        </h2>
+        <div v-if="learningTreeId">
+          <small>Learning Tree ID: <span :id="`learning-tree-id-${learningTreeId}`">{{ learningTreeId }}</span>
+          </small>
+          <a href=""
+             aria-label="Copy Learning Tree ID"
+             @click.prevent="doCopy(`learning-tree-id-${learningTreeId}`)"
+          >
+            <font-awesome-icon :icon="copyIcon" class="text-muted pl-1"/>
+          </a>
+        </div>
+        </div>
+        <button type="button" aria-label="Close"
+                class="close"
+                @click="$bvModal.hide(modalId)"
+        >
+          ×
+        </button>
+      </template>
       <RequiredText v-if="canEditLearningTree"/>
       <b-form ref="form">
-        <b-form-group v-if="learningTreeId">
-          <label for="learningTreeId" class="col-sm-4 col-lg-3 col-form-label pl-0">
-            Learning Tree ID
-          </label><span id="learningTreeId">{{ learningTreeId }}</span>
-        </b-form-group>
-
         <b-form-group
           label-cols-sm="4"
           label-cols-lg="3"
@@ -132,8 +148,16 @@
 </template>
 
 <script>
+import { faCopy } from '@fortawesome/free-regular-svg-icons'
+import { doCopy } from '~/helpers/Copy'
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+
 export default {
   name: 'LearningTreeProperties',
+  components: {
+    faCopy,
+    FontAwesomeIcon
+  },
   props: {
     canEditLearningTree: {
       type: Boolean,
@@ -153,7 +177,11 @@ export default {
       }
     }
   },
+  data: () => ({
+    copyIcon: faCopy
+  }),
   methods: {
+    doCopy,
     hideLearningTreePropertiesModal () {
       this.$bvModal.hide(this.modalId)
       this.$emit('resetLearningTreePropertiesModal')
