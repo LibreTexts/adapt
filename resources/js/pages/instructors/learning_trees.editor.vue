@@ -302,7 +302,7 @@
       </div>
       <div v-if="showNodeModalContents">
         <hr>
-        <div v-if="!isRootNode">
+        <div>
           <b-form-group
             v-if="isAuthor"
             label="Node Description*"
@@ -821,14 +821,16 @@ export default {
       if (this.user.role !== 2) {
         return
       }
-      const blockElem = this.nodeToUpdate.querySelector('.blockelem') || this.nodeToUpdate
-      if (this.isRootNode) {
+      if (this.nodeSourceIsDefaultTemplateQuestion) {
+        this.nodeModalTitle = this.isRootNode ? 'Root Assessment Node' : 'Empty Node'
+        this.nodeModalBorderClass = 'modal-border-gray'
+      } else if (this.isRootNode) {
         this.nodeModalTitle = 'Root Assessment Node'
         this.nodeModalBorderClass = 'modal-border-blue'
-      } else if (blockElem.classList.contains('question-border')) {
+      } else if (this.questionToView && this.questionToView.question_type === 'assessment') {
         this.nodeModalTitle = 'Assessment Node'
         this.nodeModalBorderClass = 'modal-border-blue'
-      } else if (blockElem.classList.contains('exposition-border')) {
+      } else if (this.questionToView && this.questionToView.question_type === 'exposition') {
         this.nodeModalTitle = 'Exposition Node'
         this.nodeModalBorderClass = 'modal-border-red'
       } else {
@@ -1139,7 +1141,6 @@ export default {
         return false
       }
       this.nodeForm.is_root_node = this.isRootNode
-      this.setNodeModalTitleAndBorderClass()
       if (this.assignmentId) {
         this.uncompletedNodes = []
         if (!this.isRootNode && (this.learningTreeNodeUncompletedParentNodeTitlesByQuestionId[questionId] || []).length) {
@@ -1155,6 +1156,7 @@ export default {
         this.nodeForm.original_question_id = questionId
         this.nodeForm.question_id = questionId
         await this.getQuestionToView(questionId)
+        this.setNodeModalTitleAndBorderClass()
         await this.getNodeMetaInformation(questionId)
         this.nodeIframeId = `remediation-${questionId}`
       }
@@ -1267,6 +1269,20 @@ export default {
           this.nodeToUpdate.querySelector('input[name="question_id"]').value = this.nodeForm.question_id
           this.nodeToUpdate.querySelector('.blockyinfo').innerHTML = data.title
           this.nodeToUpdate.querySelector('.blockyname').innerHTML = this.getBlockyNameHTML(this.nodeForm.question_id)
+          if (this.isRootNode) {
+            try {
+              const { data: currentTree } = await axios.get(`/api/learning-trees/${this.learningTreeId}`)
+              this.learningTreeForm.title = currentTree.title
+              this.learningTreeForm.description = currentTree.description
+              this.learningTreeForm.public = currentTree.public
+              this.learningTreeForm.notes = currentTree.notes
+              this.learningTreeForm.question_id = this.nodeForm.question_id
+              this.assessmentQuestionId = this.nodeForm.question_id
+              await this.updateLearningTreeInfo()
+            } catch (rootSyncError) {
+              this.$noty.error(rootSyncError.message)
+            }
+          }
           await this.saveLearningTree(this.nodeForm.question_id)
         } else {
           this.$noty.error(data.message, { timeout: 20000 })
