@@ -38,6 +38,8 @@ class Submission extends Model
 
     protected $guarded = [];
 
+    private const MOLVIEW_COMPARE_ENDPOINT = 'https://api.molview.libretexts.org/api/v1/compare';
+
 
     public function computeScoreForAccountingMultiPartComputation(array $qtiArray, array $studentSubmission): array
     {
@@ -2213,7 +2215,7 @@ class Submission extends Model
         // Make the POST request
         $response = Http::withHeaders([
             'Authorization' => $token  // Add your Bearer token here
-        ])->post('https://api.molview.libretexts.org/api/v1/compare', $data);
+        ])->post(self::MOLVIEW_COMPARE_ENDPOINT, $data);
 
         if ($response->successful()) {
             $proportion_correct_response['type'] = 'success';
@@ -2241,15 +2243,13 @@ class Submission extends Model
     {
         $token = DB::table('key_secrets')->where('key', 'sketcher')->first()->secret;
         $proportion_correct_response['type'] = 'error';
-        Log::info(json_encode($question->solutionStructure));
-        Log::info($student_response);
         $data = [
             'reference_diagram' => $question->solutionStructure,
             'student_diagram' => json_decode($student_response)->structure
         ];
         $response = Http::withHeaders([
             'Authorization' => $token
-        ])->post('https://api.molview.libretexts.org/api/v1/compare', $data);
+        ])->post(self::MOLVIEW_COMPARE_ENDPOINT, $data);
 
         if ($response->successful()) {
             $proportion_correct_response['type'] = 'success';
