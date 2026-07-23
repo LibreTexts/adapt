@@ -960,10 +960,14 @@ class Question extends Model
                 if (!$show_solution) {
                     if (request()->user()->role === 3) {
                         $qti_array['solutionStructure'] = $this->_removeArrows($qti_array['solutionStructure']);
+                        unset($qti_array['feedback']);
                     }
                 } else {
                     if (!$student_response && $json_type === 'question_json') {
                         $qti_array['solutionStructure'] = $this->_removeArrows($qti_array['solutionStructure']);
+                        if (request()->user()->role === 3) {
+                            unset($qti_array['feedback']);
+                        }
                     }
                 }
                 break;

@@ -2803,6 +2803,7 @@
                         :show-reset-response="Boolean(user.formative_student) & !isForge()"
                         :assignment-id="+assignmentId"
                         :question-id="+questions[currentPage-1].id"
+                        :answered-correctly="Boolean(questions[currentPage-1].answered_correctly)"
                         @submitResponse="receiveMessage"
                         @resetResponse="resetSubmission"
                       />
@@ -3191,6 +3192,7 @@
                               :question-id="+questions[currentPage-1].id"
                               :initial-question-id="+questionId"
                               :assessment-type="assessmentType"
+                              :answered-correctly="Boolean(questions[currentPage-1].answered_correctly)"
                               @submitResponse="receiveMessage"
                               @resetResponse="resetSubmission"
                               @openContactGraderModal="openContactGraderModal"
