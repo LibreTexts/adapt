@@ -2495,7 +2495,7 @@
                 </div>
                 <div class="pb-2">
                   <b-card
-                    v-if="['multiple_choice', 'numerical'].includes(qtiQuestionType)
+                    v-if="['multiple_choice', 'numerical', 'pushing_arrows'].includes(qtiQuestionType)
                       || nursingQuestions.includes(qtiQuestionType)
                       || qtiQuestionType.includes('drop_down_rationale')
                       || (qtiQuestionType === 'select_choice' && nativeType === 'nursing')"
@@ -4907,6 +4907,9 @@ export default {
             if (this.qtiJson.questionType === 'marker') {
               this.sketcherType = 'marker-only'
             }
+            if (this.qtiJson.questionType === 'pushing_arrows' && !this.qtiJson.feedback) {
+              this.qtiJson.feedback = {}
+            }
             break
           case ('drag_and_drop_cloze'):
             this.qtiQuestionType = this.qtiJson.questionType
@@ -5705,7 +5708,8 @@ export default {
             prompt: '',
             solutionStructure: '',
             solution: '',
-            partialCredit: 'exclusive'
+            partialCredit: 'exclusive',
+            feedback: {}
           }
           this.$nextTick(() => {
             this.qtiQuestionType = 'pushing_arrows'

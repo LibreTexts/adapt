@@ -147,6 +147,11 @@
             :configuration="questionType === 'marker' ? 'marker-only' : 'default'"
             :sketcher-viewer-id="showQtiAnswer ? null : 'sketcherViewer'"
           />
+          <GeneralFeedback
+            v-if="questionType === 'pushing_arrows' && studentResponse && showResponseFeedback"
+            :feedback="JSON.parse(qtiJson).feedback"
+            :feedback-type="answeredCorrectly ? 'correct' : 'incorrect'"
+          />
 
           <ThreeDModelViewer
             v-if="['three_d_model_multiple_choice','three_d_model_multiple_answer'].includes(questionType)"
@@ -349,6 +354,7 @@ import AccountingReportViewer from './viewers/AccountingReportViewer.vue'
 import FlashcardViewer from './viewers/FlashcardViewer.vue'
 import AccountingMultiPartComputationViewer from './viewers/AccountingMultiPartComputationViewer.vue'
 import { escapeDollar } from '../helpers/MathJax'
+import GeneralFeedback from './feedback/GeneralFeedback'
 
 export default {
   name: 'QtiJsonQuestionViewer',
@@ -377,7 +383,8 @@ export default {
     MultipleResponseSelectAllThatApplyOrSelectNViewer,
     MultipleResponseGroupingViewer,
     DropDownTableViewer,
-    DragAndDropClozeViewer
+    DragAndDropClozeViewer,
+    GeneralFeedback
   },
   props: {
     assessmentType: { type: String, default: '' },
@@ -417,6 +424,10 @@ export default {
       default: true
     },
     showQtiAnswer: {
+      type: Boolean,
+      default: false
+    },
+    answeredCorrectly: {
       type: Boolean,
       default: false
     },
