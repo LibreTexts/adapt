@@ -474,8 +474,12 @@ class Submission extends Model
                         $proportion_correct = Round($compare_marks_info['proportion_correct'], 2);
                         break;
                     case('pushing_arrows'):
-                        $compare_arrows_info = $this->_compareArrows($submission->question->partialCredit, $submission->question->solutionStructure, json_decode($submission->student_response)->structure);
-                        $proportion_correct = Round($compare_arrows_info['proportion_correct'], 2);
+                        $proportion_correct_response = $this->computeScoreFromPushingArrows($submission->question, $submission->student_response);
+                        if ($proportion_correct_response['type'] === 'error') {
+                            $this->_returnJsonAndExit($proportion_correct_response);
+                        } else {
+                            $proportion_correct = $proportion_correct_response['proportion_correct'];
+                        }
                         break;
                     case('submit_molecule'):
                         $proportion_correct_response = $this->computeScoreFromSubmitMolecule($submission->question, $submission->student_response);
@@ -2176,6 +2180,42 @@ class Submission extends Model
     }
 
     /**
+     * Grades a pushing_arrows submission via the same diagram-compare backend
+     * used for submit_molecule. As of now, the compare API only checks
+     * attached (curved) arrows for an exact/binary match — no partial credit
+     * is available yet, so this always returns 0 or 1 regardless of the
+     * question's configured partialCredit setting. When the backend adds
+     * partial-arrow matching, this can be updated to honor 'inclusive'.
+     *
+     * @param $question
+     * @param $student_response
+     * @return array
+     */
+    public
+    function computeScoreFromPushingArrows($question, $student_response): array
+    {
+        $token = DB::table('key_secrets')->where('key', 'sketcher')->first()->secret;
+        $proportion_correct_response['type'] = 'error';
+        Log::info(json_encode($question->solutionStructure));
+        Log::info($student_response);
+        $data = [
+            'reference_diagram' => $question->solutionStructure,
+            'student_diagram' => json_decode($student_response)->structure
+        ];
+        $response = Http::withHeaders([
+            'Authorization' => $token
+        ])->post('https://api.molview.libretexts.org/api/v1/compare', $data);
+
+        if ($response->successful()) {
+            $proportion_correct_response['type'] = 'success';
+            $proportion_correct_response['proportion_correct'] = (int)$response->json()['equal'];
+        } else {
+            $proportion_correct_response['message'] = "Sketcher error: " . $response->json()['err'] ?: $response->body();
+        }
+        return $proportion_correct_response;
+    }
+
+    /**
      * @param Assignment $assignment
      * @param Question $question
      * @param string $response_format
@@ -2747,8 +2787,7 @@ class Submission extends Model
             'arrows' => [],
             'all_correct' => true,
         ];
-        //Log::info("solution " . json_encode($solution_arrows));
-        //Log::info("student " . json_encode($student_arrows));
+
         foreach ($solution_arrows as $index => $solution_arrow) {
             $matched_index = null;
             foreach ($student_arrows as $student_index => $student_arrow) {

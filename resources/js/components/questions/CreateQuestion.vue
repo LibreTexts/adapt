@@ -2266,7 +2266,7 @@
                       </b-button>
                     </div>
                   </div>
-                  <div v-if="['marker', 'pushing_arrows'].includes(qtiQuestionType)" class="d-inline-flex">
+                  <div v-if="qtiQuestionType === 'marker'" class="d-inline-flex">
                     <label class="mr-2">
                       Scoring
                       <QuestionCircleTooltip id="marker-scoring-tooltip"/>
@@ -4532,10 +4532,19 @@ export default {
             break
           case ('submit_molecule'):
           case ('marker'):
-          case('pushing_arrows'):
             this.receivedStructure = false
-            const iframe = document.getElementById('sketcher')
-            iframe.contentWindow.postMessage('save', '*')
+            const iframe1 = document.getElementById('sketcher')
+            iframe1.contentWindow.postMessage('save', '*')
+            await this.handleGetStructure()
+            break
+          case ('pushing_arrows'):
+            this.receivedStructure = false
+            // Scoring is exclusive-only for now since the compare API doesn't
+            // yet support partial credit for arrows; force it regardless of
+            // what's in qtiJson.partialCredit (the picker is hidden in the UI).
+            this.qtiJson.partialCredit = 'exclusive'
+            const iframe2 = document.getElementById('sketcher')
+            iframe2.contentWindow.postMessage('save', '*')
             await this.handleGetStructure()
             break
           case ('highlight_table'):
