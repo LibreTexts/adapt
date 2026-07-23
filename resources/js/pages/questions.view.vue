@@ -1184,7 +1184,7 @@
       :no-close-on-backdrop="true"
       @hidden="hideModalSubmissionAccepted"
     >
-      <div v-if="learningTreeMessage || submissionDataMessage">
+      <div v-if="learningTreeMessage || submissionDataMessage" v-html="submissionDataMessage">
         {{ submissionDataMessage }}
       </div>
       <div v-if="questions[currentPage - 1] && questions[currentPage - 1].report">
@@ -2606,10 +2606,13 @@
             <b-button
               v-show="user.role !== 3 || questions[currentPage-1].submission_count || questions[currentPage-1].at_least_one_learning_tree_node_submission"
               size="sm"
-              variant="success"
+              variant="outline-success"
               @click="enterLearningTree"
             >
-              Enter Learning Tree
+              <b-icon
+                icon="tree"
+                variant="success"
+              /> Enter Learning Tree
             </b-button>
             <span class="pl-2">
 

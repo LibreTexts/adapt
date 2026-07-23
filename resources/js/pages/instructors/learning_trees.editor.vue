@@ -3,8 +3,10 @@
     <AllFormErrors :all-form-errors="allFormErrors" :modal-id="'modal-form-errors-learning-tree'"/>
     <LearningTreeProperties :learning-tree-form="learningTreeForm"
                             :learning-tree-id="learningTreeId"
+                            :framework-item-sync-learning-tree="frameworkItemSyncLearningTree"
                             @resetLearningTreePropertiesModal="resetLearningTreePropertiesModal"
                             @saveLearningTreeProperties="saveLearningTreeProperties"
+                            @setFrameworkItemSyncLearningTree="setFrameworkItemSyncLearningTree"
     />
     <b-modal v-if="questionToEdit && questionToEdit.id"
              :id="`modal-edit-question-${questionToEdit.id}`"
@@ -302,7 +304,7 @@
       </div>
       <div v-if="showNodeModalContents">
         <hr>
-        <div v-if="!isRootNode">
+        <div>
           <b-form-group
             v-if="isAuthor"
             label="Node Description*"
@@ -419,6 +421,18 @@
         New Node
       </b-button>
 
+      <b-form-checkbox id="auto-center-tooltip"
+                       v-model="autoCenterEnabled"
+                       switch
+                       class="toolbar-btn"
+                       @change="onAutoCenterToggle"
+      >
+        Auto-center
+      </b-form-checkbox>
+      <b-tooltip target="auto-center-tooltip" delay="250" triggers="hover">
+        When on, the tree re-centers itself after edits and page loads. Turn off to keep your scroll position on wide trees.
+      </b-tooltip>
+
       <div class="toolbar-spacer"/>
       <ConsultInsight :url="'https://commons.libretexts.org/insight/creating-and-editing-learning-trees'"
       />
@@ -531,8 +545,17 @@ export default {
       description: '',
       notes: '',
       public: 0,
-      question_id: ''
+      question_id: '',
+      tags: [],
+      question_subject_id: null,
+      question_chapter_id: null,
+      question_section_id: null
     }),
+    tags: [],
+    question_subject_id: null,
+    question_chapter_id: null,
+    question_section_id: null,
+    frameworkItemSyncLearningTree: { descriptors: [], levels: [] },
     assessmentQuestionId: '',
     touchingBlock: false,
     validatingQuestionId: false,
@@ -540,7 +563,8 @@ export default {
     studentLearningObjectives: '',
     title: window.config.appName,
     chosenId: '',
-    learningTreeId: 0
+    learningTreeId: 0,
+    autoCenterEnabled: localStorage.getItem('lt-auto-center') !== 'false'
   }),
   computed: {
     ...mapGetters({
@@ -776,6 +800,14 @@ export default {
         document.documentElement.scrollTop = 0
       })
     },
+    async onAutoCenterToggle (value) {
+      localStorage.setItem('lt-auto-center', value ? 'true' : 'false')
+      if (value) {
+        await this.$nextTick()
+        await this.updateLocation()
+        await this.saveLearningTree()
+      }
+    },
     syncBlockPositions () {
       const canvas = document.getElementById('canvas')
       const blocks = flowy.getBlocks && flowy.getBlocks()
@@ -821,14 +853,16 @@ export default {
       if (this.user.role !== 2) {
         return
       }
-      const blockElem = this.nodeToUpdate.querySelector('.blockelem') || this.nodeToUpdate
-      if (this.isRootNode) {
+      if (this.nodeSourceIsDefaultTemplateQuestion) {
+        this.nodeModalTitle = this.isRootNode ? 'Root Assessment Node' : 'Empty Node'
+        this.nodeModalBorderClass = 'modal-border-gray'
+      } else if (this.isRootNode) {
         this.nodeModalTitle = 'Root Assessment Node'
         this.nodeModalBorderClass = 'modal-border-blue'
-      } else if (blockElem.classList.contains('question-border')) {
+      } else if (this.questionToView && this.questionToView.question_type === 'assessment') {
         this.nodeModalTitle = 'Assessment Node'
         this.nodeModalBorderClass = 'modal-border-blue'
-      } else if (blockElem.classList.contains('exposition-border')) {
+      } else if (this.questionToView && this.questionToView.question_type === 'exposition') {
         this.nodeModalTitle = 'Exposition Node'
         this.nodeModalBorderClass = 'modal-border-red'
       } else {
@@ -853,7 +887,7 @@ export default {
       const rootWidth = rootBlock.offsetWidth || 242
       const canvasWidth = canvas.offsetWidth
       const rootCenter = rootLeft + (rootWidth / 2)
-      const xShift = (canvasWidth / 2) - rootCenter
+      const xShift = this.autoCenterEnabled ? (canvasWidth / 2) - rootCenter : 0
       const yShift = 20 - minTop
 
       // Shift all DOM elements
@@ -1139,7 +1173,6 @@ export default {
         return false
       }
       this.nodeForm.is_root_node = this.isRootNode
-      this.setNodeModalTitleAndBorderClass()
       if (this.assignmentId) {
         this.uncompletedNodes = []
         if (!this.isRootNode && (this.learningTreeNodeUncompletedParentNodeTitlesByQuestionId[questionId] || []).length) {
@@ -1155,6 +1188,7 @@ export default {
         this.nodeForm.original_question_id = questionId
         this.nodeForm.question_id = questionId
         await this.getQuestionToView(questionId)
+        this.setNodeModalTitleAndBorderClass()
         await this.getNodeMetaInformation(questionId)
         this.nodeIframeId = `remediation-${questionId}`
       }
@@ -1211,6 +1245,9 @@ export default {
         }
       }
     },
+    isDefaultNodeTitle (title) {
+      return (title || '').toString().trim().toLowerCase() === 'empty learning tree node'
+    },
     async refreshNodeSourcePreview () {
       const questionId = (this.nodeForm.question_id || '').toString().trim()
       if (!questionId) {
@@ -1218,6 +1255,9 @@ export default {
         return
       }
       await this.getQuestionToView(questionId, true)
+      if (this.isDefaultNodeTitle(this.nodeForm.title) && this.questionToView && this.questionToView.title) {
+        this.nodeForm.title = this.questionToView.title
+      }
     },
     async getNodeMetaInformation (questionId) {
       try {
@@ -1247,12 +1287,46 @@ export default {
       this.isUpdating = true
       this.nodeForm.question_id = this.nodeForm.question_id.split('-').pop()
       this.nodeForm.learning_outcome = this.learningOutcome ? this.learningOutcome.id : ''
+      if (this.isDefaultNodeTitle(this.nodeForm.title)) {
+        if (!this.questionToView || String(this.questionToView.id) !== String(this.nodeForm.question_id)) {
+          await this.getQuestionToView(this.nodeForm.question_id)
+        }
+        if (this.questionToView && this.questionToView.title) {
+          this.nodeForm.title = this.questionToView.title
+        }
+      }
       try {
         const { data } = await this.nodeForm.patch(`/api/learning-trees/nodes/${this.learningTreeId}`)
         if (data.type === 'success') {
           this.nodeToUpdate.querySelector('input[name="question_id"]').value = this.nodeForm.question_id
           this.nodeToUpdate.querySelector('.blockyinfo').innerHTML = data.title
           this.nodeToUpdate.querySelector('.blockyname').innerHTML = this.getBlockyNameHTML(this.nodeForm.question_id)
+          if (this.isRootNode) {
+            try {
+              const { data: currentTree } = await axios.get(`/api/learning-trees/${this.learningTreeId}`)
+              this.learningTreeForm.title = currentTree.title
+              this.learningTreeForm.description = currentTree.description
+              this.learningTreeForm.public = currentTree.public
+              this.learningTreeForm.notes = currentTree.notes
+              this.learningTreeForm.tags = currentTree.tags
+              this.learningTreeForm.question_subject_id = currentTree.question_subject_id
+              this.learningTreeForm.question_chapter_id = currentTree.question_chapter_id
+              this.learningTreeForm.question_section_id = currentTree.question_section_id
+              this.learningTreeForm.question_id = this.nodeForm.question_id
+              this.assessmentQuestionId = this.nodeForm.question_id
+              // EK: signals to the backend that this save is happening
+              // because the root node's question changed, so it should
+              // check whether to auto-fill tags/framework/subject-chapter-
+              // section from the new root question if the tree has none
+              // set. Only ever set here - resetLearningTreePropertiesModal()
+              // clears it back out, so a later, unrelated Tree Properties
+              // save never accidentally re-triggers the auto-fill.
+              this.learningTreeForm.root_node_question_changed = true
+              await this.updateLearningTreeInfo()
+            } catch (rootSyncError) {
+              this.$noty.error(rootSyncError.message)
+            }
+          }
           await this.saveLearningTree(this.nodeForm.question_id)
         } else {
           this.$noty.error(data.message, { timeout: 20000 })
@@ -1273,17 +1347,51 @@ export default {
       document.getElementById('canvas').innerHTML = ''
       this.learningTreeForm.question_id = ''
     },
-    editLearningTree () {
+    async editLearningTree () {
       this.learningTreeForm.title = this.title
       this.learningTreeForm.description = this.description
       this.learningTreeForm.public = this.public
       this.learningTreeForm.notes = this.notes
+      this.learningTreeForm.tags = this.tags || []
+      this.learningTreeForm.question_subject_id = this.question_subject_id
+      this.learningTreeForm.question_chapter_id = this.question_chapter_id
+      this.learningTreeForm.question_section_id = this.question_section_id
+      await this.getFrameworkItemSyncLearningTree()
       this.$bvModal.show('modal-learning-tree-properties')
+    },
+    async getFrameworkItemSyncLearningTree () {
+      if (!this.learningTreeId) {
+        this.frameworkItemSyncLearningTree = { descriptors: [], levels: [] }
+        return
+      }
+      try {
+        const { data } = await axios.get(`/api/framework-item-sync-learning-tree/learning-tree/${this.learningTreeId}`)
+        this.frameworkItemSyncLearningTree = data.framework_item_sync_learning_tree
+      } catch (error) {
+        this.$noty.error(error.message)
+      }
+    },
+    setFrameworkItemSyncLearningTree (frameworkItemSyncLearningTree) {
+      this.frameworkItemSyncLearningTree = frameworkItemSyncLearningTree
     },
     resetLearningTreePropertiesModal () {
       this.learningTreeForm.title = ''
       this.learningTreeForm.description = ''
+      this.learningTreeForm.tags = []
+      this.learningTreeForm.question_subject_id = null
+      this.learningTreeForm.question_chapter_id = null
+      this.learningTreeForm.question_section_id = null
+      this.learningTreeForm.root_node_question_changed = false
       this.learningTreeForm.errors.clear()
+      // EK: Tree Properties can grow tall (subject/chapter/section, tags,
+      // framework alignment) and the page can end up scrolled down while
+      // it's open. Unlike modal-update-node (which resets scroll via
+      // fixNavBar() on its own @hidden), this modal never reset scroll
+      // position on close - leaving the page scrolled past the navbar/
+      // breadcrumb, which was the actual cause of the navbar appearing to
+      // "disappear" (it was just scrolled out of view, not actually
+      // collapsed/removed).
+      this.fixNavBar()
     },
     resetLearningTreeModal (modalId) {
       this.resetLearningTreePropertiesModal()
@@ -1299,6 +1407,14 @@ export default {
         if (!this.learningTreeForm.question_id) {
           this.learningTreeForm.question_id = this.getDefaultTemplateRootQuestionId()
         }
+        // EK: removed `this.learningTreeForm.tags = this.tags` here - it
+        // was overwriting whatever tags the user had just typed into the
+        // Tags UI (which mutates learningTreeForm.tags directly) with the
+        // separate, still-empty top-level this.tags tracking variable,
+        // wiping them out immediately before this request even went out.
+        // learningTreeForm.tags is already correct at this point; nothing
+        // needs to be copied into it here.
+        this.learningTreeForm.framework_item_sync_learning_tree = this.frameworkItemSyncLearningTree
         const { data } = await this.learningTreeForm.post('/api/learning-trees/info')
         this.$noty[data.type](data.message)
         if (data.type === 'success') {
@@ -1307,6 +1423,10 @@ export default {
           this.description = this.learningTreeForm.description
           this.public = this.learningTreeForm.public
           this.notes = this.learningTreeForm.notes
+          this.tags = this.learningTreeForm.tags
+          this.question_subject_id = this.learningTreeForm.question_subject_id
+          this.question_chapter_id = this.learningTreeForm.question_chapter_id
+          this.question_section_id = this.learningTreeForm.question_section_id
           this.assessmentQuestionId = this.learningTreeForm.question_id
           this.$bvModal.hide('modal-learning-tree-properties')
           flowy.import(LEARNING_TREE_TEMPLATE)
@@ -1326,12 +1446,35 @@ export default {
     },
     async updateLearningTreeInfo () {
       try {
+        this.learningTreeForm.tags = this.tags
+        this.learningTreeForm.framework_item_sync_learning_tree = this.frameworkItemSyncLearningTree
         const { data } = await this.learningTreeForm.post(`/api/learning-trees/info/${this.learningTreeId}`)
         this.$noty[data.type](data.message)
         this.title = this.learningTreeForm.title
         this.description = this.learningTreeForm.description
         this.public = this.learningTreeForm.public
         this.notes = this.learningTreeForm.notes
+        // EK: use the server's response here, not this.learningTreeForm's
+        // outgoing values - the backend can silently auto-fill tags/
+        // subject/chapter/section from the root question when
+        // root_node_question_changed is set, and echoing back what we
+        // sent would miss that change (the DB and the index page would
+        // be right, but this in-memory state would still show empty).
+        this.tags = data.tags
+        this.question_subject_id = data.question_subject_id
+        this.question_chapter_id = data.question_chapter_id
+        this.question_section_id = data.question_section_id
+        // Also update learningTreeForm directly (not just the separate
+        // this.question_subject_id/etc. tracking vars) - if Tree Properties
+        // is already open (or was left open) when this silent root-sync
+        // save runs, its v-model is bound to learningTreeForm itself, and
+        // only updating the separate tracking vars wouldn't reach it until
+        // the modal is fully closed and reopened via editLearningTree().
+        this.learningTreeForm.tags = data.tags
+        this.learningTreeForm.question_subject_id = data.question_subject_id
+        this.learningTreeForm.question_chapter_id = data.question_chapter_id
+        this.learningTreeForm.question_section_id = data.question_section_id
+        await this.getFrameworkItemSyncLearningTree()
         this.resetLearningTreeModal('modal-learning-tree-properties')
       } catch (error) {
         if (!error.message.includes('status code 422')) {
@@ -1349,6 +1492,10 @@ export default {
         this.description = data.description
         this.public = data.public
         this.notes = data.notes
+        this.tags = data.tags
+        this.question_subject_id = data.question_subject_id
+        this.question_chapter_id = data.question_chapter_id
+        this.question_section_id = data.question_section_id
         this.assessmentQuestionId = data.question_id
         this.canUndo = data.can_undo
         this.canRedo = Boolean(data.can_redo)
@@ -1362,26 +1509,30 @@ export default {
       }
     },
     updateBorders (questionTypes) {
-      $('input[name="question_id"]').each(function () {
-        let questionId = parseInt($(this).val())
+      $('input[name="question_id"]').each((index, el) => {
+        let questionId = parseInt($(el).val())
         let classToAdd
-        switch (questionTypes[questionId]) {
-          case ('completed'):
-            classToAdd = 'completed-border'
-            break
-          case ('not-completed'):
-            classToAdd = 'non-completed-border'
-            break
-          case ('assessment'):
-            classToAdd = 'question-border'
-            break
-          case ('exposition'):
-            classToAdd = 'exposition-border'
-            break
-          default:
-            classToAdd = 'empty-node-border'
+        if (!this.inIFrame && this.defaultTemplateQuestionIds.includes(String(questionId))) {
+          classToAdd = 'empty-node-border'
+        } else {
+          switch (questionTypes[questionId]) {
+            case ('completed'):
+              classToAdd = 'completed-border'
+              break
+            case ('not-completed'):
+              classToAdd = 'non-completed-border'
+              break
+            case ('assessment'):
+              classToAdd = 'question-border'
+              break
+            case ('exposition'):
+              classToAdd = 'exposition-border'
+              break
+            default:
+              classToAdd = 'empty-node-border'
+          }
         }
-        let div = $(this).parent('div')
+        let div = $(el).parent('div')
         div.removeClass('question-border exposition-border empty-node-border').addClass(classToAdd)
       })
       if (this.inIFrame) {

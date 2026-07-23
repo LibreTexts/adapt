@@ -33,6 +33,7 @@ class LearningTreeController extends Controller
         $current_page = $request->current_page;
         $author = $request->author;
         $title = $request->title;
+        $tag = $request->tag;
 
         $response['type'] = 'error';
         $authorized = Gate::inspect('getAll', $learningTree);
@@ -70,6 +71,13 @@ class LearningTreeController extends Controller
                 }
                 $learning_tree_ids = $learning_tree_ids->whereIn('user_id', $author_ids);
             }
+            if ($tag) {
+                $learning_tree_ids_with_tag = DB::table('learning_tree_tag')
+                    ->join('tags', 'learning_tree_tag.tag_id', '=', 'tags.id')
+                    ->where('tags.tag', $tag)
+                    ->pluck('learning_tree_id');
+                $learning_tree_ids = $learning_tree_ids->whereIn('id', $learning_tree_ids_with_tag);
+            }
 
 
             $total_rows = $learning_tree_ids->count();
@@ -92,6 +100,19 @@ class LearningTreeController extends Controller
                 )
                 ->whereIn('learning_trees.id', $learning_tree_ids)
                 ->get();
+
+            $tags = DB::table('learning_tree_tag')
+                ->join('tags', 'learning_tree_tag.tag_id', '=', 'tags.id')
+                ->whereIn('learning_tree_id', $learning_tree_ids)
+                ->select('learning_tree_id', 'tag')
+                ->get();
+            $tags_by_learning_tree_id = [];
+            foreach ($tags as $tag_row) {
+                $tags_by_learning_tree_id[$tag_row->learning_tree_id][] = $tag_row->tag;
+            }
+            foreach ($learning_trees as $learning_tree_row) {
+                $learning_tree_row->tags = $tags_by_learning_tree_id[$learning_tree_row->id] ?? [];
+            }
 
             $response['learning_trees'] = $learning_trees;
             $response['total_rows'] = $total_rows;
@@ -141,20 +162,11 @@ class LearningTreeController extends Controller
             $learning_tree_ids = explode(',', $request->learning_tree_ids);
             DB::beginTransaction();
             foreach ($learning_tree_ids as $learning_tree_id) {
-                $learning_tree_to_clone = LearningTree::find(trim($learning_tree_id))
-                    ->replicate()
-                    ->fill(['user_id' => $request->user()->id, 'public' => 0]);
-                $learning_tree_to_clone->save();
-
-                $learningTreeHistory = new LearningTreeHistory();
-                $learningTreeHistory->learning_tree = $learning_tree_to_clone->learning_tree;
-                $learningTreeHistory->learning_tree_id = $learning_tree_to_clone->id;
-                $learningTreeHistory->root_node_question_id = $learning_tree_to_clone->root_node_question_id;
-                $learningTreeHistory->save();
-
-                $learning_tree_to_clone->current_history_id = $learningTreeHistory->id;
-                $learning_tree_to_clone->save();
-
+                $source_learning_tree = LearningTree::find(trim($learning_tree_id));
+                $this->replicateLearningTree($source_learning_tree, [
+                    'user_id' => $request->user()->id,
+                    'public' => 0
+                ]);
             }
             $plural = str_contains($request->learning_tree_ids, ',') ? "s have been" : ' was';
             $response['type'] = 'success';
@@ -162,11 +174,163 @@ class LearningTreeController extends Controller
 
             DB::commit();
         } catch (Exception $e) {
+            DB::rollback();
             $h = new Handler(app());
             $h->report($e);
             $response['message'] = "There was an error cloning the learning trees.  Please try again or contact us for assistance.";
         }
         return $response;
+    }
+
+    /**
+     * Replicates a learning tree (learning_trees row + tags +
+     * framework alignment + an initial history entry), applying the
+     * given column overrides to the new row (e.g. reassigning user_id/
+     * public for clone(), or appending to title for
+     * createLearningTreeFromTemplate()). Shared by both actions since
+     * they only differ in ownership/publishing/title behavior, not in
+     * the actual mechanics of producing a working duplicate.
+     *
+     * @param LearningTree $source_learning_tree
+     * @param array $overrides
+     * @return LearningTree
+     */
+    private function replicateLearningTree(LearningTree $source_learning_tree, array $overrides): LearningTree
+    {
+        $new_learning_tree = $source_learning_tree->replicate()->fill($overrides);
+        $new_learning_tree->save();
+
+        $this->cloneLearningTreeTagsAndFrameworkItems($source_learning_tree->id, $new_learning_tree->id);
+
+        $learningTreeHistory = new LearningTreeHistory();
+        $learningTreeHistory->learning_tree = $new_learning_tree->learning_tree;
+        $learningTreeHistory->learning_tree_id = $new_learning_tree->id;
+        $learningTreeHistory->root_node_question_id = $new_learning_tree->root_node_question_id;
+        $learningTreeHistory->save();
+
+        $new_learning_tree->current_history_id = $learningTreeHistory->id;
+        $new_learning_tree->save();
+
+        return $new_learning_tree;
+    }
+
+    /**
+     * Copies tags (learning_tree_tag) and framework alignment
+     * (framework_item_learning_tree) from one learning tree to another.
+     * Called from replicateLearningTree(), since Eloquent's replicate()
+     * only copies the learning_trees row itself - not rows in these
+     * separate pivot tables.
+     *
+     * @param int $from_learning_tree_id
+     * @param int $to_learning_tree_id
+     * @return void
+     */
+    private function cloneLearningTreeTagsAndFrameworkItems(int $from_learning_tree_id, int $to_learning_tree_id): void
+    {
+        $tags = DB::table('learning_tree_tag')
+            ->where('learning_tree_id', $from_learning_tree_id)
+            ->get();
+        foreach ($tags as $tag) {
+            DB::table('learning_tree_tag')->insert([
+                'learning_tree_id' => $to_learning_tree_id,
+                'tag_id' => $tag->tag_id,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+        }
+
+        $framework_items = DB::table('framework_item_learning_tree')
+            ->where('learning_tree_id', $from_learning_tree_id)
+            ->get();
+        foreach ($framework_items as $framework_item) {
+            DB::table('framework_item_learning_tree')->insert([
+                'learning_tree_id' => $to_learning_tree_id,
+                'framework_item_id' => $framework_item->framework_item_id,
+                'framework_item_type' => $framework_item->framework_item_type,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+        }
+    }
+
+    /**
+     * Called after the root node's question changes. If the tree doesn't
+     * have tags, framework alignment, or subject/chapter/section set, and
+     * the new root question does, copies those over from the question -
+     * so an instructor who already tagged/aligned/categorized their
+     * question doesn't have to redo that work on the tree itself.
+     *
+     * Each of the three attribute groups is checked and filled in
+     * independently EXCEPT subject/chapter/section, which is treated as a
+     * single unit: if the instructor has set ANY of the three on the tree
+     * already, none of the three are touched, since a chapter/section only
+     * makes sense under its own subject and mixing sources could produce
+     * an inconsistent combination.
+     *
+     * @param LearningTree $learningTree
+     * @param int|string|null $fresh_root_question_id EK: pass this explicitly
+     *   when the caller knows the root node's question just changed but
+     *   learning_trees.root_node_question_id may not be updated yet -
+     *   that column is only written by updateLearningTree() (the canvas-
+     *   JSON save), which the frontend calls AFTER this method's caller
+     *   (updateLearningTreeInfo(), via submitUpdateNode()'s root-sync
+     *   block). Reading $learningTree->root_node_question_id directly in
+     *   that case would silently use the OLD question, not the new one.
+     *   Falls back to $learningTree->root_node_question_id if omitted.
+     * @return void
+     */
+    private function fillMissingLearningTreeAttributesFromRootQuestion(LearningTree $learningTree, $fresh_root_question_id = null): void
+    {
+        $root_question_id = $fresh_root_question_id ?: $learningTree->root_node_question_id;
+        if (!$root_question_id) {
+            return;
+        }
+
+        $tree_has_tags = DB::table('learning_tree_tag')
+            ->where('learning_tree_id', $learningTree->id)
+            ->exists();
+        if (!$tree_has_tags) {
+            $question_tags = DB::table('question_tag')
+                ->join('tags', 'question_tag.tag_id', '=', 'tags.id')
+                ->where('question_id', $root_question_id)
+                ->pluck('tag');
+            if ($question_tags->isNotEmpty()) {
+                $learningTree->addTags($question_tags->toArray());
+            }
+        }
+
+        $tree_has_framework_items = DB::table('framework_item_learning_tree')
+            ->where('learning_tree_id', $learningTree->id)
+            ->exists();
+        if (!$tree_has_framework_items) {
+            $question_framework_items = DB::table('framework_item_question')
+                ->where('question_id', $root_question_id)
+                ->get();
+            if ($question_framework_items->isNotEmpty()) {
+                foreach ($question_framework_items as $framework_item) {
+                    DB::table('framework_item_learning_tree')->insert([
+                        'learning_tree_id' => $learningTree->id,
+                        'framework_item_id' => $framework_item->framework_item_id,
+                        'framework_item_type' => $framework_item->framework_item_type,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                }
+            }
+        }
+
+        $tree_has_subject_chapter_or_section = $learningTree->question_subject_id
+            || $learningTree->question_chapter_id
+            || $learningTree->question_section_id;
+        if (!$tree_has_subject_chapter_or_section) {
+            $question = Question::find($root_question_id);
+            if ($question && $question->question_subject_id) {
+                $learningTree->question_subject_id = $question->question_subject_id;
+                $learningTree->question_chapter_id = $question->question_chapter_id;
+                $learningTree->question_section_id = $question->question_section_id;
+                $learningTree->save();
+            }
+        }
     }
 
 
@@ -190,19 +354,10 @@ class LearningTreeController extends Controller
 
         try {
             DB::beginTransaction();
-            $new_learning_tree = $learningTree->replicate();
-            $new_learning_tree->title = $new_learning_tree->title . ' copy';
-            $new_learning_tree->save();
 
-
-            $learningTreeHistory = new LearningTreeHistory();
-            $learningTreeHistory->root_node_question_id = $new_learning_tree->root_node_question_id;
-            $learningTreeHistory->learning_tree = $new_learning_tree->learning_tree;
-            $learningTreeHistory->learning_tree_id = $new_learning_tree->id;
-            $learningTreeHistory->save();
-
-            $new_learning_tree->current_history_id = $learningTreeHistory->id;
-            $new_learning_tree->save();
+            $this->replicateLearningTree($learningTree, [
+                'title' => $learningTree->title . ' copy'
+            ]);
 
             DB::commit();
             $response['message'] = "The Learning Tree has been created.";
@@ -264,7 +419,23 @@ class LearningTreeController extends Controller
         $response['type'] = 'error';
 
         try {
-            $response['learning_trees'] = $learningTree->where('user_id', Auth::user()->id)->get();
+            $learning_trees = $learningTree->where('user_id', Auth::user()->id)->get();
+
+            $learning_tree_ids = $learning_trees->pluck('id')->toArray();
+            $tags = DB::table('learning_tree_tag')
+                ->join('tags', 'learning_tree_tag.tag_id', '=', 'tags.id')
+                ->whereIn('learning_tree_id', $learning_tree_ids)
+                ->select('learning_tree_id', 'tag')
+                ->get();
+            $tags_by_learning_tree_id = [];
+            foreach ($tags as $tag_row) {
+                $tags_by_learning_tree_id[$tag_row->learning_tree_id][] = $tag_row->tag;
+            }
+            foreach ($learning_trees as $learning_tree_row) {
+                $learning_tree_row->tags = $tags_by_learning_tree_id[$learning_tree_row->id] ?? [];
+            }
+
+            $response['learning_trees'] = $learning_trees;
             $response['type'] = 'success';
 
         } catch (Exception $e) {
@@ -387,19 +558,44 @@ class LearningTreeController extends Controller
 
         $response['type'] = 'error';
 
-
         try {
-
             $data = $request->validated();
+            DB::beginTransaction();
             $learningTree->title = $data['title'];
             $learningTree->description = $data['description'];
             $learningTree->public = $data['public'];
             $learningTree->notes = $request->notes;
+            $learningTree->question_subject_id = $request->question_subject_id;
+            $learningTree->question_chapter_id = $request->question_chapter_id;
+            $learningTree->question_section_id = $request->question_section_id;
             $learningTree->save();
+
+            $learningTree->addTags($request->tags ?: []);
+            $learningTree->addFrameworkItems($request->framework_item_sync_learning_tree);
+
+            if ($request->root_node_question_changed) {
+                $this->fillMissingLearningTreeAttributesFromRootQuestion($learningTree, $request->question_id);
+            }
+
+            // EK: return the tree's current state rather than echoing back
+            // what the client sent - fillMissingLearningTreeAttributesFromRootQuestion()
+            // can silently change question_subject_id/chapter/section (and
+            // tags/framework) server-side, and the client has no way to
+            // know that happened unless we tell it here.
+            $response['question_subject_id'] = $learningTree->question_subject_id;
+            $response['question_chapter_id'] = $learningTree->question_chapter_id;
+            $response['question_section_id'] = $learningTree->question_section_id;
+            $response['tags'] = DB::table('learning_tree_tag')
+                ->join('tags', 'learning_tree_tag.tag_id', '=', 'tags.id')
+                ->where('learning_tree_id', $learningTree->id)
+                ->pluck('tag')
+                ->toArray();
 
             $response['type'] = 'success';
             $response['message'] = "The Learning Tree has been updated.";
+            DB::commit();
         } catch (Exception $e) {
+            DB::rollback();
             $h = new Handler(app());
             $h->report($e);
             $response['message'] = "There was an error updating the learning tree.  Please try again or contact us for assistance.";
@@ -434,11 +630,17 @@ class LearningTreeController extends Controller
             $learningTree->description = $data['description'];
             $learningTree->notes = $request->notes;
             $learningTree->public = $data['public'];
+            $learningTree->question_subject_id = $request->question_subject_id;
+            $learningTree->question_chapter_id = $request->question_chapter_id;
+            $learningTree->question_section_id = $request->question_section_id;
             $learningTree->user_id = request()->user()->id;
             $learningTree->root_node_question_id = 1;
             $learningTree->learning_tree = '';
             DB::beginTransaction();
             $learningTree->save();
+
+            $learningTree->addTags($request->tags ?: []);
+            $learningTree->addFrameworkItems($request->framework_item_sync_learning_tree);
 
             $response['type'] = 'success';
             $response['message'] = "The Learning Tree has been created.";
@@ -498,6 +700,14 @@ class LearningTreeController extends Controller
             $response['public'] = $learningTree->public;
             $response['author_id'] = $learningTree->user_id;
             $response['notes'] = $learningTree->user_id === request()->user()->id ? $learningTree->notes : '';
+            $response['question_subject_id'] = $learningTree->question_subject_id;
+            $response['question_chapter_id'] = $learningTree->question_chapter_id;
+            $response['question_section_id'] = $learningTree->question_section_id;
+            $response['tags'] = DB::table('learning_tree_tag')
+                ->join('tags', 'learning_tree_tag.tag_id', '=', 'tags.id')
+                ->where('learning_tree_id', $learningTree->id)
+                ->pluck('tag')
+                ->toArray();
 
             $current_history_id = $learningTree->current_history_id;
             if (!$current_history_id) {

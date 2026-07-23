@@ -391,7 +391,7 @@
         </b-button>
       </template>
     </b-modal>
-    <div v-if="isCreateQuestion">
+    <div v-if="isEmbedded">
       <p>Choose a framework, syncing framework levels/descriptors by clicking on the associated text.</p>
       <b-form-row class="pb-2">
         <b-form-select
@@ -408,7 +408,7 @@
         </span>
       </b-form-row>
     </div>
-    <div v-if="!frameworkLevels.length && !loadingFramework && !isCreateQuestion">
+    <div v-if="!frameworkLevels.length && !loadingFramework && !isEmbedded">
       <b-alert show variant="info">
         This framework has no framework levels nor descriptors.
       </b-alert>
@@ -452,7 +452,7 @@
         <span id="collapse-all-tooltip" class="pr-2 pointer"> <b-icon-arrows-collapse scale="1.25"
                                                                                       @click="toggleExpandAll(true)"
         /></span>
-        <span v-if="!isCreateQuestion && isFrameworkOwner" class="pr-2 pointer" style="margin-top:1px">
+        <span v-if="!isEmbedded && isFrameworkOwner" class="pr-2 pointer" style="margin-top:1px">
           <b-icon-trash id="delete-framework-levels-tooltip"
                         scale="1.25"
                         @click="$bvModal.show('modal-confirm-delete-framework-levels-and-descriptors')"
@@ -502,7 +502,7 @@
         {{ frameworkLevel1.order }}.
         <span class="pointer"
               :class="getClass('levels',frameworkLevel1)"
-              @click="syncToQuestion('levels',frameworkLevel1.id, frameworkLevel1.title)"
+              @click="syncItem('levels',frameworkLevel1.id, frameworkLevel1.title)"
         ><span v-html="frameworkLevel1.title" />
         </span>
         <span v-show="!frameworkLevel1.showItemIcons && isFrameworkOwner" class="pointer">
@@ -565,7 +565,7 @@
               :key="`learning-objective-level1-${descriptorsLevel1Index}`"
             >
               <span class="pointer" :class="getClass('descriptors',descriptorsLevel1)"
-                    @click="syncToQuestion('descriptors',descriptorsLevel1.id, descriptorsLevel1.descriptor)"
+                    @click="syncItem('descriptors',descriptorsLevel1.id, descriptorsLevel1.descriptor)"
               ><span v-html="descriptorsLevel1.descriptor" /></span>
               <span v-if="!descriptorsLevel1.showItemIcons && isFrameworkOwner" class="pointer">
                 <b-icon-eye :id="`show-descriptor-${descriptorsLevel1.id}`"
@@ -607,7 +607,7 @@
             >
               {{ String.fromCharCode(96 + frameworkLevel2.order).toUpperCase() }}.
               <span class="pointer" :class="getClass('levels',frameworkLevel2)"
-                    @click="syncToQuestion('levels',frameworkLevel2.id, frameworkLevel2.title)"
+                    @click="syncItem('levels',frameworkLevel2.id, frameworkLevel2.title)"
               ><span v-html="frameworkLevel2.title" />
               </span>
 
@@ -674,7 +674,7 @@
                     :key="`learning-objective-level2-${descriptorsLevel2Index}`"
                   >
                     <span class="pointer" :class="getClass('descriptors',descriptorsLevel2)"
-                          @click="syncToQuestion('descriptors',descriptorsLevel2.id, descriptorsLevel2.descriptor)"
+                          @click="syncItem('descriptors',descriptorsLevel2.id, descriptorsLevel2.descriptor)"
                     ><span v-html="descriptorsLevel2.descriptor" /></span>
                     <span v-if="!descriptorsLevel2.showItemIcons && isFrameworkOwner">
                       <FrameworkAlignerIconTooltip
@@ -718,7 +718,7 @@
                     {{ convertToRoman(frameworkLevel3.order) }}.
                     <span class="pointer"
                           :class="getClass('levels',frameworkLevel3)"
-                          @click="syncToQuestion('levels',frameworkLevel3.id, frameworkLevel3.title)"
+                          @click="syncItem('levels',frameworkLevel3.id, frameworkLevel3.title)"
                     ><span v-html="frameworkLevel3.title" />
                     </span>
                     <span v-if="!frameworkLevel3.showItemIcons && isFrameworkOwner" class="pointer">
@@ -788,7 +788,7 @@
                         >
                           <span class="pointer"
                                 :class="getClass('descriptors',descriptorsLevel3)"
-                                @click="syncToQuestion('descriptors',descriptorsLevel3.id, descriptorsLevel3.descriptor)"
+                                @click="syncItem('descriptors',descriptorsLevel3.id, descriptorsLevel3.descriptor)"
                           ><span v-html="descriptorsLevel3.descriptor" /></span>
                           <span v-if="!descriptorsLevel3.showItemIcons && isFrameworkOwner" class="pointer">
                             <b-icon-eye :id="`show-descriptor-${descriptorsLevel3.id}`"
@@ -835,7 +835,7 @@
                           {{ String.fromCharCode(96 + frameworkLevel4.order) }}.
                           <span class="pointer"
                                 :class="getClass('levels',frameworkLevel4)"
-                                @click="syncToQuestion('levels',frameworkLevel4.id, frameworkLevel4.title)"
+                                @click="syncItem('levels',frameworkLevel4.id, frameworkLevel4.title)"
                           >
                             <span v-html="frameworkLevel4.title" />
                           </span>
@@ -905,7 +905,7 @@
                               >
                                 <span class="pointer"
                                       :class="getClass('descriptors',descriptorsLevel4)"
-                                      @click="syncToQuestion('descriptors',descriptorsLevel4.id, descriptorsLevel4.descriptor)"
+                                      @click="syncItem('descriptors',descriptorsLevel4.id, descriptorsLevel4.descriptor)"
                                 >
                                   {{ descriptorsLevel4.descriptor }}
                                 </span>
@@ -975,7 +975,7 @@ export default {
     FrameworkAlignerIconTooltip
   },
   props: {
-    isCreateQuestion: {
+    isEmbedded: {
       type: Boolean,
       default: false
     },
@@ -983,11 +983,11 @@ export default {
       type: Number,
       default: 0
     },
-    questionId: {
+    itemId: {
       type: Number,
       default: 0
     },
-    frameworkItemSyncQuestion: {
+    frameworkItemSync: {
       type: Object,
       default: () => ({ descriptors: [], levels: [] })
     }
@@ -1381,23 +1381,23 @@ export default {
     },
     getClass (itemType, item) {
       let itemClass = ''
-      if (this.isCreateQuestion) {
-        itemClass = this.frameworkItemSyncQuestion[itemType].find(x => x.id === item.id) ? 'text-danger' : 'text-primary'
+      if (this.isEmbedded) {
+        itemClass = this.frameworkItemSync[itemType].find(x => x.id === item.id) ? 'text-danger' : 'text-primary'
       }
       if (item.searchResult) {
         itemClass += ' bg-search'
       }
       return itemClass
     },
-    async syncToQuestion (itemType, itemId, itemText) {
-      if (this.isCreateQuestion) {
-        let syncedItem = this.frameworkItemSyncQuestion[itemType].find(item => item.id === itemId)
+    async syncItem (itemType, itemId, itemText) {
+      if (this.isEmbedded) {
+        let syncedItem = this.frameworkItemSync[itemType].find(item => item.id === itemId)
         if (syncedItem) {
-          this.frameworkItemSyncQuestion[itemType] = this.frameworkItemSyncQuestion[itemType].filter(item => item.id !== itemId)
+          this.frameworkItemSync[itemType] = this.frameworkItemSync[itemType].filter(item => item.id !== itemId)
         } else {
-          this.frameworkItemSyncQuestion[itemType].push({ id: itemId, text: itemText })
+          this.frameworkItemSync[itemType].push({ id: itemId, text: itemText })
         }
-        this.$emit('setFrameworkItemSyncQuestion', this.frameworkItemSyncQuestion)
+        this.$emit('setFrameworkItemSync', this.frameworkItemSync)
       }
     },
     deleteDescriptor (index) {
@@ -1482,11 +1482,11 @@ export default {
           return false
         }
         this.frameworkLevels.find(item => item.id === this.updateLevelForm.framework_level_id).title = this.updateLevelForm.title
-        let questionTag = this.frameworkItemSyncQuestion['levels'].find(item => item.id === this.updateLevelForm.framework_level_id)
-        if (questionTag) {
-          questionTag.text = this.updateLevelForm.title
+        let syncedTag = this.frameworkItemSync['levels'].find(item => item.id === this.updateLevelForm.framework_level_id)
+        if (syncedTag) {
+          syncedTag.text = this.updateLevelForm.title
         }
-        this.$emit('setFrameworkItemSyncQuestion', this.frameworkItemSyncQuestion)
+        this.$emit('setFrameworkItemSync', this.frameworkItemSync)
         this.$bvModal.hide('modal-edit-framework-level')
       } catch (error) {
         if (!error.message.includes('status code 422')) {
@@ -1538,7 +1538,7 @@ export default {
         this.isFrameworkOwner = this.user.id === data.properties.user_id
         if (init) {
           for (let i = 0; i < data.framework_levels.length; i++) {
-            data.framework_levels[i].hidden = !this.isCreateQuestion
+            data.framework_levels[i].hidden = !this.isEmbedded
           }
           for (let i = 0; i < data.descriptors; i++) {
             data.descriptors[i].showItemIcons = false

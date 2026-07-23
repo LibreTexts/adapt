@@ -218,7 +218,17 @@ class LearningTreeNodeAssignmentQuestionController extends Controller
             $nodeQuestion->learning_tree_node_submission_id = $learning_tree_node_submission ? $learning_tree_node_submission->id : null;
             if ($learning_tree_node_description) {
                 $nodeQuestion->title = $learning_tree_node_description->title;
-                $nodeQuestion->node_description = $learning_tree_node_description->description;
+                $description = $learning_tree_node_description->description ?: '';
+                // EK: same fix as LearningTreeNodeController::getMetaInfo()
+                // and LearningTree::getBranchAndTwigInfo() - blank out the
+                // description if it's the literal 'None Available'
+                // placeholder some existing rows have, or if it's identical
+                // to the node's own title, so students see nothing rather
+                // than a confusing placeholder or a duplicated title.
+                if ($description === 'None Available' || $description === $nodeQuestion->title) {
+                    $description = '';
+                }
+                $nodeQuestion->node_description = $description;
             }
             $response['node_question'] = $nodeQuestion;
             $response['type'] = 'success';

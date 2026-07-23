@@ -1481,7 +1481,8 @@ import axios from 'axios'
 import { h5pResizer } from '~/helpers/H5PResizer'
 import { mapGetters } from 'vuex'
 import { submitUploadFile, getAcceptedFileTypes } from '~/helpers/UploadFiles'
-import { getTechnologySrc, getQuestionChapterIdOptions, getQuestionSectionIdOptions } from '~/helpers/Questions'
+import { getTechnologySrc } from '~/helpers/Questions'
+import { getChapterIdOptions, getSectionIdOptions } from '~/helpers/SubjectChapterSection'
 import { downloadSolutionFile } from '~/helpers/DownloadFiles'
 import Form from 'vform'
 import Loading from 'vue-loading-overlay'
@@ -1855,8 +1856,26 @@ export default {
     isQtiOrForgeWithQtiAnswerSolution,
     doCopy,
     initCentrifuge,
-    getQuestionChapterIdOptions,
-    getQuestionSectionIdOptions,
+    // Config for the shared fetchers in ~/helpers/SubjectChapterSection.js.
+    // This page has no nested form object (unlike CreateQuestion.vue /
+    // LearningTreeProperties.vue) - question_subject_id/chapter_id/section_id
+    // live as flat questionSubjectId/questionChapterId/questionSectionId
+    // properties on this component instead, set directly via v-model. The
+    // 'form' key is omitted because getChapterIdOptions/getSectionIdOptions
+    // never read it - only the add/edit/delete helpers (not used here) do.
+    subjectChapterSectionConfig () {
+      return {
+        subjectIdOptions: 'questionSubjectIdOptions',
+        chapterIdOptions: 'questionChapterIdOptions',
+        sectionIdOptions: 'questionSectionIdOptions'
+      }
+    },
+    async getQuestionChapterIdOptions (subjectId) {
+      await getChapterIdOptions.call(this, this.subjectChapterSectionConfig(), subjectId)
+    },
+    async getQuestionSectionIdOptions (chapterId) {
+      await getSectionIdOptions.call(this, this.subjectChapterSectionConfig(), chapterId)
+    },
     changeTechnology () {
       this.questionSubjectId = null
       this.questionChapterId = null
