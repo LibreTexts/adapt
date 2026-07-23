@@ -1211,6 +1211,9 @@ export default {
         }
       }
     },
+    isDefaultNodeTitle (title) {
+      return (title || '').toString().trim().toLowerCase() === 'empty learning tree node'
+    },
     async refreshNodeSourcePreview () {
       const questionId = (this.nodeForm.question_id || '').toString().trim()
       if (!questionId) {
@@ -1218,7 +1221,7 @@ export default {
         return
       }
       await this.getQuestionToView(questionId, true)
-      if (this.nodeForm.title === 'Empty Learning Tree Node' && this.questionToView && this.questionToView.title) {
+      if (this.isDefaultNodeTitle(this.nodeForm.title) && this.questionToView && this.questionToView.title) {
         this.nodeForm.title = this.questionToView.title
       }
     },
@@ -1250,7 +1253,7 @@ export default {
       this.isUpdating = true
       this.nodeForm.question_id = this.nodeForm.question_id.split('-').pop()
       this.nodeForm.learning_outcome = this.learningOutcome ? this.learningOutcome.id : ''
-      if (this.nodeForm.title === 'Empty Learning Tree Node') {
+      if (this.isDefaultNodeTitle(this.nodeForm.title)) {
         if (!this.questionToView || String(this.questionToView.id) !== String(this.nodeForm.question_id)) {
           await this.getQuestionToView(this.nodeForm.question_id)
         }
@@ -1373,26 +1376,30 @@ export default {
       }
     },
     updateBorders (questionTypes) {
-      $('input[name="question_id"]').each(function () {
-        let questionId = parseInt($(this).val())
+      $('input[name="question_id"]').each((index, el) => {
+        let questionId = parseInt($(el).val())
         let classToAdd
-        switch (questionTypes[questionId]) {
-          case ('completed'):
-            classToAdd = 'completed-border'
-            break
-          case ('not-completed'):
-            classToAdd = 'non-completed-border'
-            break
-          case ('assessment'):
-            classToAdd = 'question-border'
-            break
-          case ('exposition'):
-            classToAdd = 'exposition-border'
-            break
-          default:
-            classToAdd = 'empty-node-border'
+        if (!this.inIFrame && this.defaultTemplateQuestionIds.includes(String(questionId))) {
+          classToAdd = 'empty-node-border'
+        } else {
+          switch (questionTypes[questionId]) {
+            case ('completed'):
+              classToAdd = 'completed-border'
+              break
+            case ('not-completed'):
+              classToAdd = 'non-completed-border'
+              break
+            case ('assessment'):
+              classToAdd = 'question-border'
+              break
+            case ('exposition'):
+              classToAdd = 'exposition-border'
+              break
+            default:
+              classToAdd = 'empty-node-border'
+          }
         }
-        let div = $(this).parent('div')
+        let div = $(el).parent('div')
         div.removeClass('question-border exposition-border empty-node-border').addClass(classToAdd)
       })
       if (this.inIFrame) {
