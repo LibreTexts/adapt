@@ -4,7 +4,9 @@
     <div v-if="canViewLearningTrees">
       <LearningTreeProperties :learning-tree-form="learningTreeForm"
                               :learning-tree-id="learningTreeId"
+                              :framework-item-sync-learning-tree="frameworkItemSyncLearningTree"
                               @saveLearningTreeProperties="saveLearningTreeProperties"
+                              @setFrameworkItemSyncLearningTree="setFrameworkItemSyncLearningTree"
       />
       <PageTitle title="My Learning Trees"/>
       <div class="float-right mb-2">
@@ -122,7 +124,7 @@
                          triggers="hover"
                          delay="500"
               >
-                New Learning Tree From Template
+                Clone "{{ data.item.title }}"
               </b-tooltip>
               <a :id="getTooltipTarget('learningTreeProperties',data.item.id)"
                  href="#"
@@ -197,6 +199,7 @@ export default {
     allFormErrors: [],
     learningTreeId: 0,
     learningTreeForm: new Form(),
+    frameworkItemSyncLearningTree: { descriptors: [], levels: [] },
     copyIcon: faCopy,
     learningTreeCloneForm: new Form({
       learning_tree_ids: ''
@@ -226,7 +229,10 @@ export default {
         label: 'Date Created',
         sortable: true
       },
-      'actions'
+      {
+        key: 'actions',
+        thStyle: { width: '95px' }
+      }
     ],
     learningTrees: [],
     canViewLearningTrees: false,
@@ -244,6 +250,7 @@ export default {
   methods: {
     async saveLearningTreeProperties () {
       try {
+        this.learningTreeForm.framework_item_sync_learning_tree = this.frameworkItemSyncLearningTree
         const { data } = await this.learningTreeForm.post(`/api/learning-trees/info/${this.learningTreeId}`)
         this.$noty[data.type](data.message)
         await this.getLearningTrees()
@@ -257,15 +264,35 @@ export default {
         }
       }
     },
-    editLearningTreeProperties (learningTree) {
+    async editLearningTreeProperties (learningTree) {
       this.learningTreeId = learningTree.id
       this.learningTreeForm = new Form({
         title: learningTree.title,
         description: learningTree.description,
         public: learningTree.public,
-        notes: learningTree.notes
+        notes: learningTree.notes,
+        tags: learningTree.tags || [],
+        question_subject_id: learningTree.question_subject_id,
+        question_chapter_id: learningTree.question_chapter_id,
+        question_section_id: learningTree.question_section_id
       })
+      await this.getFrameworkItemSyncLearningTree()
       this.$bvModal.show('modal-learning-tree-properties')
+    },
+    async getFrameworkItemSyncLearningTree () {
+      if (!this.learningTreeId) {
+        this.frameworkItemSyncLearningTree = { descriptors: [], levels: [] }
+        return
+      }
+      try {
+        const { data } = await axios.get(`/api/framework-item-sync-learning-tree/learning-tree/${this.learningTreeId}`)
+        this.frameworkItemSyncLearningTree = data.framework_item_sync_learning_tree
+      } catch (error) {
+        this.$noty.error(error.message)
+      }
+    },
+    setFrameworkItemSyncLearningTree (frameworkItemSyncLearningTree) {
+      this.frameworkItemSyncLearningTree = frameworkItemSyncLearningTree
     },
     async handleCloneLearningTrees () {
       try {

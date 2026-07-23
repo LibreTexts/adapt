@@ -8,6 +8,7 @@ use Exception;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -214,9 +215,20 @@ class LearningTree extends Model
                 if ($twig['question_info']->technology !== 'text') {
                     $num_assessments++;
                 }
-                $question_id = $branch_and_twig_info[$branch_id]['twigs'][$twig_id]['question_info']->id;
-                $title = $branch_and_twig_info[$branch_id]['twigs'][$twig_id]['question_info']->title;
-                $branch_and_twig_info[$branch_id]['twigs'][$twig_id]['question_info']->description = $branch_descriptions_by_question_id[$question_id] ?? $title;
+                $question_info = $branch_and_twig_info[$branch_id]['twigs'][$twig_id]['question_info'];
+                $question_id = $question_info->id;
+                $title = $question_info->title;
+                $description = $branch_descriptions_by_question_id[$question_id] ?? '';
+                // EK: if there's no meaningful description - either it was
+                // never set (empty), it's the literal 'None Available'
+                // placeholder, or it's identical to the question's own
+                // title (a stand-in some existing rows may already have) -
+                // blank it out so the frontend shows nothing rather than a
+                // duplicated title or a confusing "None Available" message.
+                if ($description === 'None Available' || $description === $title) {
+                    $description = '';
+                }
+                $branch_and_twig_info[$branch_id]['twigs'][$twig_id]['question_info']->description = $description;
 
             }
 
@@ -344,4 +356,87 @@ class LearningTree extends Model
 
     }
 
+
+    /**
+     * @throws Exception
+     */
+    function addTags($tags)
+    {
+        $this->cleanUpTags();
+        if ($tags) {
+            foreach ($tags as $tag) {
+                $tag = trim($tag);
+                $tag = str_replace("'", '&apos;', $tag);
+                $tag_in_db = DB::select("SELECT id FROM tags WHERE BINARY `tag`= convert('$tag' using utf8mb4) collate utf8mb4_bin LIMIT 1;");
+                $tag_id = $tag_in_db
+                    ? $tag_in_db[0]->id
+                    : Tag::create(['tag' => $tag])->id;
+                try {
+                    DB::table('learning_tree_tag')->insert(['learning_tree_id' => $this->id,
+                        'tag_id' => $tag_id,
+                        'created_at' => Carbon::now(),
+                        'updated_at' => Carbon::now()]);
+                } catch (Exception $e) {
+                    if (strpos($e->getMessage(), 'Duplicate entry') === false) {
+                        throw new Exception($e);
+                    }
+                }
+            }
+        }
+    }
+
+    function addFrameworkItems($framework_item_sync_learning_tree)
+    {
+        if ($framework_item_sync_learning_tree) {
+            DB::table('framework_item_learning_tree')->where('learning_tree_id', $this->id)->delete();
+            foreach (['level', 'descriptor'] as $type) {
+                $types = "{$type}s";
+                if ($framework_item_sync_learning_tree[$types]) {
+                    foreach ($framework_item_sync_learning_tree[$types] as $item) {
+                        if (!DB::table('framework_item_learning_tree')
+                            ->where('learning_tree_id', $this->id)
+                            ->where('framework_item_id', $item['id'])
+                            ->where('framework_item_type', $type)
+                            ->first()) {
+                            $data = ['learning_tree_id' => $this->id,
+                                'framework_item_id' => $item['id'],
+                                'framework_item_type' => $type,
+                                'created_at' => now(),
+                                'updated_at' => now()];
+                            DB::table('framework_item_learning_tree')->insert($data);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * FIXED VERSION - checks BOTH learning_tree_tag AND question_tag before
+     * deleting a shared tags row. The delete of THIS tree's own pivot rows
+     * also moved outside the loop (it was previously re-running the same
+     * blanket delete on every iteration, which was harmless but wasteful -
+     * not the cause of the FK error, but cleaned up here regardless).
+     */
+    function cleanUpTags()
+    {
+        $learning_tree_tags = DB::table('learning_tree_tag')->where('learning_tree_id', $this->id)->get();
+
+        $tag_ids_to_check = $learning_tree_tags->pluck('tag_id')->toArray();
+
+        DB::table('learning_tree_tag')->where('learning_tree_id', $this->id)->delete();
+
+        foreach ($tag_ids_to_check as $tag_id) {
+            $number_of_times_tag_appears = DB::table('learning_tree_tag')
+                    ->where('tag_id', $tag_id)
+                    ->count()
+                + DB::table('question_tag')
+                    ->where('tag_id', $tag_id)
+                    ->count();
+
+            if (!$number_of_times_tag_appears) {
+                Tag::where('id', $tag_id)->delete();
+            }
+        }
+    }
 }

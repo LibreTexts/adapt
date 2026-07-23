@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Exceptions\Handler;
 use App\Http\Requests\StoreQuestionChapterRequest;
 use App\Http\Requests\StoreQuestionSectionRequest;
+use App\LearningTree;
 use App\Question;
 use App\QuestionChapter;
 use App\QuestionRevision;
@@ -37,6 +38,8 @@ class QuestionSectionController extends Controller
             Question::where('question_section_id', $questionSection->id)
                 ->update(['question_section_id' => null]);
             QuestionRevision::where('question_section_id', $questionSection->id)
+                ->update(['question_section_id' => null]);
+            LearningTree::where('question_section_id', $questionSection->id)
                 ->update(['question_section_id' => null]);
             $questionSection->delete();
             DB::commit();

@@ -1916,16 +1916,21 @@ class Question extends Model
     function cleanUpTags()
     {
         $question_tags = DB::table('question_tag')->where('question_id', $this->id)->get();
-        foreach ($question_tags as $question_tag) {
-            $number_of_times_tag_appears = DB::table('question_tag')
-                ->where('tag_id', $question_tag->tag_id)
-                ->where('question_id', '<>', $this->id)
-                ->count();
 
-            //clean up the tags
-            DB::table('question_tag')->where('question_id', $this->id)->delete();
+        $tag_ids_to_check = $question_tags->pluck('tag_id')->toArray();
+
+        DB::table('question_tag')->where('question_id', $this->id)->delete();
+
+        foreach ($tag_ids_to_check as $tag_id) {
+            $number_of_times_tag_appears = DB::table('question_tag')
+                    ->where('tag_id', $tag_id)
+                    ->count()
+                + DB::table('learning_tree_tag')
+                    ->where('tag_id', $tag_id)
+                    ->count();
+
             if (!$number_of_times_tag_appears) {
-                Tag::where('id', $question_tag->tag_id)->delete();
+                Tag::where('id', $tag_id)->delete();
             }
         }
     }

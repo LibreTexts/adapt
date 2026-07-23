@@ -259,10 +259,23 @@ class LearningTreeNodeController extends Controller
                 ->where('question_id', $question->id)
                 ->first();
 
-            $response['description'] = $learning_tree_node_description && $learning_tree_node_description->description ? $learning_tree_node_description->description : 'None Available';
+            $description = $learning_tree_node_description && $learning_tree_node_description->description
+                ? $learning_tree_node_description->description
+                : '';
+            $title = $learning_tree_node_description && $learning_tree_node_description->title ? $learning_tree_node_description->title : $question->title;
+            // EK: if there's no meaningful description - either it was
+            // never set (empty), it's the literal 'None Available'
+            // placeholder some existing rows may already have, or it's
+            // identical to the node's own displayed title - blank it out
+            // so the frontend shows nothing rather than a duplicated title
+            // or a confusing "None Available" message.
+            if ($description === 'None Available' || $description === $title) {
+                $description = '';
+            }
+            $response['description'] = $description;
             $response['subject'] = $learning_outcome ? $learning_outcome->subject : ($last_learning_outcome ? $last_learning_outcome->subject : null);
             $response['learning_outcome'] = $learning_outcome ? ['id' => $learning_outcome->id, 'label' => $learning_outcome->description] : '';
-            $response['title'] = $learning_tree_node_description && $learning_tree_node_description->title ? $learning_tree_node_description->title : $question->title;
+            $response['title'] = $title;
             $response['notes'] = $learning_tree_node_description && $learning_tree_node_description->notes ? $learning_tree_node_description->notes : '';
             $response['type'] = 'success';
         } catch (Exception $e) {

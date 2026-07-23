@@ -738,10 +738,10 @@
                    no-close-on-backdrop
           >
             <FrameworkAligner :key="`framework-aligner-key-${isEdit ? +questionToEdit.id : 0}`"
-                              :question-id="isEdit ? +questionToEdit.id : 0"
-                              :framework-item-sync-question="frameworkItemSyncQuestion"
-                              :is-create-question="true"
-                              @setFrameworkItemSyncQuestion="setFrameworkItemSyncQuestion"
+                              :item-id="isEdit ? +questionToEdit.id : 0"
+                              :framework-item-sync="frameworkItemSyncQuestion"
+                              :is-embedded="true"
+                              @setFrameworkItemSync="setFrameworkItemSyncQuestion"
             />
 
             <template #modal-footer>
@@ -1097,6 +1097,7 @@
                 </b-button>
               </div>
             </b-form-group>
+            <div v-if="frameworkItemSyncQuestion.descriptors.length +frameworkItemSyncQuestion.levels.length" class="mb-4">
             <span v-if="frameworkItemSyncQuestion.descriptors.length">
               <span v-for="(descriptor, descriptorsIndex) in frameworkItemSyncQuestion.descriptors"
                     :key="`framework-item-sync-questions-descriptors-${descriptorsIndex}`"
@@ -1112,7 +1113,7 @@
                 </b-button>
               </span>
             </span>
-            <span v-if="frameworkItemSyncQuestion.levels.length">
+              <span v-if="frameworkItemSyncQuestion.levels.length">
               <span v-for="(level, levelsIndex) in frameworkItemSyncQuestion.levels"
                     :key="`framework-item-sync-questions-levels-${levelsIndex}`"
                     class="mr-2"
@@ -1127,6 +1128,8 @@
                 </b-button>
               </span>
             </span>
+
+            </div>
             <b-form-group
               v-show="false"
               key="learning_outcome"
@@ -3019,14 +3022,18 @@ import RubricProperties from '../RubricProperties.vue'
 import { faCaretDown, faCaretRight } from '@fortawesome/free-solid-svg-icons'
 import {
   canEdit,
-  getQuestionSectionIdOptions,
-  handleAddEditQuestionSubjectChapterSection,
-  initAddEditDeleteQuestionSubjectChapterSection,
   openEndedSubmissionTypeOptions,
   responseFormatOptions
 } from '~/helpers/Questions'
+import {
+  getSubjectIdOptions,
+  getChapterIdOptions,
+  getSectionIdOptions,
+  handleAddEditSubjectChapterSection,
+  initAddEditDeleteSubjectChapterSection
+} from '~/helpers/SubjectChapterSection'
 import StructureImageUploader from '../StructureImageUploader.vue'
-import { capitalize, getQuestionChapterIdOptions, getQuestionSubjectIdOptions } from '../../helpers/Questions'
+import { capitalize } from '../../helpers/Questions'
 import ThreeDModel from './ThreeDModel.vue'
 import AccountingJournalEntry from './accounting/AccountingJournalEntry.vue'
 import AccountingReport from './accounting/AccountingReport.vue'
@@ -3649,7 +3656,7 @@ export default {
     window.removeEventListener('message', this.receiveMessage)
   },
   methods: {
-    closeEditQuestionModal() {
+    closeEditQuestionModal () {
       this.$bvModal.hide(`modal-edit-question-${this.questionToEdit.id}`)
       window.parent.postMessage('question-cancelled', '*')
     },
@@ -3746,12 +3753,34 @@ export default {
       this.webworkCodeKey++
     },
     capitalize,
-    getQuestionSubjectIdOptions,
-    getQuestionChapterIdOptions,
-    handleAddEditQuestionSubjectChapterSection,
-    initAddEditDeleteQuestionSubjectChapterSection,
     canEdit,
-    getQuestionSectionIdOptions,
+    // Config for the shared subject/chapter/section helpers in
+    // ~/helpers/SubjectChapterSection.js - tells them which form/options
+    // arrays on this component to read/write. See that file's header
+    // comment for the full shape.
+    questionSubjectChapterSectionConfig () {
+      return {
+        form: 'questionForm',
+        subjectIdOptions: 'questionSubjectIdOptions',
+        chapterIdOptions: 'questionChapterIdOptions',
+        sectionIdOptions: 'questionSectionIdOptions'
+      }
+    },
+    async getQuestionSubjectIdOptions (subjectChapterQuestionManager = false) {
+      await getSubjectIdOptions.call(this, this.questionSubjectChapterSectionConfig(), subjectChapterQuestionManager)
+    },
+    async getQuestionChapterIdOptions (subjectId, subjectChapterQuestionManager = false) {
+      await getChapterIdOptions.call(this, this.questionSubjectChapterSectionConfig(), subjectId, subjectChapterQuestionManager)
+    },
+    async getQuestionSectionIdOptions (chapterId, subjectChapterQuestionManager = false) {
+      await getSectionIdOptions.call(this, this.questionSubjectChapterSectionConfig(), chapterId, subjectChapterQuestionManager)
+    },
+    async handleAddEditQuestionSubjectChapterSection (subjectChapterQuestionManager = false) {
+      await handleAddEditSubjectChapterSection.call(this, this.questionSubjectChapterSectionConfig(), subjectChapterQuestionManager)
+    },
+    initAddEditDeleteQuestionSubjectChapterSection (action, level) {
+      initAddEditDeleteSubjectChapterSection.call(this, this.questionSubjectChapterSectionConfig(), action, level)
+    },
     async handleFlashcardFileUpload ({ side, mediaType, file }) {
       try {
         const { data } = await axios.post('/api/s3/pre-signed-url', {
