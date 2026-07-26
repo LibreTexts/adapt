@@ -18,6 +18,8 @@ export const assignmentForm = new Form({
   assign_tos: [],
   formative: 0,
   assessment_type: 'real time',
+  mastery_retake_enabled: 0,
+  mastery_number_of_allowed_attempts: 'unlimited',
   assignment_group_id: null,
   default_open_ended_submission_type: 0,
   can_submit_work: 0,
@@ -179,6 +181,8 @@ export async function initAddAssignment (form, courseId, assignmentGroups, noty,
   form.default_clicker_time_to_submit = ''
   form.instructions = ''
   form.assessment_type = 'real time'
+  form.mastery_retake_enabled = 0
+  form.mastery_number_of_allowed_attempts = 'unlimited'
   form.number_of_allowed_attempts = '1'
   form.number_of_allowed_attempts_penalty = ''
   form.can_view_hint = 1
@@ -268,6 +272,8 @@ export async function editAssignmentProperties (assignmentProperties, vm) {
     }
   }
   vm.form.algorithmic = assignmentProperties.algorithmic
+  vm.form.mastery_retake_enabled = Number(assignmentProperties.mastery_retake_enabled || 0)
+  vm.form.mastery_number_of_allowed_attempts = assignmentProperties.mastery_number_of_allowed_attempts || 'unlimited'
   vm.form.default_clicker_time_to_submit = assignmentProperties.default_clicker_time_to_submit
   vm.form.solutions_availability = assignmentProperties.solutions_availability
   vm.form.public_description = assignmentProperties.public_description

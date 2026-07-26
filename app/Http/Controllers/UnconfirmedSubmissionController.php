@@ -86,7 +86,9 @@ class UnconfirmedSubmissionController extends Controller
                 return $response;
             }
             $unconfirmed_submission = $unconfirmed_submission->toArray();
-            $unconfirmed_submission['submission'] = json_decode($unconfirmed_submission['submission'], 1)['submission'];
+            $stored_request = json_decode($unconfirmed_submission['submission'], true);
+            $unconfirmed_submission['submission'] = $stored_request['submission'];
+            $unconfirmed_submission['mastery_attempt_id'] = $stored_request['mastery_attempt_id'] ?? null;
             $unconfirmed_submission['technology'] = 'webwork';
             $Submission = new Submission();
             return $Submission->store(new StoreSubmission($unconfirmed_submission),

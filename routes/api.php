@@ -500,6 +500,7 @@ Route::group(['middleware' => ['auth:api', 'analytics','rate.limit.by.user']], f
     Route::get('/sso/is-sso-user', 'Auth\SSOController@isSSOUser');
 
     Route::post('/assignments', 'AssignmentController@store');
+    Route::post('/assignments/{assignment}/mastery-attempts', 'MasteryAssignmentAttemptController@store');
     Route::post('/assignments/{assignment}/create-assignment-from-template', 'AssignmentController@createAssignmentFromTemplate');
     Route::patch('/assignments/{assignment}/show-assignment-statistics', 'AssignmentController@showAssignmentStatistics');
     Route::patch('/assignments/{assignment}/show-scores', 'AssignmentController@showScores');

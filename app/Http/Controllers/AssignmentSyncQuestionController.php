@@ -8,6 +8,7 @@ use App\DiscussionComment;
 use App\DiscussionGroup;
 use App\Enrollment;
 use App\Exceptions\Handler;
+use App\Exceptions\MasteryRetakeConflictException;
 use App\Forge;
 use App\ForgeAssignmentQuestion;
 use App\ForgeSettings;
@@ -27,6 +28,7 @@ use App\RandomizedAssignmentQuestion;
 use App\ReportToggle;
 use App\RubricPointsBreakdown;
 use App\Solution;
+use App\Services\MasteryAssignmentAttemptService;
 use App\Traits\LibretextFiles;
 use App\Traits\Seed;
 use App\Traits\Statistics;
@@ -1443,6 +1445,11 @@ class AssignmentSyncQuestionController extends Controller
             return $response;
         }
 
+        if ($this->masteryQuestionConfigurationIsLocked($assignment)) {
+            $response['message'] = 'Questions cannot be added after a student has started a whole-assignment attempt.';
+            return $response;
+        }
+
         if ($assignment->cannotAddOrRemoveQuestionsForQuestionWeightAssignment()) {
             $response['message'] = "You cannot access the remixer since there are already submissions and this assignment computes points using question weights.";
             return $response;
@@ -2648,6 +2655,10 @@ class AssignmentSyncQuestionController extends Controller
             $response['message'] = $authorized->message();
             return $response;
         }
+        if ($this->masteryQuestionConfigurationIsLocked($assignment)) {
+            $response['message'] = 'Question response settings cannot be changed after a student has started a whole-assignment attempt.';
+            return $response;
+        }
         try {
             $assignment_ids = [$assignment->id];
             if ($assignment->course->alpha) {
@@ -2775,6 +2786,11 @@ class AssignmentSyncQuestionController extends Controller
             return $response;
         }
 
+        if ($this->masteryQuestionConfigurationIsLocked($assignment)) {
+            $response['message'] = 'Question points cannot be changed after a student has started a whole-assignment attempt.';
+            return $response;
+        }
+
 
         $assignment_ids = [$assignment->id];
         if ($assignment->course->alpha) {
@@ -2832,6 +2848,10 @@ class AssignmentSyncQuestionController extends Controller
 
         if (!$authorized->allowed()) {
             $response['message'] = $authorized->message();
+            return $response;
+        }
+        if ($this->masteryQuestionConfigurationIsLocked($assignment)) {
+            $response['message'] = 'Question weights cannot be changed after a student has started a whole-assignment attempt.';
             return $response;
         }
         $is_randomized_assignment = $assignment->number_of_randomized_assessments;
@@ -2893,6 +2913,10 @@ class AssignmentSyncQuestionController extends Controller
             $response['message'] = $authorized->message();
             return $response;
         }
+        if ($this->masteryQuestionConfigurationIsLocked($assignment)) {
+            $response['message'] = 'Questions cannot be added after a student has started a whole-assignment attempt.';
+            return $response;
+        }
         if ($assignment->cannotAddOrRemoveQuestionsForQuestionWeightAssignment()) {
             $response['message'] = "You cannot add a question since there are already submissions and this assignment computes points using question weights.";
             return $response;
@@ -2934,6 +2958,11 @@ class AssignmentSyncQuestionController extends Controller
 
         if (!$authorized->allowed()) {
             $response['message'] = $authorized->message();
+            return $response;
+        }
+
+        if ($this->masteryQuestionConfigurationIsLocked($assignment)) {
+            $response['message'] = 'Questions cannot be removed after a student has started a whole-assignment attempt.';
             return $response;
         }
 
@@ -3318,7 +3347,8 @@ class AssignmentSyncQuestionController extends Controller
                                 Question                $Question,
                                 Solution                $solution,
                                 PendingQuestionRevision $pendingQuestionRevision,
-                                IMathAS                 $IMathAS): array
+                                IMathAS                 $IMathAS,
+                                MasteryAssignmentAttemptService $masteryAttemptService): array
     {
 
 
@@ -3422,6 +3452,22 @@ class AssignmentSyncQuestionController extends Controller
                     $clicker_time_left[$question->question_id] = $num_seconds;
                 }
 
+            }
+            $mastery_attempt = null;
+            $response['mastery_attempt'] = null;
+            if ($masteryAttemptService->enabled($assignment) && $request->user()->role === 3) {
+                try {
+                    $mastery_attempt = $masteryAttemptService->getOrCreateForLaunch(
+                        $assignment,
+                        $request->user(),
+                        array_values($question_ids)
+                    );
+                    $response['mastery_attempt'] = $masteryAttemptService->payload($mastery_attempt);
+                } catch (MasteryRetakeConflictException $e) {
+                    $response['reason'] = $e->reason();
+                    $response['message'] = $e->getMessage();
+                    return $response;
+                }
             }
             $question_info = DB::table('questions')
                 ->select('*')
@@ -3985,6 +4031,9 @@ class AssignmentSyncQuestionController extends Controller
                 $assignment->questions[$key]['notes'] = Auth::user()->role === 2 ? $question->addTimeToS3Files($assignment->questions[$key]->notes, $domd) : null;
 
                 $custom_claims = [];
+                if ($mastery_attempt) {
+                    $custom_claims['mastery_attempt_id'] = $mastery_attempt->id;
+                }
                 if ($question->technology === 'imathas' && isset($submissions_by_question_id[$question->id])) {
                     $custom_claims['stuanswers'] = $Submission->getStudentResponse($submissions_by_question_id[$question->id], 'imathas');
 
@@ -4093,6 +4142,11 @@ class AssignmentSyncQuestionController extends Controller
 
             $response['type'] = 'success';
             $response['questions'] = $assignment->questions->values();
+            if ($mastery_attempt) {
+                $response['mastery_attempt'] = $masteryAttemptService->payload(
+                    $masteryAttemptService->latestAttempt($assignment, $request->user())
+                );
+            }
             $end_time = microtime(true);
             $execution_time = ($end_time - $start_time);
             DB::table('execution_times')->insert([
@@ -4281,6 +4335,10 @@ class AssignmentSyncQuestionController extends Controller
                 $response['message'] = $authorized->message();
                 return $response;
             }
+            if ($this->masteryQuestionConfigurationIsLocked($assignment)) {
+                $response['message'] = 'Question revisions cannot be changed after a student has started a whole-assignment attempt.';
+                return $response;
+            }
             if (!$request->understand_student_submissions_removed) {
                 $response['message'] = "You must confirm that you understand that student submissions will be removed.";
                 return $response;
@@ -4327,6 +4385,16 @@ class AssignmentSyncQuestionController extends Controller
         return $response;
 
 
+    }
+
+    /**
+     * Keep an active attempt's question snapshot stable after real student work begins.
+     */
+    private
+    function masteryQuestionConfigurationIsLocked(Assignment $assignment): bool
+    {
+        return (bool)$assignment->mastery_retake_enabled
+            && app(MasteryAssignmentAttemptService::class)->hasRealStudentAttempts($assignment);
     }
 
     private

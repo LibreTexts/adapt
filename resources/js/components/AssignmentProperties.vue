@@ -409,11 +409,11 @@
                 </b-col>
 
                 <b-modal id="modal-number-of-allowed-attempts-penalty-warning"
-                         title="Number of Allowed Attempts Penalty"
+                         title="Penalty per Additional Response"
                 >
                   <p>
-                    You are about to update the number of allowed attempts penalty but there are already submissions in
-                    this assignment. Please note that this new penalty will only apply to future submissions.
+                    You are about to update the penalty per additional response, but this assignment already has
+                    submissions. The new penalty will apply only to future responses.
                   </p>
                   <template #modal-footer="{ cancel, ok }">
                     <b-button size="sm" variant="primary"
@@ -1032,23 +1032,66 @@
               </b-form-group>
             </div>
 
-            <!-- Number of Allowed Attempts: hidden for flashcard (forced unlimited) -->
+            <b-form-group
+              v-if="form.assessment_type === 'real time' && form.scoring_type === 'p'"
+              label-cols-sm="4"
+              label-cols-lg="3"
+              label-for="mastery_retake_enabled"
+            >
+              <template v-slot:label>
+                Assignment Attempt Policy*
+                <QuestionCircleTooltip :id="'attempt-structure-tooltip'"/>
+                <b-tooltip target="attempt-structure-tooltip" delay="250" triggers="hover focus">
+                  Choose whether students attempt each question independently or complete every question as part of
+                  one assignment attempt.
+                </b-tooltip>
+              </template>
+              <b-form-radio-group
+                id="mastery_retake_enabled"
+                v-model="form.mastery_retake_enabled"
+                stacked
+                required
+                :disabled="isLocked(hasSubmissionsOrFileSubmissions) || isBetaAssignment"
+                @change="initMasteryRetakes"
+              >
+                <b-form-radio :value="0">
+                  Per-question attempts
+                  <QuestionCircleTooltip :id="'per-question-attempts-tooltip'"/>
+                  <b-tooltip target="per-question-attempts-tooltip" delay="250" triggers="hover focus">
+                    Each question has its own response limit and immediate feedback. Students continue working on
+                    incorrect questions using the same problem version. Correct questions remain complete.
+                  </b-tooltip>
+                </b-form-radio>
+                <b-form-radio :value="1">
+                  Whole-assignment attempts
+                  <QuestionCircleTooltip :id="'whole-assignment-attempts-tooltip'"/>
+                  <b-tooltip target="whole-assignment-attempts-tooltip" delay="250" triggers="hover focus">
+                    Students submit one response to every question during each assignment attempt. Starting a new
+                    attempt clears the current responses, includes every question again, and generates new algorithmic
+                    problem versions when question variation is enabled.
+                  </b-tooltip>
+                </b-form-radio>
+              </b-form-radio-group>
+              <has-error :form="form" field="mastery_retake_enabled"/>
+            </b-form-group>
+
             <div v-if="form.assessment_type !== 'flashcard' && (form.assessment_type === 'clicker' ||
           (['real time','learning tree'].includes(form.assessment_type) && form.scoring_type === 'p'))"
             >
               <b-form-group
+                v-if="!Boolean(form.mastery_retake_enabled)"
                 label-cols-sm="4"
                 label-cols-lg="3"
                 label-for="number_of_allowed_attempts"
               >
                 <template v-slot:label>
-                  Number of Allowed Attempts*
+                  Responses per Question*
                   <QuestionCircleTooltip :id="'number-of-allowed-attempts-tooltip'"/>
                   <b-tooltip target="number-of-allowed-attempts-tooltip"
                              delay="250"
                              triggers="hover focus"
                   >
-                    <span v-if="form.assessment_type === 'real time'">Optionally, you can let your students attempt real time assessments multiple times.</span>
+                    <span v-if="form.assessment_type === 'real time'">Choose how many responses a student may submit to each question.</span>
                     <span v-if="form.assessment_type === 'learning tree'">Students will always be allowed to re-attempt Learning Tree assessments.  However, you can dictate the number of attempts possible.</span>
                     Please note that if you have any H5P questions in your assignment, then due to
                     the nature of H5P, your students will see the answer
@@ -1069,7 +1112,7 @@
                         type="text"
                         :style="form.number_of_allowed_attempts === 'unlimited' ? 'pointer-events: none;' : ''"
                         :disabled="isBetaAssignment || form.number_of_allowed_attempts === 'unlimited'"
-                        aria-label="Number of allowed attempts"
+                        aria-label="Responses allowed per question"
                         placeholder="1, 2, 3, ..."
                         @input="val => {
           form.number_of_allowed_attempts = val;
@@ -1093,20 +1136,72 @@
                 </div>
               </b-form-group>
               <b-form-group
-                v-if="form.number_of_allowed_attempts !== '1' && form.assessment_type !== 'clicker'"
+                v-if="Boolean(form.mastery_retake_enabled)"
+                label-cols-sm="4"
+                label-cols-lg="3"
+                label-for="mastery_number_of_allowed_attempts"
+              >
+                <template v-slot:label>
+                  Assignment Attempts*
+                  <QuestionCircleTooltip :id="'mastery-number-of-allowed-attempts-tooltip'"/>
+                  <b-tooltip target="mastery-number-of-allowed-attempts-tooltip"
+                             delay="250"
+                             triggers="hover focus"
+                  >
+                    Choose the total number of whole-assignment attempts, including the first attempt. Students may
+                    continue after earning 100% while another attempt is available.
+                  </b-tooltip>
+                </template>
+                <div class="mt-2">
+                  <div class="d-flex align-items-center mb-2">
+                    <div style="width: 100px; cursor: pointer;" @click="() => {
+      if (form.mastery_number_of_allowed_attempts === 'unlimited') {
+        form.mastery_number_of_allowed_attempts = '';
+      }
+    }"
+                    >
+                      <b-form-input
+                        :value="form.mastery_number_of_allowed_attempts !== 'unlimited' ? form.mastery_number_of_allowed_attempts : ''"
+                        type="text"
+                        :style="form.mastery_number_of_allowed_attempts === 'unlimited' ? 'pointer-events: none;' : ''"
+                        :disabled="isBetaAssignment || form.mastery_number_of_allowed_attempts === 'unlimited'"
+                        aria-label="Whole-assignment attempts allowed"
+                        placeholder="1, 2, 3, ..."
+                        @input="val => {
+          form.mastery_number_of_allowed_attempts = val;
+          form.errors.clear('mastery_number_of_allowed_attempts');
+        }"
+                      />
+                    </div>
+                    <span class="mx-3 text-muted">— or —</span>
+                    <b-form-checkbox
+                      :checked="form.mastery_number_of_allowed_attempts === 'unlimited'"
+                      :disabled="isBetaAssignment"
+                      @change="checked => {
+        form.mastery_number_of_allowed_attempts = checked ? 'unlimited' : '';
+        form.errors.clear('mastery_number_of_allowed_attempts');
+      }"
+                    >
+                      Unlimited
+                    </b-form-checkbox>
+                  </div>
+                  <ErrorMessage :message="form.errors.get('mastery_number_of_allowed_attempts')"/>
+                </div>
+              </b-form-group>
+              <b-form-group
+                v-if="!Boolean(form.mastery_retake_enabled) && form.number_of_allowed_attempts !== '1' && form.assessment_type !== 'clicker'"
                 label-cols-sm="4"
                 label-cols-lg="3"
                 label-for="attempts_penalty"
               >
                 <template v-slot:label>
-                  Attempts Penalty*
+                  Penalty per Additional Response*
                   <QuestionCircleTooltip :id="'attempts-penalty-tooltip'"/>
                   <b-tooltip target="attempts-penalty-tooltip"
                              delay="250"
                              triggers="hover focus"
                   >
-                    If you allow your students to attempt a question multiple times, you may provide a penalty to be
-                    applied for each attempt after the first.
+                    This percentage is deducted for each response to the same question after the first response.
                   </b-tooltip>
                 </template>
                 <b-form-row>
@@ -1474,7 +1569,7 @@
                               v-model="form.randomizations"
                               required
                               stacked
-                              :disabled="isLocked(hasSubmissionsOrFileSubmissions) || isBetaAssignment"
+                              :disabled="isLocked(hasSubmissionsOrFileSubmissions) || isBetaAssignment || Boolean(form.mastery_retake_enabled)"
                               @change="initRandomizationsSwitch($event)"
           >
             <b-form-radio value="1">Yes</b-form-radio>
@@ -1501,7 +1596,7 @@
                 v-model="form.number_of_randomized_assessments"
                 type="text"
                 required
-                :disabled="isLocked(hasSubmissionsOrFileSubmissions) || isBetaAssignment"
+                :disabled="isLocked(hasSubmissionsOrFileSubmissions) || isBetaAssignment || Boolean(form.mastery_retake_enabled)"
                 :class="{ 'is-invalid': form.errors.has('number_of_randomized_assessments') }"
                 @keydown="form.errors.clear('number_of_randomized_assessments')"
               />
@@ -1512,11 +1607,10 @@
         <div v-if="user.role ===2">
           <b-form-group label-cols-sm="4" label-cols-lg="3" label-for="algorithmic">
             <template v-slot:label>
-              Algorithmic*
-              <QuestionCircleTooltip :id="'algorithmic-tooltip'"/>
-              <b-tooltip target="algorithmic-tooltip" delay="250" triggers="hover focus">
-                WeBWork and IMathAS support algorithmic questions. Students will receive slight variations of the
-                original question.
+              Algorithmic Question Variation*
+              <QuestionCircleTooltip :id="'question-versions-tooltip'"/>
+              <b-tooltip target="question-versions-tooltip" delay="250" triggers="hover focus">
+                WeBWorK and IMathAS use a seed to generate question values.
               </b-tooltip>
             </template>
             <b-form-radio-group id="algorithmic"
@@ -1525,8 +1619,8 @@
                                 stacked
                                 :disabled="isLocked(hasSubmissionsOrFileSubmissions)"
             >
-              <b-form-radio value="1">Yes</b-form-radio>
-              <b-form-radio value="0">No</b-form-radio>
+              <b-form-radio value="0">Same version for every student (fixed seed)</b-form-radio>
+              <b-form-radio value="1">Different version for each student (random seed)</b-form-radio>
             </b-form-radio-group>
           </b-form-group>
         </div>
@@ -2234,6 +2328,21 @@ export default {
   },
   methods: {
     isLocked,
+    // Apply the existing property combination required by whole-assignment attempts.
+    initMasteryRetakes (enabled) {
+      this.form.errors.clear('mastery_retake_enabled')
+      if (!enabled) {
+        this.form.mastery_number_of_allowed_attempts = 'unlimited'
+        return
+      }
+      this.form.number_of_allowed_attempts = '1'
+      this.form.number_of_allowed_attempts_penalty = '0%'
+      this.form.randomizations = 0
+      this.form.number_of_randomized_assessments = null
+      this.form.can_submit_work = 0
+      this.form.hint_penalty = '0%'
+      if (this.form.late_policy === 'deduction') this.form.late_policy = 'not accepted'
+    },
     getHeaderHtml (title) {
       return `<h2 class="h7 m-0">${title}</h2>`
     },

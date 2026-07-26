@@ -278,6 +278,7 @@ export async function processReceiveMessage (vm, routeName, event) {
         'question_id': question.id,
         'submission': event.data,
         'assignment_id': vm.assignmentId,
+        'mastery_attempt_id': vm.masteryAttempt ? vm.masteryAttempt.id : null,
         'technology': technology,
         'max_score': vm.maxScore,
         'is_h5p_activity_set': vm.ish5pActivitySet

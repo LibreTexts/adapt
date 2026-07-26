@@ -174,7 +174,8 @@ class Assignment extends Model
             'release_assignment_contacted_instructors',
             'rubric_points_breakdowns',
             'maximum_number_of_allowed_attempts_notifications',
-            'submitted_work_pending_scores'
+            'submitted_work_pending_scores',
+            'mastery_assignment_attempts'
         ];
 
         foreach ($tables as $table) {
@@ -906,6 +907,15 @@ class Assignment extends Model
             ->first()) {
             return true;
         }
+        if (DB::table('mastery_assignment_attempts')
+            ->join('users', 'mastery_assignment_attempts.user_id', 'users.id')
+            ->where('assignment_id', $this->id)
+            ->where('fake_student', 0)
+            ->where('formative_student', 0)
+            ->where('role', 3)
+            ->first()) {
+            return true;
+        }
         return false;
     }
 
@@ -1309,7 +1319,16 @@ class Assignment extends Model
             ->where('role', 3)
             ->get()
             ->isNotEmpty();
-        return $submission_files_not_empty || $submissions_not_empty;
+        $mastery_attempts_not_empty = DB::table('mastery_assignment_attempts')
+            ->join('assignments', 'mastery_assignment_attempts.assignment_id', '=', 'assignments.id')
+            ->join('users', 'mastery_assignment_attempts.user_id', '=', 'users.id')
+            ->whereIn('mastery_assignment_attempts.assignment_id', $assignment_ids)
+            ->where('assignments.mastery_retake_enabled', 1)
+            ->where('fake_student', 0)
+            ->where('formative_student', 0)
+            ->where('role', 3)
+            ->exists();
+        return $submission_files_not_empty || $submissions_not_empty || $mastery_attempts_not_empty;
 
 
     }
@@ -1391,7 +1410,8 @@ class Assignment extends Model
         foreach (['submission_score_overrides',
                      'review_histories',
                      'assignment_question_time_on_tasks',
-                     'randomized_assignment_questions'] as $table) {
+                     'randomized_assignment_questions',
+                     'mastery_assignment_attempts'] as $table) {
             DB::table($table)->where('user_id', $user->id)->whereIn('assignment_id', $assignments_to_remove_ids)->delete();
         }
     }

@@ -116,6 +116,40 @@ class Score extends Model
             return;
         }
         $assignment = Assignment::find($assignment_id);
+        if ($assignment->mastery_retake_enabled) {
+            $best_completed_score = MasteryAssignmentAttempt::where('assignment_id', $assignment_id)
+                ->where('user_id', $student_user_id)
+                ->whereIn('status', [
+                    MasteryAssignmentAttempt::STATUS_COMPLETED,
+                    MasteryAssignmentAttempt::STATUS_MASTERED
+                ])
+                ->max('score');
+
+            // Incomplete whole-assignment attempts retain feedback without changing the saved grade.
+            // without changing the assignment or LMS grade.
+            if ($best_completed_score === null) {
+                return;
+            }
+
+            $assignment_score = self::firstOrNew([
+                'user_id' => $student_user_id,
+                'assignment_id' => $assignment_id
+            ]);
+            $assignment_score->score = $best_completed_score;
+            $assignment_score->save();
+
+            if ($passback_grade) {
+                $lti_launch = DB::table('lti_launches')
+                    ->where('assignment_id', $assignment->id)
+                    ->where('user_id', $student_user_id)
+                    ->first();
+                if ($lti_launch) {
+                    $ltiGradePassBack = new LtiGradePassback();
+                    $ltiGradePassBack->initPassBackByUserIdAndAssignmentId($best_completed_score, $lti_launch);
+                }
+            }
+            return;
+        }
         //initialize
         $assignment_score = 0;
         $submission_scores_by_question_id = [];
