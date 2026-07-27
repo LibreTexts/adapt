@@ -1121,7 +1121,22 @@ export default {
       let questionId = this.nodeToUpdate.querySelector('input[name="question_id"]').value
       this.isRootNode = parseInt(this.nodeToUpdate.querySelector('input[name="blockid"]').value) === 0
       if (this.isRootNode) {
-        questionId = String(this.rootNodeQuestionId || this.assessmentQuestionId)
+        // EK: prefer the root block's own rendered question_id (same source
+        // used for every other node) and only fall back to the component-level
+        // rootNodeQuestionId/assessmentQuestionId if that's missing. Guard
+        // against String(undefined) leaking through as the literal text
+        // "undefined", which was being sent to the API and causing
+        // "There is no question with the ADAPT ID undefined" / 500 errors.
+        const domQuestionId = (questionId && questionId !== 'undefined') ? questionId : ''
+        const fallbackId = this.rootNodeQuestionId || this.assessmentQuestionId
+        const resolvedFallback = (fallbackId === null || fallbackId === undefined || fallbackId === '')
+          ? ''
+          : String(fallbackId)
+        questionId = domQuestionId || resolvedFallback
+      }
+      if (!questionId) {
+        this.$noty.error('This learning tree has no root question configured.')
+        return false
       }
       this.nodeForm.is_root_node = this.isRootNode
       this.setNodeModalTitleAndBorderClass()
@@ -1429,7 +1444,8 @@ export default {
         return ''
       }
       const questionIdEntry = rootBlock.data.find(entry => entry.name === 'question_id')
-      return questionIdEntry ? String(questionIdEntry.value) : ''
+      const value = questionIdEntry ? questionIdEntry.value : null
+      return (value === null || value === undefined || value === '') ? '' : String(value)
     },
     getBlockyNameHTML (questionId) {
       return `<span class="question_id">${questionId}</span>`
