@@ -419,6 +419,18 @@
         New Node
       </b-button>
 
+      <b-form-checkbox id="auto-center-tooltip"
+                       v-model="autoCenterEnabled"
+                       switch
+                       class="toolbar-btn"
+                       @change="onAutoCenterToggle"
+      >
+        Auto-center
+      </b-form-checkbox>
+      <b-tooltip target="auto-center-tooltip" delay="250" triggers="hover">
+        When on, the tree re-centers itself after edits and page loads. Turn off to keep your scroll position on wide trees.
+      </b-tooltip>
+
       <div class="toolbar-spacer"/>
       <ConsultInsight :url="'https://commons.libretexts.org/insight/creating-and-editing-learning-trees'"
       />
@@ -540,7 +552,8 @@ export default {
     studentLearningObjectives: '',
     title: window.config.appName,
     chosenId: '',
-    learningTreeId: 0
+    learningTreeId: 0,
+    autoCenterEnabled: localStorage.getItem('lt-auto-center') !== 'false'
   }),
   computed: {
     ...mapGetters({
@@ -776,6 +789,14 @@ export default {
         document.documentElement.scrollTop = 0
       })
     },
+    async onAutoCenterToggle (value) {
+      localStorage.setItem('lt-auto-center', value ? 'true' : 'false')
+      if (value) {
+        await this.$nextTick()
+        await this.updateLocation()
+        await this.saveLearningTree()
+      }
+    },
     syncBlockPositions () {
       const canvas = document.getElementById('canvas')
       const blocks = flowy.getBlocks && flowy.getBlocks()
@@ -855,7 +876,7 @@ export default {
       const rootWidth = rootBlock.offsetWidth || 242
       const canvasWidth = canvas.offsetWidth
       const rootCenter = rootLeft + (rootWidth / 2)
-      const xShift = (canvasWidth / 2) - rootCenter
+      const xShift = this.autoCenterEnabled ? (canvasWidth / 2) - rootCenter : 0
       const yShift = 20 - minTop
 
       // Shift all DOM elements
