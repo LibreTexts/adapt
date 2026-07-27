@@ -224,15 +224,14 @@
 
 <script>
 import Form from 'vform'
+import { capitalize } from '../../helpers/Questions'
 import {
-  capitalize,
-  handleAddEditQuestionSubjectChapterSection,
-  getQuestionSubjectIdOptions,
-  getQuestionSectionIdOptions,
-  getQuestionChapterIdOptions,
-  initAddEditDeleteQuestionSubjectChapterSection,
-  handleDeleteQuestionSubjectChapterSection
-} from '../../helpers/Questions'
+  getSubjectIdOptions,
+  getChapterIdOptions,
+  getSectionIdOptions,
+  handleAddEditSubjectChapterSection,
+  initAddEditDeleteSubjectChapterSection
+} from '../../helpers/SubjectChapterSection'
 
 export default {
   name: 'subjectChapterSectionManager',
@@ -263,13 +262,38 @@ export default {
     this.getQuestionSubjectIdOptions(true)
   },
   methods: {
-    handleDeleteQuestionSubjectChapterSection,
-    initAddEditDeleteQuestionSubjectChapterSection,
-    getQuestionChapterIdOptions,
-    getQuestionSectionIdOptions,
-    getQuestionSubjectIdOptions,
-    handleAddEditQuestionSubjectChapterSection,
     capitalize,
+    // Config for the shared helpers in ~/helpers/SubjectChapterSection.js -
+    // same shape/idea as CreateQuestion.vue's and LearningTreeProperties.vue's
+    // config, pointed at this page's own questionForm/question*IdOptions.
+    subjectChapterSectionConfig () {
+      return {
+        form: 'questionForm',
+        subjectIdOptions: 'questionSubjectIdOptions',
+        chapterIdOptions: 'questionChapterIdOptions',
+        sectionIdOptions: 'questionSectionIdOptions'
+      }
+    },
+    async getQuestionSubjectIdOptions (subjectChapterQuestionManager = false) {
+      await getSubjectIdOptions.call(this, this.subjectChapterSectionConfig(), subjectChapterQuestionManager)
+    },
+    async getQuestionChapterIdOptions (subjectId, subjectChapterQuestionManager = false) {
+      await getChapterIdOptions.call(this, this.subjectChapterSectionConfig(), subjectId, subjectChapterQuestionManager)
+    },
+    async getQuestionSectionIdOptions (chapterId, subjectChapterQuestionManager = false) {
+      await getSectionIdOptions.call(this, this.subjectChapterSectionConfig(), chapterId, subjectChapterQuestionManager)
+    },
+    async handleAddEditQuestionSubjectChapterSection (subjectChapterQuestionManager = false) {
+      await handleAddEditSubjectChapterSection.call(this, this.subjectChapterSectionConfig(), subjectChapterQuestionManager)
+    },
+    initAddEditDeleteQuestionSubjectChapterSection (action, level) {
+      initAddEditDeleteSubjectChapterSection.call(this, this.subjectChapterSectionConfig(), action, level)
+    },
+    // NOTE: handleDeleteQuestionSubjectChapterSection was left untouched in
+    // Questions.js (it's hardcoded to questionForm/question*IdOptions
+    // already, which happens to match this page's own naming exactly, so
+    // it still works unmodified - no wrapper needed for this one).
+    handleDeleteQuestionSubjectChapterSection,
     deleteSection () {
 
     }

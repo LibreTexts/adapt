@@ -231,8 +231,8 @@ export default {
       },
       {
         key: 'actions',
-        thStyle: { width: '90px' }
-      }
+        thStyle: { width: '95px' }
+      },
     ],
     learningTrees: [],
     canViewLearningTrees: false,
@@ -271,7 +271,10 @@ export default {
         description: learningTree.description,
         public: learningTree.public,
         notes: learningTree.notes,
-        tags: learningTree.tags || []
+        tags: learningTree.tags || [],
+        question_subject_id: learningTree.question_subject_id,
+        question_chapter_id: learningTree.question_chapter_id,
+        question_section_id: learningTree.question_section_id
       })
       await this.getFrameworkItemSyncLearningTree()
       this.$bvModal.show('modal-learning-tree-properties')

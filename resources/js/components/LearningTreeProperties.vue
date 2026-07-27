@@ -6,6 +6,7 @@
       size="lg"
       no-close-on-backdrop
       :hide-footer="!canEditLearningTree"
+      @shown="onShown"
       @hidden="$emit('resetLearningTreePropertiesModal')"
     >
       <template #modal-header>
@@ -130,6 +131,131 @@
           <has-error :form="learningTreeForm" field="notes"/>
         </b-form-group>
 
+        <!-- SUBJECT/CHAPTER/SECTION: shares question_subjects/question_chapters/
+             question_sections with Questions - same records, same endpoints.
+             Mirrors CreateQuestion.vue's block, driven by the same shared
+             helper functions in ~/helpers/SubjectChapterSection.js -->
+        <b-form-group
+          v-if="canEditLearningTree"
+          label-for="learning_tree_subject"
+          label-cols-sm="4"
+          label-cols-lg="3"
+          label="Subject"
+        >
+          <b-form-select :key="`subject-select-${questionSubjectIdOptions.length}`"
+                         v-model="learningTreeForm.question_subject_id"
+                         :options="questionSubjectIdOptions"
+                         size="sm"
+                         style="width:400px"
+                         @change="learningTreeForm.question_chapter_id = null; learningTreeForm.question_section_id = null; getQuestionChapterIdOptions(learningTreeForm.question_subject_id)"
+          />
+          <b-button size="sm"
+                    variant="outline-info"
+                    :disabled="learningTreeForm.question_subject_id === null"
+                    @click="initAddEditDeleteQuestionSubjectChapterSection('edit','subject')"
+          >
+            Edit
+          </b-button>
+          <b-button size="sm" variant="outline-primary"
+                    @click="initAddEditDeleteQuestionSubjectChapterSection('add','subject')"
+          >
+            Add
+          </b-button>
+        </b-form-group>
+        <b-form-group
+          v-if="canEditLearningTree"
+          label-for="learning_tree_chapter"
+          label-cols-sm="4"
+          label-cols-lg="3"
+          label="Chapter"
+        >
+          <b-form-select :key="`chapter-select-${questionChapterIdOptions.length}`"
+                         v-model="learningTreeForm.question_chapter_id"
+                         :options="questionChapterIdOptions"
+                         size="sm"
+                         style="width:400px"
+                         :disabled="learningTreeForm.question_subject_id === null || questionChapterIdOptions.length === 1"
+                         @change="learningTreeForm.question_section_id = null; getQuestionSectionIdOptions(learningTreeForm.question_chapter_id)"
+          />
+          <b-button size="sm"
+                    variant="outline-info"
+                    :disabled="learningTreeForm.question_chapter_id === null"
+                    @click="initAddEditDeleteQuestionSubjectChapterSection('edit','chapter')"
+          >
+            Edit
+          </b-button>
+          <b-button size="sm" variant="outline-primary"
+                    :disabled="learningTreeForm.question_subject_id === null"
+                    @click="initAddEditDeleteQuestionSubjectChapterSection('add','chapter')"
+          >
+            Add
+          </b-button>
+        </b-form-group>
+        <b-form-group
+          v-if="canEditLearningTree"
+          label-for="learning_tree_section"
+          label-cols-sm="4"
+          label-cols-lg="3"
+          label="Section"
+        >
+          <b-form-select :key="`section-select-${questionSectionIdOptions.length}`"
+                         v-model="learningTreeForm.question_section_id"
+                         :options="questionSectionIdOptions"
+                         :disabled="learningTreeForm.question_chapter_id === null || questionSectionIdOptions.length === 1"
+                         size="sm"
+                         style="width:400px"
+          />
+          <b-button size="sm"
+                    variant="outline-info"
+                    :disabled="learningTreeForm.question_section_id === null"
+                    @click="initAddEditDeleteQuestionSubjectChapterSection('edit','section')"
+          >
+            Edit
+          </b-button>
+          <b-button size="sm"
+                    variant="outline-primary"
+                    :disabled="learningTreeForm.question_chapter_id === null"
+                    @click="initAddEditDeleteQuestionSubjectChapterSection('add','section')"
+          >
+            Add
+          </b-button>
+        </b-form-group>
+        <b-modal id="modal-add-edit-question-subject-chapter-section"
+                 :title="`${capitalize(questionSubjectChapterSectionAction)} ${capitalize(questionSubjectChapterSectionToAddEditLevel)}`"
+                 no-close-on-backdrop
+                 size="lg"
+        >
+          <b-form-group
+            label-cols-sm="2"
+            label-cols-lg="1"
+            label-for="level"
+            label-align="center"
+            label="Name"
+          >
+            <b-form-input v-model="questionSubjectChapterSectionForm.name"
+                          required
+                          :class="{ 'is-invalid': questionSubjectChapterSectionForm.errors.has('name')}"
+                          @keydown="questionSubjectChapterSectionForm.errors.clear('name')"
+            />
+            <has-error :form="questionSubjectChapterSectionForm" field="name"/>
+          </b-form-group>
+          <template #modal-footer>
+            <b-button
+              size="sm"
+              @click="$bvModal.hide('modal-add-edit-question-subject-chapter-section')"
+            >
+              Cancel
+            </b-button>
+            <b-button
+              size="sm"
+              variant="primary"
+              @click="handleAddEditQuestionSubjectChapterSection()"
+            >
+              Save
+            </b-button>
+          </template>
+        </b-modal>
+
         <!-- TAGS: matches CreateQuestion.vue's tags block exactly -->
         <b-form-group
           label-cols-sm="4"
@@ -251,6 +377,15 @@ import { faCopy } from '@fortawesome/free-regular-svg-icons'
 import { doCopy } from '~/helpers/Copy'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import FrameworkAligner from './FrameworkAligner.vue'
+import Form from 'vform/src'
+import { capitalize } from '~/helpers/Questions'
+import {
+  getSubjectIdOptions,
+  getChapterIdOptions,
+  getSectionIdOptions,
+  handleAddEditSubjectChapterSection,
+  initAddEditDeleteSubjectChapterSection
+} from '~/helpers/SubjectChapterSection'
 
 export default {
   name: 'LearningTreeProperties',
@@ -289,7 +424,15 @@ export default {
   },
   data: () => ({
     copyIcon: faCopy,
-    tag: ''
+    tag: '',
+    questionSubjectIdOptions: [{ value: null, text: 'Choose a subject' }],
+    questionChapterIdOptions: [{ value: null, text: 'Choose a chapter' }],
+    questionSectionIdOptions: [{ value: null, text: 'Choose a section' }],
+    questionSubjectChapterSectionAction: '',
+    questionSubjectChapterSectionForm: new Form({}),
+    questionSubjectChapterSectionToAddEditLevel: '',
+    questionSubjectChapterSectionToEditDeleteName: '',
+    allFormErrors: []
   }),
   methods: {
     doCopy,
@@ -315,6 +458,48 @@ export default {
         [itemType]: this.frameworkItemSyncLearningTree[itemType].filter(item => item.id !== itemId)
       }
       this.$emit('setFrameworkItemSyncLearningTree', updated)
+    },
+    capitalize,
+    // Config for the shared subject/chapter/section helpers in
+    // ~/helpers/SubjectChapterSection.js. See that file's header comment
+    // for the full shape - this mirrors CreateQuestion.vue's config.
+    subjectChapterSectionConfig () {
+      return {
+        form: 'learningTreeForm',
+        subjectIdOptions: 'questionSubjectIdOptions',
+        chapterIdOptions: 'questionChapterIdOptions',
+        sectionIdOptions: 'questionSectionIdOptions'
+      }
+    },
+    async getQuestionSubjectIdOptions () {
+      await getSubjectIdOptions.call(this, this.subjectChapterSectionConfig())
+    },
+    async getQuestionChapterIdOptions (subjectId) {
+      await getChapterIdOptions.call(this, this.subjectChapterSectionConfig(), subjectId)
+    },
+    async getQuestionSectionIdOptions (chapterId) {
+      await getSectionIdOptions.call(this, this.subjectChapterSectionConfig(), chapterId)
+    },
+    async handleAddEditQuestionSubjectChapterSection () {
+      await handleAddEditSubjectChapterSection.call(this, this.subjectChapterSectionConfig())
+    },
+    initAddEditDeleteQuestionSubjectChapterSection (action, level) {
+      initAddEditDeleteSubjectChapterSection.call(this, this.subjectChapterSectionConfig(), action, level)
+    },
+    // Fires every time the modal opens (new tree or existing). Always loads
+    // the subject list; if editing a tree that already has a subject/chapter
+    // selected, also loads the matching chapter/section options so the
+    // dropdowns show the current selection instead of resetting to
+    // "Choose a...". Mirrors CreateQuestion.vue's mounted()/edit-population
+    // logic for the same fields.
+    async onShown () {
+      await this.getQuestionSubjectIdOptions()
+      if (this.learningTreeForm.question_subject_id) {
+        await this.getQuestionChapterIdOptions(this.learningTreeForm.question_subject_id)
+      }
+      if (this.learningTreeForm.question_chapter_id) {
+        await this.getQuestionSectionIdOptions(this.learningTreeForm.question_chapter_id)
+      }
     }
   }
 }

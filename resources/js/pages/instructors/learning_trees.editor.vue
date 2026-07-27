@@ -546,9 +546,15 @@ export default {
       notes: '',
       public: 0,
       question_id: '',
-      tags: []
+      tags: [],
+      question_subject_id: null,
+      question_chapter_id: null,
+      question_section_id: null
     }),
     tags: [],
+    question_subject_id: null,
+    question_chapter_id: null,
+    question_section_id: null,
     frameworkItemSyncLearningTree: { descriptors: [], levels: [] },
     assessmentQuestionId: '',
     touchingBlock: false,
@@ -1303,6 +1309,9 @@ export default {
               this.learningTreeForm.public = currentTree.public
               this.learningTreeForm.notes = currentTree.notes
               this.learningTreeForm.tags = currentTree.tags
+              this.learningTreeForm.question_subject_id = currentTree.question_subject_id
+              this.learningTreeForm.question_chapter_id = currentTree.question_chapter_id
+              this.learningTreeForm.question_section_id = currentTree.question_section_id
               this.learningTreeForm.question_id = this.nodeForm.question_id
               this.assessmentQuestionId = this.nodeForm.question_id
               await this.updateLearningTreeInfo()
@@ -1336,6 +1345,9 @@ export default {
       this.learningTreeForm.public = this.public
       this.learningTreeForm.notes = this.notes
       this.learningTreeForm.tags = this.tags || []
+      this.learningTreeForm.question_subject_id = this.question_subject_id
+      this.learningTreeForm.question_chapter_id = this.question_chapter_id
+      this.learningTreeForm.question_section_id = this.question_section_id
       await this.getFrameworkItemSyncLearningTree()
       this.$bvModal.show('modal-learning-tree-properties')
     },
@@ -1358,7 +1370,19 @@ export default {
       this.learningTreeForm.title = ''
       this.learningTreeForm.description = ''
       this.learningTreeForm.tags = []
+      this.learningTreeForm.question_subject_id = null
+      this.learningTreeForm.question_chapter_id = null
+      this.learningTreeForm.question_section_id = null
       this.learningTreeForm.errors.clear()
+      // EK: Tree Properties can grow tall (subject/chapter/section, tags,
+      // framework alignment) and the page can end up scrolled down while
+      // it's open. Unlike modal-update-node (which resets scroll via
+      // fixNavBar() on its own @hidden), this modal never reset scroll
+      // position on close - leaving the page scrolled past the navbar/
+      // breadcrumb, which was the actual cause of the navbar appearing to
+      // "disappear" (it was just scrolled out of view, not actually
+      // collapsed/removed).
+      this.fixNavBar()
     },
     resetLearningTreeModal (modalId) {
       this.resetLearningTreePropertiesModal()
@@ -1385,6 +1409,9 @@ export default {
           this.public = this.learningTreeForm.public
           this.notes = this.learningTreeForm.notes
           this.tags = this.learningTreeForm.tags
+          this.question_subject_id = this.learningTreeForm.question_subject_id
+          this.question_chapter_id = this.learningTreeForm.question_chapter_id
+          this.question_section_id = this.learningTreeForm.question_section_id
           this.assessmentQuestionId = this.learningTreeForm.question_id
           this.$bvModal.hide('modal-learning-tree-properties')
           flowy.import(LEARNING_TREE_TEMPLATE)
@@ -1413,6 +1440,9 @@ export default {
         this.public = this.learningTreeForm.public
         this.notes = this.learningTreeForm.notes
         this.tags = this.learningTreeForm.tags
+        this.question_subject_id = this.learningTreeForm.question_subject_id
+        this.question_chapter_id = this.learningTreeForm.question_chapter_id
+        this.question_section_id = this.learningTreeForm.question_section_id
         this.resetLearningTreeModal('modal-learning-tree-properties')
       } catch (error) {
         if (!error.message.includes('status code 422')) {
@@ -1431,6 +1461,9 @@ export default {
         this.public = data.public
         this.notes = data.notes
         this.tags = data.tags
+        this.question_subject_id = data.question_subject_id
+        this.question_chapter_id = data.question_chapter_id
+        this.question_section_id = data.question_section_id
         this.assessmentQuestionId = data.question_id
         this.canUndo = data.can_undo
         this.canRedo = Boolean(data.can_redo)

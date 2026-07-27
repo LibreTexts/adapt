@@ -161,8 +161,6 @@ export async function processReceiveMessage (vm, routeName, event) {
   console.log(routeName)
   const question = getQuestionBasedOnRoute(vm, routeName)
   let technology = getTechnology(event.origin)
-  console.error('aaaaaaaaaaaaaaa')
-  console.error(technology)
   vm.event = event
   await hideSubmitButtonsIfCannotSubmit(vm, routeName, technology)
 

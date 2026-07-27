@@ -55,23 +55,16 @@ export function formatQuestionMediaPlayer (htmlString) {
   })
 }
 
-export async function getQuestionChapterIdOptions (questionSubjectId, subjectChapterQuestionManager = false) {
-  if (questionSubjectId !== null || subjectChapterQuestionManager) {
-    try {
-      const { data } = await axios.get(`/api/question-chapters/question-subject/${questionSubjectId}`)
-      this.questionChapterIdOptions = subjectChapterQuestionManager ? [] : [{ value: null, text: 'Choose a chapter' }]
-      for (let i = 0; i < data.question_chapters.length; i++) {
-        const questionChapter = data.question_chapters[i]
-        this.questionChapterIdOptions.push({ value: questionChapter.id, text: questionChapter.name })
-      }
-      if (subjectChapterQuestionManager) {
-        this.$bvModal.show('modal-chapters')
-      }
-    } catch (error) {
-      this.$noty.error(error.message)
-    }
-  }
-}
+/**
+ * NOTE: getQuestionChapterIdOptions, getQuestionSubjectIdOptions,
+ * getQuestionSectionIdOptions, handleAddEditQuestionSubjectChapterSection,
+ * and initAddEditDeleteQuestionSubjectChapterSection used to live here.
+ * They've moved to ./SubjectChapterSection.js as config-driven, shared
+ * functions (getSubjectIdOptions, getChapterIdOptions, getSectionIdOptions,
+ * handleAddEditSubjectChapterSection, initAddEditDeleteSubjectChapterSection)
+ * so both CreateQuestion.vue and Learning Tree components can use the same
+ * code. Import from './SubjectChapterSection' instead.
+ */
 
 export function capitalize (str) {
   if (!str) return ''
@@ -120,172 +113,20 @@ export async function handleDeleteQuestionSubjectChapterSection () {
   }
 }
 
-export async function handleAddEditQuestionSubjectChapterSection (subjectChapterQuestionManager = false) {
-  let action
-  let url
-  console.error(this.questionForm)
-  switch (this.questionSubjectChapterSectionAction) {
-    case ('add'):
-      action = 'post'
-      url = `/api/question-${this.questionSubjectChapterSectionToAddEditLevel}s`
-      switch (this.questionSubjectChapterSectionToAddEditLevel) {
-        case ('subject'):
-          break
-        case ('chapter'):
-          url += `/question-subject/${this.questionForm.question_subject_id}`
-          break
-        case ('section'):
-          url += `/question-chapter/${this.questionForm.question_chapter_id}`
-          break
-        default:
-          this.$noty.error(`${this.questionSubjectChapterSectionToAddEditLevel} is not a level for adding.`)
-          return false
-      }
-      break
-    case ('edit'):
-      action = 'patch'
-      switch (this.questionSubjectChapterSectionToAddEditLevel) {
-        case ('subject'):
-          url = `/api/question-subjects/${this.questionForm.question_subject_id}`
-          break
-        case ('chapter'):
-          url = `/api/question-chapters/${this.questionForm.question_chapter_id}`
-          this.questionSubjectChapterSectionForm.question_subject_id = this.questionForm.question_subject_id
-          break
-        case ('section'):
-          url = `/api/question-sections/${this.questionForm.question_section_id}`
-          this.questionSubjectChapterSectionForm.question_chapter_id = this.questionForm.question_chapter_id
-          break
-        default:
-          this.$noty.error(`${this.questionSubjectChapterSectionToAddEditLevel} is not a level for editing.`)
-          return false
-      }
-  }
-  try {
-    const { data } = await this.questionSubjectChapterSectionForm[action](url)
-    this.$noty[data.type](data.message)
-    if (data.type === 'success') {
-      switch (this.questionSubjectChapterSectionAction) {
-        case ('add'):
-          switch (this.questionSubjectChapterSectionToAddEditLevel) {
-            case ('subject'):
-              await this.getQuestionSubjectIdOptions(subjectChapterQuestionManager)
-              this.questionForm.question_subject_id = data.question_level_id
-              this.questionForm.question_chapter_id = null
-              this.questionChapterIdOptions = subjectChapterQuestionManager ? [] : [{
-                value: null,
-                text: 'Choose a chapter'
-              }]
-              this.questionForm.question_section_id = null
-              this.questionSectionIdOptions = subjectChapterQuestionManager ? [] : [{
-                value: null,
-                text: 'Choose a section'
-              }]
-              break
-            case ('chapter'):
-              this.questionForm.question_section_id = null
-              this.questionSectionIdOptions = subjectChapterQuestionManager ? [] : [{
-                value: null,
-                text: 'Choose a section'
-              }]
-              await this.getQuestionChapterIdOptions(this.questionForm.question_subject_id, subjectChapterQuestionManager)
-              this.questionForm.question_chapter_id = data.question_level_id
-              break
-            case ('section'):
-              await this.getQuestionSectionIdOptions(this.questionForm.question_chapter_id)
-              this.questionForm.question_section_id = data.question_level_id
-              break
-          }
-          this.$forceUpdate()
-          break
-        case ('edit'):
-          switch (this.questionSubjectChapterSectionToAddEditLevel) {
-            case ('subject'):
-              this.questionSubjectIdOptions.find(item => item.value === this.questionForm.question_subject_id).text = this.questionSubjectChapterSectionForm.name
-              break
-            case ('chapter'):
-              this.questionChapterIdOptions.find(item => item.value === this.questionForm.question_chapter_id).text = this.questionSubjectChapterSectionForm.name
-              break
-            case ('section'):
-              this.questionSectionIdOptions.find(item => item.value === this.questionForm.question_section_id).text = this.questionSubjectChapterSectionForm.name
-              break
-          }
-      }
-      this.$bvModal.hide('modal-add-edit-question-subject-chapter-section')
-    }
-  } catch (error) {
-    if (!error.message.includes('status code 422')) {
-      this.$noty.error(error.message)
-    } else {
-      this.allFormErrors = this.questionSubjectChapterSectionForm.errors.flatten()
-      this.$bvModal.show('modal-form-errors-question-subject-chapter-section-errors')
-    }
-  }
-}
+/**
+ * NOTE: handleAddEditQuestionSubjectChapterSection and
+ * initAddEditDeleteQuestionSubjectChapterSection moved to
+ * ./SubjectChapterSection.js as handleAddEditSubjectChapterSection and
+ * initAddEditDeleteSubjectChapterSection (config-driven, shared with
+ * Learning Trees). Import from there instead.
+ */
 
-export function initAddEditDeleteQuestionSubjectChapterSection (action, level) {
-  this.questionSubjectChapterSectionToAddEditLevel = level
-  this.questionSubjectChapterSectionAction = action
-  if (['edit', 'add'].includes(this.questionSubjectChapterSectionAction)) {
-    this.questionSubjectChapterSectionForm = new Form({ name: '' })
-  }
-  if (['edit', 'delete'].includes(this.questionSubjectChapterSectionAction)) {
-    switch (level) {
-      case ('subject'):
-        this.questionSubjectChapterSectionToEditDeleteName = this.questionSubjectIdOptions.find(item => item.value === this.questionForm.question_subject_id).text
-        break
-      case ('chapter'):
-        this.questionSubjectChapterSectionToEditDeleteName = this.questionChapterIdOptions.find(item => item.value === this.questionForm.question_chapter_id).text
-        break
-      case ('section'):
-        this.questionSubjectChapterSectionToEditDeleteName = this.questionSectionIdOptions.find(item => item.value === this.questionForm.question_section_id).text
-        break
-      default:
-        alert(`${level} does not yet exist as an option.`)
-        return false
-    }
-    if (['edit', 'add'].includes(this.questionSubjectChapterSectionAction)) {
-      this.questionSubjectChapterSectionForm.name = this.questionSubjectChapterSectionToEditDeleteName
-    }
-  }
-  if (['edit', 'add'].includes(this.questionSubjectChapterSectionAction)) {
-    this.$bvModal.show('modal-add-edit-question-subject-chapter-section')
-  }
-  if (this.questionSubjectChapterSectionAction === 'delete') {
-    this.$bvModal.show('modal-confirm-delete-question-subject-chapter-section')
-  }
-}
-
-export async function getQuestionSubjectIdOptions (subjectChapterQuestionManager = false) {
-  try {
-    const { data } = await axios.get('/api/question-subjects')
-    this.questionSubjectIdOptions = subjectChapterQuestionManager ? [] : [{ value: null, text: 'Choose a subject' }]
-    for (let i = 0; i < data.question_subjects.length; i++) {
-      const questionSubject = data.question_subjects[i]
-      this.questionSubjectIdOptions.push({ value: questionSubject.id, text: questionSubject.name })
-    }
-  } catch (error) {
-    this.$noty.error(error.message)
-  }
-}
-
-export async function getQuestionSectionIdOptions (questionChapterId, subjectChapterQuestionManager = false) {
-  if (questionChapterId !== null || subjectChapterQuestionManager) {
-    try {
-      const { data } = await axios.get(`/api/question-sections/question-chapter/${questionChapterId}`)
-      this.questionSectionIdOptions = subjectChapterQuestionManager ? [] : [{ value: null, text: 'Choose a section' }]
-      for (let i = 0; i < data.question_sections.length; i++) {
-        const questionSection = data.question_sections[i]
-        this.questionSectionIdOptions.push({ value: questionSection.id, text: questionSection.name })
-      }
-      if (subjectChapterQuestionManager) {
-        this.$bvModal.show('modal-sections')
-      }
-    } catch (error) {
-      this.$noty.error(error.message)
-    }
-  }
-}
+/**
+ * NOTE: getQuestionSubjectIdOptions and getQuestionSectionIdOptions moved
+ * to ./SubjectChapterSection.js as getSubjectIdOptions and
+ * getSectionIdOptions (config-driven, shared with Learning Trees).
+ * Import from there instead.
+ */
 
 export function getTechnologySrc (technology, src, question) {
   let technologySrc = ''

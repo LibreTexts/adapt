@@ -431,6 +431,9 @@ class LearningTreeController extends Controller
             $learningTree->description = $data['description'];
             $learningTree->public = $data['public'];
             $learningTree->notes = $request->notes;
+            $learningTree->question_subject_id = $request->question_subject_id;
+            $learningTree->question_chapter_id = $request->question_chapter_id;
+            $learningTree->question_section_id = $request->question_section_id;
             $learningTree->save();
 
             $learningTree->addTags($request->tags ?: []);
@@ -475,6 +478,9 @@ class LearningTreeController extends Controller
             $learningTree->description = $data['description'];
             $learningTree->notes = $request->notes;
             $learningTree->public = $data['public'];
+            $learningTree->question_subject_id = $request->question_subject_id;
+            $learningTree->question_chapter_id = $request->question_chapter_id;
+            $learningTree->question_section_id = $request->question_section_id;
             $learningTree->user_id = request()->user()->id;
             $learningTree->root_node_question_id = 1;
             $learningTree->learning_tree = '';
@@ -542,6 +548,9 @@ class LearningTreeController extends Controller
             $response['public'] = $learningTree->public;
             $response['author_id'] = $learningTree->user_id;
             $response['notes'] = $learningTree->user_id === request()->user()->id ? $learningTree->notes : '';
+            $response['question_subject_id'] = $learningTree->question_subject_id;
+            $response['question_chapter_id'] = $learningTree->question_chapter_id;
+            $response['question_section_id'] = $learningTree->question_section_id;
             $response['tags'] = DB::table('learning_tree_tag')
                 ->join('tags', 'learning_tree_tag.tag_id', '=', 'tags.id')
                 ->where('learning_tree_id', $learningTree->id)
