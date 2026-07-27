@@ -33,6 +33,7 @@ class LearningTreeController extends Controller
         $current_page = $request->current_page;
         $author = $request->author;
         $title = $request->title;
+        $tag = $request->tag;
 
         $response['type'] = 'error';
         $authorized = Gate::inspect('getAll', $learningTree);
@@ -70,6 +71,13 @@ class LearningTreeController extends Controller
                 }
                 $learning_tree_ids = $learning_tree_ids->whereIn('user_id', $author_ids);
             }
+            if ($tag) {
+                $learning_tree_ids_with_tag = DB::table('learning_tree_tag')
+                    ->join('tags', 'learning_tree_tag.tag_id', '=', 'tags.id')
+                    ->where('tags.tag', $tag)
+                    ->pluck('learning_tree_id');
+                $learning_tree_ids = $learning_tree_ids->whereIn('id', $learning_tree_ids_with_tag);
+            }
 
 
             $total_rows = $learning_tree_ids->count();
@@ -92,6 +100,19 @@ class LearningTreeController extends Controller
                 )
                 ->whereIn('learning_trees.id', $learning_tree_ids)
                 ->get();
+
+            $tags = DB::table('learning_tree_tag')
+                ->join('tags', 'learning_tree_tag.tag_id', '=', 'tags.id')
+                ->whereIn('learning_tree_id', $learning_tree_ids)
+                ->select('learning_tree_id', 'tag')
+                ->get();
+            $tags_by_learning_tree_id = [];
+            foreach ($tags as $tag_row) {
+                $tags_by_learning_tree_id[$tag_row->learning_tree_id][] = $tag_row->tag;
+            }
+            foreach ($learning_trees as $learning_tree_row) {
+                $learning_tree_row->tags = $tags_by_learning_tree_id[$learning_tree_row->id] ?? [];
+            }
 
             $response['learning_trees'] = $learning_trees;
             $response['total_rows'] = $total_rows;
@@ -264,7 +285,23 @@ class LearningTreeController extends Controller
         $response['type'] = 'error';
 
         try {
-            $response['learning_trees'] = $learningTree->where('user_id', Auth::user()->id)->get();
+            $learning_trees = $learningTree->where('user_id', Auth::user()->id)->get();
+
+            $learning_tree_ids = $learning_trees->pluck('id')->toArray();
+            $tags = DB::table('learning_tree_tag')
+                ->join('tags', 'learning_tree_tag.tag_id', '=', 'tags.id')
+                ->whereIn('learning_tree_id', $learning_tree_ids)
+                ->select('learning_tree_id', 'tag')
+                ->get();
+            $tags_by_learning_tree_id = [];
+            foreach ($tags as $tag_row) {
+                $tags_by_learning_tree_id[$tag_row->learning_tree_id][] = $tag_row->tag;
+            }
+            foreach ($learning_trees as $learning_tree_row) {
+                $learning_tree_row->tags = $tags_by_learning_tree_id[$learning_tree_row->id] ?? [];
+            }
+
+            $response['learning_trees'] = $learning_trees;
             $response['type'] = 'success';
 
         } catch (Exception $e) {
@@ -387,19 +424,23 @@ class LearningTreeController extends Controller
 
         $response['type'] = 'error';
 
-
         try {
-
             $data = $request->validated();
+            DB::beginTransaction();
             $learningTree->title = $data['title'];
             $learningTree->description = $data['description'];
             $learningTree->public = $data['public'];
             $learningTree->notes = $request->notes;
             $learningTree->save();
 
+            $learningTree->addTags($request->tags ?: []);
+            $learningTree->addFrameworkItems($request->framework_item_sync_learning_tree);
+
             $response['type'] = 'success';
             $response['message'] = "The Learning Tree has been updated.";
+            DB::commit();
         } catch (Exception $e) {
+            DB::rollback();
             $h = new Handler(app());
             $h->report($e);
             $response['message'] = "There was an error updating the learning tree.  Please try again or contact us for assistance.";
@@ -439,6 +480,9 @@ class LearningTreeController extends Controller
             $learningTree->learning_tree = '';
             DB::beginTransaction();
             $learningTree->save();
+
+            $learningTree->addTags($request->tags ?: []);
+            $learningTree->addFrameworkItems($request->framework_item_sync_learning_tree);
 
             $response['type'] = 'success';
             $response['message'] = "The Learning Tree has been created.";
@@ -498,6 +542,11 @@ class LearningTreeController extends Controller
             $response['public'] = $learningTree->public;
             $response['author_id'] = $learningTree->user_id;
             $response['notes'] = $learningTree->user_id === request()->user()->id ? $learningTree->notes : '';
+            $response['tags'] = DB::table('learning_tree_tag')
+                ->join('tags', 'learning_tree_tag.tag_id', '=', 'tags.id')
+                ->where('learning_tree_id', $learningTree->id)
+                ->pluck('tag')
+                ->toArray();
 
             $current_history_id = $learningTree->current_history_id;
             if (!$current_history_id) {

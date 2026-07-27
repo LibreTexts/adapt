@@ -302,6 +302,8 @@ Route::group(['middleware' => ['auth:api', 'analytics','rate.limit.by.user']], f
 
 
     Route::get('/framework-item-sync-question/question/{question}', 'FrameworkItemSyncQuestionController@getFrameworkItemsByQuestion');
+    Route::get('/framework-item-sync-learning-tree/get-learning-trees-by-descriptor/{frameworkDescriptor}', 'FrameworkItemSyncLearningTreeController@getLearningTreesByDescriptor');
+    Route::get('/framework-item-sync-learning-tree/learning-tree/{learningTree}', 'FrameworkItemSyncLearningTreeController@getFrameworkItemsByLearningTree');
 
 
     Route::put('/framework-levels/upload', 'FrameworkLevelController@upload');

@@ -29,7 +29,9 @@ class StoreLearningTreeInfo extends FormRequest
         return [
             'title' => 'required',
             'description' => 'required',
-            'public' => ['required', Rule::in([0, 1])]
+            'public' => ['required', Rule::in([0, 1])],
+            'tags' => 'nullable|array',
+            'tags.*' => 'string|max:255',
         ];
 
     }

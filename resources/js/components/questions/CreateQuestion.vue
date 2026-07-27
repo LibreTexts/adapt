@@ -738,10 +738,10 @@
                    no-close-on-backdrop
           >
             <FrameworkAligner :key="`framework-aligner-key-${isEdit ? +questionToEdit.id : 0}`"
-                              :question-id="isEdit ? +questionToEdit.id : 0"
-                              :framework-item-sync-question="frameworkItemSyncQuestion"
-                              :is-create-question="true"
-                              @setFrameworkItemSyncQuestion="setFrameworkItemSyncQuestion"
+                              :item-id="isEdit ? +questionToEdit.id : 0"
+                              :framework-item-sync="frameworkItemSyncQuestion"
+                              :is-embedded="true"
+                              @setFrameworkItemSync="setFrameworkItemSyncQuestion"
             />
 
             <template #modal-footer>

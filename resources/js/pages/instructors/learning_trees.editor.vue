@@ -3,8 +3,10 @@
     <AllFormErrors :all-form-errors="allFormErrors" :modal-id="'modal-form-errors-learning-tree'"/>
     <LearningTreeProperties :learning-tree-form="learningTreeForm"
                             :learning-tree-id="learningTreeId"
+                            :framework-item-sync-learning-tree="frameworkItemSyncLearningTree"
                             @resetLearningTreePropertiesModal="resetLearningTreePropertiesModal"
                             @saveLearningTreeProperties="saveLearningTreeProperties"
+                            @setFrameworkItemSyncLearningTree="setFrameworkItemSyncLearningTree"
     />
     <b-modal v-if="questionToEdit && questionToEdit.id"
              :id="`modal-edit-question-${questionToEdit.id}`"
@@ -543,8 +545,11 @@ export default {
       description: '',
       notes: '',
       public: 0,
-      question_id: ''
+      question_id: '',
+      tags: []
     }),
+    tags: [],
+    frameworkItemSyncLearningTree: { descriptors: [], levels: [] },
     assessmentQuestionId: '',
     touchingBlock: false,
     validatingQuestionId: false,
@@ -1297,6 +1302,7 @@ export default {
               this.learningTreeForm.description = currentTree.description
               this.learningTreeForm.public = currentTree.public
               this.learningTreeForm.notes = currentTree.notes
+              this.learningTreeForm.tags = currentTree.tags
               this.learningTreeForm.question_id = this.nodeForm.question_id
               this.assessmentQuestionId = this.nodeForm.question_id
               await this.updateLearningTreeInfo()
@@ -1324,16 +1330,34 @@ export default {
       document.getElementById('canvas').innerHTML = ''
       this.learningTreeForm.question_id = ''
     },
-    editLearningTree () {
+    async editLearningTree () {
       this.learningTreeForm.title = this.title
       this.learningTreeForm.description = this.description
       this.learningTreeForm.public = this.public
       this.learningTreeForm.notes = this.notes
+      this.learningTreeForm.tags = this.tags || []
+      await this.getFrameworkItemSyncLearningTree()
       this.$bvModal.show('modal-learning-tree-properties')
+    },
+    async getFrameworkItemSyncLearningTree () {
+      if (!this.learningTreeId) {
+        this.frameworkItemSyncLearningTree = { descriptors: [], levels: [] }
+        return
+      }
+      try {
+        const { data } = await axios.get(`/api/framework-item-sync-learning-tree/learning-tree/${this.learningTreeId}`)
+        this.frameworkItemSyncLearningTree = data.framework_item_sync_learning_tree
+      } catch (error) {
+        this.$noty.error(error.message)
+      }
+    },
+    setFrameworkItemSyncLearningTree (frameworkItemSyncLearningTree) {
+      this.frameworkItemSyncLearningTree = frameworkItemSyncLearningTree
     },
     resetLearningTreePropertiesModal () {
       this.learningTreeForm.title = ''
       this.learningTreeForm.description = ''
+      this.learningTreeForm.tags = []
       this.learningTreeForm.errors.clear()
     },
     resetLearningTreeModal (modalId) {
@@ -1350,6 +1374,8 @@ export default {
         if (!this.learningTreeForm.question_id) {
           this.learningTreeForm.question_id = this.getDefaultTemplateRootQuestionId()
         }
+        this.learningTreeForm.tags = this.tags
+        this.learningTreeForm.framework_item_sync_learning_tree = this.frameworkItemSyncLearningTree
         const { data } = await this.learningTreeForm.post('/api/learning-trees/info')
         this.$noty[data.type](data.message)
         if (data.type === 'success') {
@@ -1358,6 +1384,7 @@ export default {
           this.description = this.learningTreeForm.description
           this.public = this.learningTreeForm.public
           this.notes = this.learningTreeForm.notes
+          this.tags = this.learningTreeForm.tags
           this.assessmentQuestionId = this.learningTreeForm.question_id
           this.$bvModal.hide('modal-learning-tree-properties')
           flowy.import(LEARNING_TREE_TEMPLATE)
@@ -1377,12 +1404,15 @@ export default {
     },
     async updateLearningTreeInfo () {
       try {
+        this.learningTreeForm.tags = this.tags
+        this.learningTreeForm.framework_item_sync_learning_tree = this.frameworkItemSyncLearningTree
         const { data } = await this.learningTreeForm.post(`/api/learning-trees/info/${this.learningTreeId}`)
         this.$noty[data.type](data.message)
         this.title = this.learningTreeForm.title
         this.description = this.learningTreeForm.description
         this.public = this.learningTreeForm.public
         this.notes = this.learningTreeForm.notes
+        this.tags = this.learningTreeForm.tags
         this.resetLearningTreeModal('modal-learning-tree-properties')
       } catch (error) {
         if (!error.message.includes('status code 422')) {
@@ -1400,6 +1430,7 @@ export default {
         this.description = data.description
         this.public = data.public
         this.notes = data.notes
+        this.tags = data.tags
         this.assessmentQuestionId = data.question_id
         this.canUndo = data.can_undo
         this.canRedo = Boolean(data.can_redo)
