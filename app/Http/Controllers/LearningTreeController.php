@@ -162,20 +162,11 @@ class LearningTreeController extends Controller
             $learning_tree_ids = explode(',', $request->learning_tree_ids);
             DB::beginTransaction();
             foreach ($learning_tree_ids as $learning_tree_id) {
-                $learning_tree_to_clone = LearningTree::find(trim($learning_tree_id))
-                    ->replicate()
-                    ->fill(['user_id' => $request->user()->id, 'public' => 0]);
-                $learning_tree_to_clone->save();
-
-                $learningTreeHistory = new LearningTreeHistory();
-                $learningTreeHistory->learning_tree = $learning_tree_to_clone->learning_tree;
-                $learningTreeHistory->learning_tree_id = $learning_tree_to_clone->id;
-                $learningTreeHistory->root_node_question_id = $learning_tree_to_clone->root_node_question_id;
-                $learningTreeHistory->save();
-
-                $learning_tree_to_clone->current_history_id = $learningTreeHistory->id;
-                $learning_tree_to_clone->save();
-
+                $source_learning_tree = LearningTree::find(trim($learning_tree_id));
+                $this->replicateLearningTree($source_learning_tree, [
+                    'user_id' => $request->user()->id,
+                    'public' => 0
+                ]);
             }
             $plural = str_contains($request->learning_tree_ids, ',') ? "s have been" : ' was';
             $response['type'] = 'success';
@@ -183,11 +174,83 @@ class LearningTreeController extends Controller
 
             DB::commit();
         } catch (Exception $e) {
+            DB::rollback();
             $h = new Handler(app());
             $h->report($e);
             $response['message'] = "There was an error cloning the learning trees.  Please try again or contact us for assistance.";
         }
         return $response;
+    }
+
+    /**
+     * Replicates a learning tree (learning_trees row + tags +
+     * framework alignment + an initial history entry), applying the
+     * given column overrides to the new row (e.g. reassigning user_id/
+     * public for clone(), or appending to title for
+     * createLearningTreeFromTemplate()). Shared by both actions since
+     * they only differ in ownership/publishing/title behavior, not in
+     * the actual mechanics of producing a working duplicate.
+     *
+     * @param LearningTree $source_learning_tree
+     * @param array $overrides
+     * @return LearningTree
+     */
+    private function replicateLearningTree(LearningTree $source_learning_tree, array $overrides): LearningTree
+    {
+        $new_learning_tree = $source_learning_tree->replicate()->fill($overrides);
+        $new_learning_tree->save();
+
+        $this->cloneLearningTreeTagsAndFrameworkItems($source_learning_tree->id, $new_learning_tree->id);
+
+        $learningTreeHistory = new LearningTreeHistory();
+        $learningTreeHistory->learning_tree = $new_learning_tree->learning_tree;
+        $learningTreeHistory->learning_tree_id = $new_learning_tree->id;
+        $learningTreeHistory->root_node_question_id = $new_learning_tree->root_node_question_id;
+        $learningTreeHistory->save();
+
+        $new_learning_tree->current_history_id = $learningTreeHistory->id;
+        $new_learning_tree->save();
+
+        return $new_learning_tree;
+    }
+
+    /**
+     * Copies tags (learning_tree_tag) and framework alignment
+     * (framework_item_learning_tree) from one learning tree to another.
+     * Called from replicateLearningTree(), since Eloquent's replicate()
+     * only copies the learning_trees row itself - not rows in these
+     * separate pivot tables.
+     *
+     * @param int $from_learning_tree_id
+     * @param int $to_learning_tree_id
+     * @return void
+     */
+    private function cloneLearningTreeTagsAndFrameworkItems(int $from_learning_tree_id, int $to_learning_tree_id): void
+    {
+        $tags = DB::table('learning_tree_tag')
+            ->where('learning_tree_id', $from_learning_tree_id)
+            ->get();
+        foreach ($tags as $tag) {
+            DB::table('learning_tree_tag')->insert([
+                'learning_tree_id' => $to_learning_tree_id,
+                'tag_id' => $tag->tag_id,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+        }
+
+        $framework_items = DB::table('framework_item_learning_tree')
+            ->where('learning_tree_id', $from_learning_tree_id)
+            ->get();
+        foreach ($framework_items as $framework_item) {
+            DB::table('framework_item_learning_tree')->insert([
+                'learning_tree_id' => $to_learning_tree_id,
+                'framework_item_id' => $framework_item->framework_item_id,
+                'framework_item_type' => $framework_item->framework_item_type,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+        }
     }
 
 
@@ -211,19 +274,10 @@ class LearningTreeController extends Controller
 
         try {
             DB::beginTransaction();
-            $new_learning_tree = $learningTree->replicate();
-            $new_learning_tree->title = $new_learning_tree->title . ' copy';
-            $new_learning_tree->save();
 
-
-            $learningTreeHistory = new LearningTreeHistory();
-            $learningTreeHistory->root_node_question_id = $new_learning_tree->root_node_question_id;
-            $learningTreeHistory->learning_tree = $new_learning_tree->learning_tree;
-            $learningTreeHistory->learning_tree_id = $new_learning_tree->id;
-            $learningTreeHistory->save();
-
-            $new_learning_tree->current_history_id = $learningTreeHistory->id;
-            $new_learning_tree->save();
+            $this->replicateLearningTree($learningTree, [
+                'title' => $learningTree->title . ' copy'
+            ]);
 
             DB::commit();
             $response['message'] = "The Learning Tree has been created.";

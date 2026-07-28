@@ -124,7 +124,7 @@
                          triggers="hover"
                          delay="500"
               >
-                New Learning Tree From Template
+                Clone "{{ data.item.title }}"
               </b-tooltip>
               <a :id="getTooltipTarget('learningTreeProperties',data.item.id)"
                  href="#"
@@ -232,7 +232,7 @@ export default {
       {
         key: 'actions',
         thStyle: { width: '95px' }
-      },
+      }
     ],
     learningTrees: [],
     canViewLearningTrees: false,
