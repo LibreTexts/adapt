@@ -1184,7 +1184,7 @@
       :no-close-on-backdrop="true"
       @hidden="hideModalSubmissionAccepted"
     >
-      <div v-if="learningTreeMessage || submissionDataMessage">
+      <div v-if="learningTreeMessage || submissionDataMessage" v-html="submissionDataMessage">
         {{ submissionDataMessage }}
       </div>
       <div v-if="questions[currentPage - 1] && questions[currentPage - 1].report">

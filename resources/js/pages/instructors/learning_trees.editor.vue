@@ -1314,6 +1314,14 @@ export default {
               this.learningTreeForm.question_section_id = currentTree.question_section_id
               this.learningTreeForm.question_id = this.nodeForm.question_id
               this.assessmentQuestionId = this.nodeForm.question_id
+              // EK: signals to the backend that this save is happening
+              // because the root node's question changed, so it should
+              // check whether to auto-fill tags/framework/subject-chapter-
+              // section from the new root question if the tree has none
+              // set. Only ever set here - resetLearningTreePropertiesModal()
+              // clears it back out, so a later, unrelated Tree Properties
+              // save never accidentally re-triggers the auto-fill.
+              this.learningTreeForm.root_node_question_changed = true
               await this.updateLearningTreeInfo()
             } catch (rootSyncError) {
               this.$noty.error(rootSyncError.message)
@@ -1373,6 +1381,7 @@ export default {
       this.learningTreeForm.question_subject_id = null
       this.learningTreeForm.question_chapter_id = null
       this.learningTreeForm.question_section_id = null
+      this.learningTreeForm.root_node_question_changed = false
       this.learningTreeForm.errors.clear()
       // EK: Tree Properties can grow tall (subject/chapter/section, tags,
       // framework alignment) and the page can end up scrolled down while
@@ -1439,10 +1448,27 @@ export default {
         this.description = this.learningTreeForm.description
         this.public = this.learningTreeForm.public
         this.notes = this.learningTreeForm.notes
-        this.tags = this.learningTreeForm.tags
-        this.question_subject_id = this.learningTreeForm.question_subject_id
-        this.question_chapter_id = this.learningTreeForm.question_chapter_id
-        this.question_section_id = this.learningTreeForm.question_section_id
+        // EK: use the server's response here, not this.learningTreeForm's
+        // outgoing values - the backend can silently auto-fill tags/
+        // subject/chapter/section from the root question when
+        // root_node_question_changed is set, and echoing back what we
+        // sent would miss that change (the DB and the index page would
+        // be right, but this in-memory state would still show empty).
+        this.tags = data.tags
+        this.question_subject_id = data.question_subject_id
+        this.question_chapter_id = data.question_chapter_id
+        this.question_section_id = data.question_section_id
+        // Also update learningTreeForm directly (not just the separate
+        // this.question_subject_id/etc. tracking vars) - if Tree Properties
+        // is already open (or was left open) when this silent root-sync
+        // save runs, its v-model is bound to learningTreeForm itself, and
+        // only updating the separate tracking vars wouldn't reach it until
+        // the modal is fully closed and reopened via editLearningTree().
+        this.learningTreeForm.tags = data.tags
+        this.learningTreeForm.question_subject_id = data.question_subject_id
+        this.learningTreeForm.question_chapter_id = data.question_chapter_id
+        this.learningTreeForm.question_section_id = data.question_section_id
+        await this.getFrameworkItemSyncLearningTree()
         this.resetLearningTreeModal('modal-learning-tree-properties')
       } catch (error) {
         if (!error.message.includes('status code 422')) {

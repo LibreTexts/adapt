@@ -1193,10 +1193,28 @@ class Submission extends Model
 
 
                         $plural = $number_of_successful_paths_for_a_reset > 1 ? 's' : '';
-                        $message = "Unfortunately, you did not answer this question correctly.  ";
-                        $message .= $resets_available
-                            ? "Explore the Learning Tree and complete $number_of_successful_paths_for_a_reset path$plural for a reset."
-                            : "You can explore the tree but there are not enough paths remaining for you to earn a reset of your original submission.";
+                        $message = "<p>Unfortunately, you did not answer this question correctly.  ";
+                        if ($resets_available) {
+                            $message .= "Explore the Learning Tree and complete <strong>$number_of_successful_paths_for_a_reset path$plural</strong> for a reset.</p>";
+                            $message .= "<p>Here's a general example of what a completed path through a Learning Tree looks like. Your tree may have a different number of nodes or a different layout, but the idea is the same: follow a connected line of boxes from the top all the way down to a final assessment.</p>";
+                            $message .= "<hr>";
+                            $path_examples = [
+                                1 => 'Slide1.png',
+                                2 => 'Slide2.png',
+                                3 => 'Slide3.png',
+                                4 => 'Slide4.png'
+                            ];
+                            $path_count_to_show = min($number_of_successful_paths_for_a_reset, 4);
+                            $message .= "<p style=\"text-align:center\"><img alt=\"Example of $path_count_to_show completed path$plural highlighted from the root of a Learning Tree down to $path_count_to_show final assessment node$plural\" style=\"max-width:100%;width:500px\" src=\"/assets/img/learning_trees/{$path_examples[$path_count_to_show]}\"></p>";
+                            if ($number_of_successful_paths_for_a_reset > 4) {
+                                $extra_paths = $number_of_successful_paths_for_a_reset - 4;
+                                $extra_plural = $extra_paths > 1 ? 's' : '';
+                                $message .= "<p>Your tree requires <strong>$number_of_successful_paths_for_a_reset paths</strong> total for a reset. "
+                                    . "The example above shows 4 completed paths, but the same idea continues: keep following connected lines of boxes from the top all the way down to a final assessment for $extra_paths more path$extra_plural.</p>";
+                            }
+                        } else {
+                            $message .= "You can explore the tree but there are not enough paths remaining for you to earn a reset of your original submission.</p>";
+                        }
 
                     }
                 }
