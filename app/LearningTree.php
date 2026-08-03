@@ -4,6 +4,7 @@ namespace App;
 
 use App\Exceptions\TreeNotCreatedInAdaptException;
 use App\Helpers\Helper;
+use App\Question;
 use Exception;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -436,6 +437,91 @@ class LearningTree extends Model
 
             if (!$number_of_times_tag_appears) {
                 Tag::where('id', $tag_id)->delete();
+            }
+        }
+    }
+
+    /**
+     * Checks this tree's root node question for tags, framework alignment,
+     * and subject/chapter/section - and copies over whichever of those the
+     * tree doesn't already have, so an instructor who already tagged/
+     * aligned/categorized their question doesn't have to redo that work on
+     * the tree itself.
+     *
+     * Each of the three attribute groups is checked and filled in
+     * independently EXCEPT subject/chapter/section, which is treated as a
+     * single unit: if the instructor has set ANY of the three on the tree
+     * already, none of the three are touched, since a chapter/section only
+     * makes sense under its own subject and mixing sources could produce
+     * an inconsistent combination.
+     *
+     * Called from LearningTreeController::updateLearningTreeInfo() when
+     * the frontend signals the root node's question just changed, and
+     * from the learning-trees:backfill-from-root-question Artisan command
+     * to retroactively apply the same logic to existing trees.
+     *
+     * @param int|string|null $fresh_root_question_id EK: pass this
+     *   explicitly when the caller knows the root node's question just
+     *   changed but root_node_question_id on this instance may not be
+     *   updated yet - that column is only written by
+     *   LearningTreeController::updateLearningTree() (the canvas-JSON
+     *   save), which the frontend calls AFTER updateLearningTreeInfo()
+     *   (this method's usual trigger, via submitUpdateNode()'s root-sync
+     *   block). Reading $this->root_node_question_id directly in that case
+     *   would silently use the OLD question, not the new one. Falls back
+     *   to $this->root_node_question_id if omitted.
+     * @return void
+     */
+    public function fillMissingAttributesFromRootQuestion($fresh_root_question_id = null): void
+    {
+        $root_question_id = $fresh_root_question_id ?: $this->root_node_question_id;
+        if (!$root_question_id) {
+            return;
+        }
+
+        $tree_has_tags = DB::table('learning_tree_tag')
+            ->where('learning_tree_id', $this->id)
+            ->exists();
+        if (!$tree_has_tags) {
+            $question_tags = DB::table('question_tag')
+                ->join('tags', 'question_tag.tag_id', '=', 'tags.id')
+                ->where('question_id', $root_question_id)
+                ->pluck('tag');
+            if ($question_tags->isNotEmpty()) {
+                $this->addTags($question_tags->toArray());
+            }
+        }
+
+        $tree_has_framework_items = DB::table('framework_item_learning_tree')
+            ->where('learning_tree_id', $this->id)
+            ->exists();
+        if (!$tree_has_framework_items) {
+            $question_framework_items = DB::table('framework_item_question')
+                ->where('question_id', $root_question_id)
+                ->get();
+            if ($question_framework_items->isNotEmpty()) {
+                foreach ($question_framework_items as $framework_item) {
+                    DB::table('framework_item_learning_tree')->insert([
+                        'learning_tree_id' => $this->id,
+                        'framework_item_id' => $framework_item->framework_item_id,
+                        'framework_item_type' => $framework_item->framework_item_type,
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                }
+            }
+        }
+
+        $tree_has_subject_chapter_or_section = $this->question_subject_id
+            || $this->question_chapter_id
+            || $this->question_section_id;
+        if (!$tree_has_subject_chapter_or_section) {
+            $question = Question::find($root_question_id);
+            if ($question && $question->question_subject_id) {
+                $this->question_subject_id = $question->question_subject_id;
+                $this->question_chapter_id = $question->question_chapter_id;
+                $this->question_section_id = $question->question_section_id;
+                $this->save();
             }
         }
     }

@@ -267,6 +267,11 @@ class LearningTreeController extends Controller
      * makes sense under its own subject and mixing sources could produce
      * an inconsistent combination.
      *
+     * EK: made public (was private) so it can be reused by the
+     * learning-trees:backfill-from-root-question Artisan command, which
+     * runs this same logic against every existing tree rather than only
+     * ones going through updateLearningTreeInfo().
+     *
      * @param LearningTree $learningTree
      * @param int|string|null $fresh_root_question_id EK: pass this explicitly
      *   when the caller knows the root node's question just changed but
@@ -279,61 +284,6 @@ class LearningTreeController extends Controller
      *   Falls back to $learningTree->root_node_question_id if omitted.
      * @return void
      */
-    private function fillMissingLearningTreeAttributesFromRootQuestion(LearningTree $learningTree, $fresh_root_question_id = null): void
-    {
-        $root_question_id = $fresh_root_question_id ?: $learningTree->root_node_question_id;
-        if (!$root_question_id) {
-            return;
-        }
-
-        $tree_has_tags = DB::table('learning_tree_tag')
-            ->where('learning_tree_id', $learningTree->id)
-            ->exists();
-        if (!$tree_has_tags) {
-            $question_tags = DB::table('question_tag')
-                ->join('tags', 'question_tag.tag_id', '=', 'tags.id')
-                ->where('question_id', $root_question_id)
-                ->pluck('tag');
-            if ($question_tags->isNotEmpty()) {
-                $learningTree->addTags($question_tags->toArray());
-            }
-        }
-
-        $tree_has_framework_items = DB::table('framework_item_learning_tree')
-            ->where('learning_tree_id', $learningTree->id)
-            ->exists();
-        if (!$tree_has_framework_items) {
-            $question_framework_items = DB::table('framework_item_question')
-                ->where('question_id', $root_question_id)
-                ->get();
-            if ($question_framework_items->isNotEmpty()) {
-                foreach ($question_framework_items as $framework_item) {
-                    DB::table('framework_item_learning_tree')->insert([
-                        'learning_tree_id' => $learningTree->id,
-                        'framework_item_id' => $framework_item->framework_item_id,
-                        'framework_item_type' => $framework_item->framework_item_type,
-                        'created_at' => now(),
-                        'updated_at' => now()
-                    ]);
-                }
-            }
-        }
-
-        $tree_has_subject_chapter_or_section = $learningTree->question_subject_id
-            || $learningTree->question_chapter_id
-            || $learningTree->question_section_id;
-        if (!$tree_has_subject_chapter_or_section) {
-            $question = Question::find($root_question_id);
-            if ($question && $question->question_subject_id) {
-                $learningTree->question_subject_id = $question->question_subject_id;
-                $learningTree->question_chapter_id = $question->question_chapter_id;
-                $learningTree->question_section_id = $question->question_section_id;
-                $learningTree->save();
-            }
-        }
-    }
-
-
     /**
      * @param Request $request
      * @param LearningTree $learningTree
@@ -574,11 +524,11 @@ class LearningTreeController extends Controller
             $learningTree->addFrameworkItems($request->framework_item_sync_learning_tree);
 
             if ($request->root_node_question_changed) {
-                $this->fillMissingLearningTreeAttributesFromRootQuestion($learningTree, $request->question_id);
+                $learningTree->fillMissingAttributesFromRootQuestion($request->question_id);
             }
 
             // EK: return the tree's current state rather than echoing back
-            // what the client sent - fillMissingLearningTreeAttributesFromRootQuestion()
+            // what the client sent - fillMissingAttributesFromRootQuestion()
             // can silently change question_subject_id/chapter/section (and
             // tags/framework) server-side, and the client has no way to
             // know that happened unless we tell it here.
@@ -819,6 +769,12 @@ EOT;
                 ->where('learning_tree_id', $learningTree->id)
                 ->delete();
             DB::table('learning_tree_node_descriptions')
+                ->where('learning_tree_id', $learningTree->id)
+                ->delete();
+            DB::table('learning_tree_tag')
+                ->where('learning_tree_id', $learningTree->id)
+                ->delete();
+            DB::table('framework_item_learning_tree')
                 ->where('learning_tree_id', $learningTree->id)
                 ->delete();
             $learningTree->delete();
