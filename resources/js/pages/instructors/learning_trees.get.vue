@@ -81,23 +81,24 @@ export default {
     })
   }),
   computed: {
+    isAdmin: () => window.config.isAdmin,
     ...mapGetters({
       user: 'auth/user'
-    }),
-    tabs () {
-      return [
-        {
-          icon: '',
-          name: 'Questions',
-          route: 'questions.get'
-        },
-        {
-          icon: '',
-          name: 'Learning Trees',
-          route: 'learning_trees.get'
-        }
-      ]
-    }
+    })
+  },
+  tabs () {
+    return [
+      {
+        icon: '',
+        name: 'Questions',
+        route: 'questions.get'
+      },
+      {
+        icon: '',
+        name: 'Learning Trees',
+        route: 'learning_trees.get'
+      }
+    ]
   },
   mounted () {
     if (this.user.role !== 2) {

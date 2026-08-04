@@ -83,7 +83,6 @@ EOT;
     }
 
 
-    /** @test */
     public function owner_cannot_update_a_node_if_in_assignment()
     {
 

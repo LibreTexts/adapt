@@ -249,13 +249,9 @@ export default {
     async showLearningTree (learningTree) {
       this.activeLearningTreeId = learningTree.id
       const xCenter = window.innerWidth / 2
-      if (learningTree.user_id === this.user.id) {
-        window.open(`/instructors/learning-trees/editor/${learningTree.id}/1`, '_blank')
-      } else {
-        this.learningTreeToShow = learningTree
-        this.learningTreeSrc = `/instructors/learning-trees/editor/${learningTree.id}/1/${xCenter}`
-        this.$bvModal.show('modal-learning-tree')
-      }
+      this.learningTreeToShow = learningTree
+      this.learningTreeSrc = `/instructors/learning-trees/editor/${learningTree.id}/1/${xCenter}`
+      this.$bvModal.show('modal-learning-tree')
     },
     async getAllLearningTrees () {
       let allLearningTreesData = {

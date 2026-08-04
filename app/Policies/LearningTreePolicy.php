@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Helpers\Helper;
 use App\Traits\CommonPolicies;
 use App\User;
 use App\LearningTree;
@@ -42,7 +43,7 @@ class LearningTreePolicy
 
     public function update(User $user, LearningTree $learningTree): Response
     {
-        return ((int) $learningTree->user_id === $user->id)
+        return ((int) $learningTree->user_id === $user->id || Helper::isAdmin())
             ? Response::allow()
             : Response::deny('You are not allowed to update this Learning Tree.');
 
@@ -50,7 +51,7 @@ class LearningTreePolicy
 
     public function updateNode(User $user, LearningTree $learningTree): Response
     {
-        return ((int) $learningTree->user_id === $user->id)
+        return ((int) $learningTree->user_id === $user->id || Helper::isAdmin())
             ? Response::allow()
             : Response::deny('You are not allowed to update this node.');
 
@@ -59,7 +60,7 @@ class LearningTreePolicy
     public function createLearningTreeFromTemplate(User $user, LearningTree $learningTree): Response
     {
 
-    return ((int) $learningTree->user_id === $user->id)
+        return ((int) $learningTree->user_id === $user->id)
             ? Response::allow()
             : Response::deny('You are not allowed to create a template from this Learning Tree.');
 

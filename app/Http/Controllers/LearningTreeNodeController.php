@@ -10,6 +10,7 @@ use App\LearningTree;
 use App\LearningTreeAnalytics;
 use App\LearningTreeNode;
 use App\LearningTreeNodeDescription;
+use App\LearningTreeNodeSubmission;
 use App\LearningTreeReset;
 use App\Question;
 use App\Score;
@@ -40,12 +41,10 @@ class LearningTreeNodeController extends Controller
         }
 
         $response['type'] = 'error';
-        if ((int)($request->original_question_id) !== (int)$request->question_id) {
-            $submission_exists = Submission::where('question_id', $learningTree->root_node_question_id)->exists();
-            if ($submission_exists) {
-                $response['message'] = "A submission exists for this Learning Tree so you cannot alter it.";
-                return $response;
-            }
+        $submission_exists = LearningTreeNodeSubmission::where('learning_Tree_id', $learningTree->id)->exists();
+        if ($submission_exists) {
+            $response['message'] = "A submission exists for this Learning Tree so you cannot alter it.";
+            return $response;
         }
         try {
             $data = $request->validated();

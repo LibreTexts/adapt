@@ -357,7 +357,7 @@
       </div>
     </b-modal>
     <!-- TOP TOOLBAR -->
-    <div v-if="isAuthor && !inIFrame" id="toolbar">
+    <div v-if="isAuthor && (!inIFrame || fromAllLearningTrees)" id="toolbar">
       <b-icon id="properties-tooltip"
               icon="gear"
               :class="{ 'disabled': learningTreeId === 0}"
@@ -592,7 +592,8 @@ export default {
     },
     nodeSourceIsDefaultTemplateQuestion () {
       return this.defaultTemplateQuestionIds.includes(String(this.nodeForm.question_id))
-    }
+    },
+    isAdmin: () => window.config.isAdmin
   },
   created () {
     h5pResizer()
@@ -1115,11 +1116,36 @@ export default {
         this.$noty.error(error.message)
       }
     },
+    // EK: undo()/redo() force a full page reload after their PATCH
+    // succeeds (rather than just re-fetching data client-side), since a
+    // lot of this component's state - flowy's canvas import, block
+    // positions, etc. - isn't easily re-derivable without a fresh mount.
+    // The reload URL used to be hardcoded to just
+    // `/instructors/learning-trees/editor/{id}`, dropping the
+    // fromAllLearningTrees and xCenter route params - which silently
+    // reset fromAllLearningTrees to undefined, hiding the toolbar again
+    // for an admin who'd opened the tree from the browsing page (since
+    // the toolbar's admin-in-iframe exception depends on that param
+    // being set). Rebuilding the URL from the CURRENT route's own params
+    // preserves whatever was there, rather than hardcoding a fixed list -
+    // if a new optional segment gets added to the route later, this
+    // keeps working without needing another fix here.
+    getLearningTreeEditorReloadUrl () {
+      const params = this.$route.params
+      let url = `/instructors/learning-trees/editor/${this.learningTreeId}`
+      if (params.fromAllLearningTrees) {
+        url += `/${params.fromAllLearningTrees}`
+        if (params.xCenter) {
+          url += `/${params.xCenter}`
+        }
+      }
+      return url
+    },
     async undo () {
       try {
         const { data } = await axios.patch(`/api/learning-tree-histories/${this.learningTreeId}`)
         if (data.type === 'success') {
-          window.location.href = `/instructors/learning-trees/editor/${this.learningTreeId}`
+          window.location.href = this.getLearningTreeEditorReloadUrl()
         } else {
           this.$noty[data.type](data.message)
         }
@@ -1135,7 +1161,7 @@ export default {
       try {
         const { data } = await axios.patch(`/api/learning-tree-histories/${this.learningTreeId}/redo`)
         if (data.type === 'success') {
-          window.location.href = `/instructors/learning-trees/editor/${this.learningTreeId}`
+          window.location.href = this.getLearningTreeEditorReloadUrl()
         } else {
           this.$noty[data.type](data.message)
         }
@@ -1499,7 +1525,7 @@ export default {
         this.assessmentQuestionId = data.question_id
         this.canUndo = data.can_undo
         this.canRedo = Boolean(data.can_redo)
-        this.isAuthor = data.author_id === this.user.id
+        this.isAuthor = data.author_id === this.user.id || this.isAdmin
         if (data.learning_tree) {
           let learningTree = data.learning_tree.replaceAll('/assets/img', this.asset('assets/img'))
           flowy.import(JSON.parse(learningTree))
