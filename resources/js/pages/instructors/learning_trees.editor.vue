@@ -307,7 +307,7 @@
         <div>
           <b-form-group
             v-if="isAuthor"
-            label="Node Description*"
+            :label="nodeDescriptionLabel"
             label-for="node_description"
             class="mb-3"
           >
@@ -570,6 +570,9 @@ export default {
     ...mapGetters({
       user: 'auth/user'
     }),
+    nodeDescriptionLabel() {
+      return `Node Description${this.isRootNode ? '' : '*'}`;
+    },
     nodeModalBorderColor () {
       switch (this.nodeModalBorderClass) {
         case 'modal-border-blue':
