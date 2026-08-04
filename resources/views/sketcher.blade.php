@@ -84,6 +84,47 @@
   @php
     $toolsetMap = [
     'marker-only' => ['atom' => ['mark' => true]],
+   'arrows-only' => [
+    'general' => [
+        'zoom'   => true,
+        'undo'   => true,
+        'create' => true,   // required to draw new arrow objects at all
+        'select' => false,
+    ],
+    'atom' => [
+        'label' => [
+            'element' => false,
+            'r_group' => false,
+            'formula' => false,
+            'menu' => [
+                'periodic_table' => false,
+                'quick' => [],
+            ],
+        ],
+        'formal_charge'      => false,
+        'lone_pairs'         => false,
+        'unpaired_electrons' => false,
+        'mark'               => false,
+    ],
+    'bond' => [
+        'type' => [],
+        'mark' => false,
+    ],
+    'arrow' => [
+        'type' => [
+            'forward',
+            'resonance',
+            'equilibrium',
+            'retrosynthesis',
+            'electron_single',
+            'electron_pair',
+        ],
+    ],
+    'template' => [
+        'chain' => false,
+        'ring'  => false,
+    ],
+],
     'show-correct' => [],
     'empty' => [],
     'default' => []

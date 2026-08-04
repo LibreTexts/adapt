@@ -62,7 +62,6 @@ export default {
     } else if (this.configuration) {
       this.src = `/api/sketcher/${this.configuration}`
     }
-
     this.loadStructure()
   },
   methods: {
