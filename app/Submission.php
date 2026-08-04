@@ -2200,7 +2200,8 @@ class Submission extends Model
         $proportion_correct_response['type'] = 'error';
         $data = [
             'reference_diagram' => $question->solutionStructure,
-            'student_diagram' => json_decode($student_response)->structure
+            'student_diagram' => json_decode($student_response)->structure,
+            'match_stereo' => property_exists($question, 'matchStereo') ? +$question->matchStereo : 0
         ];
         $response = Http::withHeaders([
             'Authorization' => $token
