@@ -145,7 +145,7 @@
             :qti-json="JSON.parse(qtiJson)"
             :student-response="studentResponse ? JSON.stringify(JSON.parse(studentResponse).structure) : solutionStructure"
             :read-only="previewOrSolution || !submitButtonActive"
-            :configuration="questionType === 'marker' ? 'marker-only' : 'default'"
+            :configuration="questionType === 'marker' ? 'marker-only' : (questionType === 'pushing_arrows' ? 'arrows-only' :'default')"
             :sketcher-viewer-id="showQtiAnswer ? null : 'sketcherViewer'"
           />
           <GeneralFeedback
