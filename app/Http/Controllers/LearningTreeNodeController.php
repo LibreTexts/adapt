@@ -67,13 +67,26 @@ class LearningTreeNodeController extends Controller
 
             DB::beginTransaction();
 
+            // EK: same "fill in what's missing from the question" logic as
+            // the root-node tags/framework/subject-chapter-section auto-fill
+            // (LearningTree::fillMissingAttributesFromRootQuestion()) - if
+            // the instructor left the node description blank and the
+            // question itself has a description, use that instead of
+            // saving an empty string. Applies to every node, including the
+            // root node, since this call isn't inside the
+            // !$request->is_root_node branch below.
+            $node_description = $request->node_description;
+            if (!$node_description && $question->description) {
+                $node_description = $question->description;
+            }
+
             LearningTreeNodeDescription::updateOrCreate(
                 ['learning_tree_id' => $learningTree->id,
                     'user_id' => $request->user()->id,
                     'question_id' => $request->question_id],
                 ['title' => $request->title,
                     'notes' => $request->notes,
-                    'description' => $request->node_description]
+                    'description' => $node_description]
             );
 
             if (!$request->is_root_node) {
@@ -270,6 +283,12 @@ class LearningTreeNodeController extends Controller
             // or a confusing "None Available" message.
             if ($description === 'None Available' || $description === $title) {
                 $description = '';
+            }
+            // EK: same fallback as updateNode()'s save path - if there's
+            // still nothing meaningful to show, fall back to the
+            // question's own description rather than leaving this blank.
+            if (!$description && $question->description) {
+                $description = $question->description;
             }
             $response['description'] = $description;
             $response['subject'] = $learning_outcome ? $learning_outcome->subject : ($last_learning_outcome ? $last_learning_outcome->subject : null);

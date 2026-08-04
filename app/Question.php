@@ -954,21 +954,21 @@ class Question extends Model
             case('numerical'):
                 if ($student_response) {
                     $student_response = json_decode($student_response, 1);
-                    $cr            = $qti_array['correctResponse'];
+                    $cr = $qti_array['correctResponse'];
                     $toleranceType = $cr['toleranceType'] ?? 'absolute';
-                    $correct       = (float) $cr['value'];
-                    $diff          = round(abs((float) $student_response - $correct), 10);
+                    $correct = (float)$cr['value'];
+                    $diff = round(abs((float)$student_response - $correct), 10);
 
                     if ($toleranceType === 'relative') {
-                        $pct              = (float) ($cr['relativeTolerance'] ?? 0);
+                        $pct = (float)($cr['relativeTolerance'] ?? 0);
                         $answeredCorrectly = $diff <= round(abs($correct) * $pct / 100, 10);
                     } else {
-                        $margin_of_error  = round((float) $cr['marginOfError'], 10);
+                        $margin_of_error = round((float)$cr['marginOfError'], 10);
                         $answeredCorrectly = $diff <= $margin_of_error;
                     }
 
                     $qti_array['studentResponse'] = [
-                        'response'          => $student_response,
+                        'response' => $student_response,
                         'answeredCorrectly' => $answeredCorrectly,
                     ];
                 }
@@ -994,17 +994,17 @@ class Question extends Model
             case('multi_numerical'):
                 // Capture full placeholders BEFORE any stripping
                 $placeholders = $qti_array['placeholders'] ?? [];
-                $total        = count($placeholders);
+                $total = count($placeholders);
 
                 if ($student_response) {
-                    $decoded       = json_decode($student_response, true);
-                    $raw_answers   = $decoded['answers'] ?? [];
-                    $answers       = [];
+                    $decoded = json_decode($student_response, true);
+                    $raw_answers = $decoded['answers'] ?? [];
+                    $answers = [];
                     $correct_count = 0;
 
                     foreach ($placeholders as $i => $placeholder) {
-                        $studentValue      = $raw_answers[$i]['response'] ?? '';
-                        $answeredCorrectly = $this->_isNumericalAnswerCorrect((array) $placeholder, $studentValue);
+                        $studentValue = $raw_answers[$i]['response'] ?? '';
+                        $answeredCorrectly = $this->_isNumericalAnswerCorrect((array)$placeholder, $studentValue);
                         if ($answeredCorrectly) {
                             $correct_count++;
                         }
@@ -1016,14 +1016,14 @@ class Question extends Model
                     }
 
                     $qti_array['studentResponse'] = [
-                        'answers'           => $answers,
+                        'answers' => $answers,
                         'proportionCorrect' => $total > 0 ? $correct_count / $total : 0,
                     ];
                 }
 
                 if ($json_type === 'answer_json') {
                     $qti_array['studentResponse'] = [
-                        'answers'           => array_map(function ($p) {
+                        'answers' => array_map(function ($p) {
                             return ['response' => $p['value'], 'answeredCorrectly' => true];
                         }, $placeholders),
                         'proportionCorrect' => 1,
@@ -1036,7 +1036,7 @@ class Question extends Model
                         // Show tolerance range hints but not the correct value
                         $qti_array['placeholders'] = array_map(function ($p) {
                             return [
-                                'toleranceType'     => $p['toleranceType'] ?? 'absolute',
+                                'toleranceType' => $p['toleranceType'] ?? 'absolute',
                                 'absoluteTolerance' => $p['absoluteTolerance'] ?? '0',
                                 'relativeTolerance' => $p['relativeTolerance'] ?? '0',
                             ];
@@ -2899,6 +2899,9 @@ class Question extends Model
         }
         $question_info['reason_for_edit'] = $question_info['reason_for_edit'] ?? null;
         $question_info['revision_number'] = $question_info['revision_number'] ?? 0;
+        if ($request->user()->role === 2) {
+            $question['description'] = $question_info['description'];
+        }
         $question['title'] = $question_info['title'];
         $question['question_type'] = $question_info['question_type'];
         $question['subject'] = $learning_outcome ? $learning_outcome->subject : null;
@@ -4041,15 +4044,15 @@ class Question extends Model
         if (!is_numeric($studentValue) || !is_numeric($placeholder['value'])) {
             return false;
         }
-        $correct = (float) $placeholder['value'];
-        $diff    = round(abs((float) $studentValue - $correct), 10);
+        $correct = (float)$placeholder['value'];
+        $diff = round(abs((float)$studentValue - $correct), 10);
 
         if (($placeholder['toleranceType'] ?? 'absolute') === 'relative') {
-            $pct = (float) ($placeholder['relativeTolerance'] ?? 0);
+            $pct = (float)($placeholder['relativeTolerance'] ?? 0);
             return $diff <= round(abs($correct) * $pct / 100, 10);
         }
 
-        return $diff <= round((float) ($placeholder['absoluteTolerance'] ?? 0), 10);
+        return $diff <= round((float)($placeholder['absoluteTolerance'] ?? 0), 10);
     }
 }
 

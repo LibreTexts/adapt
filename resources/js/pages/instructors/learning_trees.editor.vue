@@ -570,8 +570,8 @@ export default {
     ...mapGetters({
       user: 'auth/user'
     }),
-    nodeDescriptionLabel() {
-      return `Node Description${this.isRootNode ? '' : '*'}`;
+    nodeDescriptionLabel () {
+      return `Node Description${this.isRootNode ? '' : '*'}`
     },
     nodeModalBorderColor () {
       switch (this.nodeModalBorderClass) {
@@ -1286,6 +1286,16 @@ export default {
       await this.getQuestionToView(questionId, true)
       if (this.isDefaultNodeTitle(this.nodeForm.title) && this.questionToView && this.questionToView.title) {
         this.nodeForm.title = this.questionToView.title
+      }
+      // EK: mirrors the same fallback in LearningTreeNodeController's
+      // updateNode()/getMetaInfo() - if the node description is still
+      // blank, use the question's own description rather than leaving it
+      // empty. Refresh Preview only re-fetches the question (via
+      // getQuestionToView), it doesn't call getNodeMetaInformation() (which
+      // also touches learning_outcome/subject, not appropriate to
+      // overwrite here), so this fallback needs to be applied directly.
+      if (!this.nodeForm.node_description && this.questionToView && this.questionToView.description) {
+        this.nodeForm.node_description = this.questionToView.description
       }
     },
     async getNodeMetaInformation (questionId) {
