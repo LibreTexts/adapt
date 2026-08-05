@@ -4219,7 +4219,7 @@ export default {
             const settings_override = q.flashcard_card_settings ? JSON.parse(q.flashcard_card_settings) : null
             // hint lives at the question level (q.hint), but also check inside card for bulk-imported cards
             const hint = q.hint || card.hint || null
-            return { ...card, hint, question_id: q.id, student_response: q.student_response || null, settings_override }
+            return { ...card, hint, question_id: q.id, question_editor_user_id: q.question_editor_user_id, student_response: q.student_response || null, settings_override }
           } catch (e) {
             return null
           }

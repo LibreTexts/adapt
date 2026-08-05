@@ -8,6 +8,7 @@ use App\Question;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 
 class CoQuestionEditorController extends Controller
@@ -26,9 +27,9 @@ class CoQuestionEditorController extends Controller
 
         $response['type'] = 'error';
         try {
-            $can_edit = $coQuestionEditor->where('question_editor_user_id', $question->question_editor_user_id)
-                ->where('co_question_editor_user_id', $request->user()->id)
-                ->exists();
+            $can_edit = $question->question_editor_user_id === $request->user()->id || ($coQuestionEditor->where('question_editor_user_id', $question->question_editor_user_id)
+                    ->where('co_question_editor_user_id', $request->user()->id)
+                    ->exists());
             $response['type'] = 'success';
             $response['can_edit'] = $can_edit;
         } catch (Exception $e) {

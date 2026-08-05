@@ -784,7 +784,7 @@ export default {
       this.loadStudentOverrides()
     }
     this.initialize()
-    this.typesetCurrentCard()
+    await this.typesetCurrentCard()
   },
 
   beforeDestroy () {
