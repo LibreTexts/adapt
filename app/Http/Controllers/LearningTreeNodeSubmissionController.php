@@ -35,6 +35,7 @@ class LearningTreeNodeSubmissionController extends Controller
      * @param LearningTreeNodeSubmission $learningTreeNodeSubmission
      * @param Submission $Submission
      * @param LearningTreeNodeSeed $learningTreeNodeSeed
+     * @param AssignmentQuestionLearningTree $assignmentQuestionLearningTree
      * @return array
      * @throws Exception
      */
@@ -42,7 +43,8 @@ class LearningTreeNodeSubmissionController extends Controller
     function show(Request                    $request,
                   LearningTreeNodeSubmission $learningTreeNodeSubmission,
                   Submission                 $Submission,
-                  LearningTreeNodeSeed       $learningTreeNodeSeed): array
+                  LearningTreeNodeSeed       $learningTreeNodeSeed,
+                  AssignmentQuestionLearningTree $assignmentQuestionLearningTree): array
     {
         try {
             $response['type'] = 'error';
@@ -56,6 +58,29 @@ class LearningTreeNodeSubmissionController extends Controller
             $question = Question::find($learningTreeNodeSubmission->question_id);
 
             $assignment = Assignment::find($learningTreeNodeSubmission->assignment_id);
+
+            // EK: lock this node back to whatever question_revision_id was
+            // recorded in this assignment's tree snapshot, same as
+            // LearningTreeNodeAssignmentQuestionController::show() - so a
+            // previously-submitted node is re-displayed against the exact
+            // revision the student actually answered, not whatever the
+            // question looks like now.
+            $assignment_question_learning_tree = null;
+            try {
+                $assignment_question_learning_tree = $assignmentQuestionLearningTree
+                    ->getAssignmentQuestionLearningTreeByLearningTreeId($assignment->id, $learningTree->id);
+            } catch (Exception $e) {
+                //no matching row - nothing to lock to, so fall back to the live question below
+            }
+            $locked_question_revision_id = $assignmentQuestionLearningTree
+                ->getLockedQuestionRevisionId($assignment_question_learning_tree, $question->id);
+            if ($locked_question_revision_id) {
+                $locked_question_revision = DB::table('question_revisions')->where('id', $locked_question_revision_id)->first();
+                if ($locked_question_revision) {
+                    $question = $question->updateWithQuestionRevision($locked_question_revision);
+                }
+            }
+
             $session_jwt = null;
             $decoded_submission = json_decode($submission, 1);
             if ($decoded_submission && isset($decoded_submission['sessionJWT'])) {

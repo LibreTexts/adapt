@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 
+use App\Assignment;
+use App\AssignmentQuestionLearningTree;
+use App\AssignmentSyncQuestion;
 use App\EmptyLearningTreeNode;
 use App\Http\Requests\CloneLearningTreesRequest;
 use App\Http\Requests\StoreLearningTreeInfo;
@@ -406,10 +409,12 @@ class LearningTreeController extends Controller
      * @return array
      * @throws Exception
      */
-    public function updateLearningTree(Request             $request,
-                                       LearningTree        $learningTree,
-                                       LearningTreeHistory $learningTreeHistory,
-                                       Question            $question): array
+    public function updateLearningTree(Request                        $request,
+                                       LearningTree                   $learningTree,
+                                       LearningTreeHistory            $learningTreeHistory,
+                                       Question                       $question,
+                                       AssignmentQuestionLearningTree $assignmentQuestionLearningTree,
+                                       AssignmentSyncQuestion         $assignmentSyncQuestion): array
     {
 
         $response['type'] = 'error';
@@ -457,6 +462,22 @@ class LearningTreeController extends Controller
                 $response['can_undo'] = $learningTreeHistory->where('learning_tree_id', $learningTree->id)->get()->count() > 1;
                 $response['can_redo'] = false;
                 DB::commit();
+
+                // EK: auto-refresh this tree's snapshot for any assignment
+                // where that's safe without instructor confirmation (course
+                // auto_update_question_revisions=1 AND no real student work
+                // at risk) - see autoUpdateEligibleAssignmentSnapshots()'s
+                // docblock. Runs in its own try/catch, outside the transaction
+                // above, so a problem here can't roll back the tree save that
+                // already succeeded - worst case, an eligible assignment
+                // simply doesn't get auto-refreshed and stays flagged by
+                // learningTreeNeedsUpdate() for manual handling instead.
+                try {
+                    $assignmentQuestionLearningTree->autoUpdateEligibleAssignmentSnapshots($learningTree, $assignmentSyncQuestion);
+                } catch (Exception $e) {
+                    $h = new Handler(app());
+                    $h->report($e);
+                }
             } catch (Exception $e) {
                 DB::rollback();
                 $h = new Handler(app());
@@ -649,6 +670,14 @@ class LearningTreeController extends Controller
             $response['description'] = $learningTree->description;
             $response['public'] = $learningTree->public;
             $response['author_id'] = $learningTree->user_id;
+            // EK: same CONCAT(first_name, " ", last_name) pattern already
+            // used for author display in getAll() above - kept here rather
+            // than resolved client-side since the name isn't otherwise
+            // exposed to non-owners.
+            $response['author_name'] = DB::table('users')
+                ->where('id', $learningTree->user_id)
+                ->select(DB::raw('CONCAT(first_name, " ", last_name) AS name'))
+                ->value('name');
             $response['notes'] = $learningTree->user_id === request()->user()->id ? $learningTree->notes : '';
             $response['question_subject_id'] = $learningTree->question_subject_id;
             $response['question_chapter_id'] = $learningTree->question_chapter_id;
@@ -686,6 +715,49 @@ class LearningTreeController extends Controller
             $h = new Handler(app());
             $h->report($e);
             $response['message'] = "There was an error retrieving the learning tree.  Please try again or contact us for assistance.";
+        }
+        return $response;
+    }
+
+    /**
+     * Returns this Learning Tree's assignment-locked snapshot (the
+     * structure + per-node question_revision_id captured at add-time, or
+     * last "Update to Latest Revision"). Called from
+     * learning_trees_editor.vue's getLearningTreeLearningTreeId() whenever
+     * the tree is loaded inside an assignment, so the canvas renders what
+     * was actually assigned rather than live edits made since - the same
+     * "frozen until Update to Latest" contract node *content* already gets
+     * via LearningTreeNodeAssignmentQuestionController::show(), now
+     * extended to structure. Returns only the raw learning_tree JSON blob
+     * - the same `{blocks:[...]}` shape flowy.import() already expects for
+     * the live tree via show() above - since the canvas doesn't need the
+     * tree's editable metadata (title/description/tags/etc.) show() also
+     * returns.
+     *
+     * @param Assignment $assignment
+     * @param LearningTree $learningTree
+     * @param AssignmentQuestionLearningTree $assignmentQuestionLearningTree
+     * @return array
+     */
+    public function showAssignmentSnapshot(Assignment                     $assignment,
+                                           LearningTree                   $learningTree,
+                                           AssignmentQuestionLearningTree $assignmentQuestionLearningTree): array
+    {
+        $response['type'] = 'error';
+        $authorized = Gate::inspect('viewAssignmentSnapshot', [$learningTree, $assignment]);
+        if (!$authorized->allowed()) {
+            $response['message'] = $authorized->message();
+            return $response;
+        }
+        try {
+            $assignment_question_learning_tree = $assignmentQuestionLearningTree
+                ->getAssignmentQuestionLearningTreeByLearningTreeId($assignment->id, $learningTree->id);
+            $response['learning_tree'] = $assignment_question_learning_tree->learning_tree;
+            $response['type'] = 'success';
+        } catch (Exception $e) {
+            $h = new Handler(app());
+            $h->report($e);
+            $response['message'] = "There was an error retrieving this Learning Tree's assigned version.  Please try again or contact us for assistance.";
         }
         return $response;
     }

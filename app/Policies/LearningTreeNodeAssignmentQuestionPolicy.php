@@ -9,6 +9,7 @@ use App\Question;
 use App\User;
 use Illuminate\Auth\Access\HandlesAuthorization;
 use Illuminate\Auth\Access\Response;
+use Illuminate\Support\Facades\DB;
 
 class LearningTreeNodeAssignmentQuestionPolicy
 {
@@ -104,7 +105,39 @@ class LearningTreeNodeAssignmentQuestionPolicy
         $assignment = Assignment::find($assignment_id);
         $is_student_in_course = $assignment->course->enrollments->contains('user_id', $user->id);
         $is_instructor_of_course = $assignment->course->user_id === $user->id;
-        $question_in_assignment = in_array($learningTree->root_node_question_id, $assignment->questions->pluck('id')->toArray());
+
+        // EK: must check against the assignment's *locked snapshot*, not
+        // the live tree - root_node_question_id and questionIds() both
+        // reflect live edits, which can drift from what's actually
+        // assigned (the same drift learningTreeNeedsUpdate() exists to
+        // detect). Comparing against the live tree here denied legitimate
+        // clicks on nodes that are still part of the assigned snapshot
+        // whenever the tree had been edited since it was assigned.
+        $assignment_question_learning_tree = DB::table('assignment_question_learning_tree')
+            ->join('assignment_question', 'assignment_question_learning_tree.assignment_question_id', '=', 'assignment_question.id')
+            ->select('assignment_question_learning_tree.*')
+            ->where('assignment_question.assignment_id', $assignment_id)
+            ->where('assignment_question_learning_tree.learning_tree_id', $learningTree->id)
+            ->first();
+
+        $question_in_assignment = (bool)$assignment_question_learning_tree
+            || in_array($learningTree->root_node_question_id, $assignment->questions->pluck('id')->toArray());
+
+        if ($assignment_question_learning_tree && $assignment_question_learning_tree->learning_tree) {
+            $snapshot_question_ids = [];
+            $snapshot_blocks = json_decode($assignment_question_learning_tree->learning_tree, true)['blocks'] ?? [];
+            foreach ($snapshot_blocks as $block) {
+                foreach ($block['data'] ?? [] as $entry) {
+                    if ($entry['name'] === 'question_id') {
+                        $snapshot_question_ids[] = (int)trim($entry['value']);
+                    }
+                }
+            }
+        } else {
+            // no snapshot ever recorded (tree predates this feature) -
+            // nothing to compare against, so fall back to the live tree
+            $snapshot_question_ids = $learningTree->questionIds();
+        }
 
         if (!$is_student_in_course && !$is_instructor_of_course) {
             $has_access = false;
@@ -115,7 +148,7 @@ class LearningTreeNodeAssignmentQuestionPolicy
             $has_access = false;
             $message = "That is not a question in the assignment.";
         }
-        if ($has_access && !in_array($nodeQuestion->id, $learningTree->questionIds())) {
+        if ($has_access && !in_array($nodeQuestion->id, $snapshot_question_ids)) {
             $has_access = false;
             $message = "That is not a question node in the learning tree.";
         }

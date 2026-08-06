@@ -1338,7 +1338,7 @@ class Assignment extends Model
             ->join('assignment_question_learning_tree', 'assignment_question.id', '=', 'assignment_question_learning_tree.assignment_question_id')
             ->join('learning_trees', 'assignment_question_learning_tree.learning_tree_id', '=', 'learning_trees.id')
             ->where('assignment_id', $this->id)
-            ->select('learning_tree', 'question_id', 'learning_tree_id', 'number_of_successful_paths_for_a_reset')
+            ->select('assignment_question_learning_tree.learning_tree', 'question_id', 'learning_tree_id', 'number_of_successful_paths_for_a_reset')
             ->get();
         return collect($learningTrees);
     }

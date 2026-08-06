@@ -26,6 +26,7 @@ use App\QtiJob;
 use App\Question;
 use App\QuestionMediaUpload;
 use App\QuestionRevision;
+use App\QuestionRevisionPropagation;
 use App\RubricCategory;
 use App\RubricTemplate;
 use App\SavedQuestionsFolder;
@@ -1580,6 +1581,7 @@ class QuestionController extends Controller
                             return $response;
                         }
                     }
+
                     if (!Helper::isAdmin() && $question->nonMetaPropertiesDiffer($request)) {
                         $response['message'] = 'You cannot propagate the question revision since there are differing properties that are not topical in nature.';
                         return $response;
@@ -1920,13 +1922,36 @@ class QuestionController extends Controller
                 switch ($revision_action) {
                     case('propagate'):
                         $assignment_questions = AssignmentSyncQuestion::where('question_id', $question->id)->get();
+                        $direct_assignment_question_ids = [];
                         foreach ($assignment_questions as $assignment_question) {
                             $assignment_question->question_revision_id = $new_question_revision_id;
                             if ($rubric_items_exist && !$assignment_question->custom_rubric) {
                                 $assignment_question->use_existing_rubric = 1;
                             }
                             $assignment_question->save();
+                            $direct_assignment_question_ids[] = $assignment_question->id;
                         }
+                        // EK: also patch this question's locked revision inside
+                        // every Learning Tree snapshot that uses it as a node
+                        // (root or not) - propagate is reserved for safe/topical
+                        // changes, so this deliberately doesn't wipe any
+                        // submissions the way every other tree-snapshot update
+                        // in this app does.
+                        $affected_assignment_question_learning_tree_ids = (new AssignmentQuestionLearningTree())
+                            ->propagateQuestionRevisionToLearningTreeSnapshots($question->id, $new_question_revision_id);
+
+                        // EK: audit trail - who propagated this, and exactly
+                        // which rows it reached (an ordinary assignment_question
+                        // row and/or a Learning Tree snapshot node), so instructors
+                        // asking "why did my tree/question change under me" have an
+                        // answer. See QuestionRevisionPropagation.
+                        QuestionRevisionPropagation::create([
+                            'question_revision_id' => $new_question_revision_id,
+                            'user_id' => $request->user()->id,
+                            'assignment_question_ids' => $direct_assignment_question_ids,
+                            'assignment_question_learning_tree_ids' => $affected_assignment_question_learning_tree_ids
+                        ]);
+
                         DB::table('pending_question_revisions')
                             ->where('question_id', $question->id)
                             ->delete();
@@ -2009,6 +2034,19 @@ class QuestionController extends Controller
                                 $assignment = Assignment::find($updatable_assignment_id);
                                 $assignmentSyncQuestion->updateAssignmentScoreBasedOnRemovedQuestion($assignment, $question);
                                 Helper::removeAllStudentSubmissionTypesByAssignmentAndQuestion($assignment->id, $question->id);
+                                // EK: if $question is a Learning Tree's root node in
+                                // this specific assignment, keep the tree's stored
+                                // snapshot in sync with the assignment_question row
+                                // just updated above - scoped to only this assignment,
+                                // since auto-update (unlike propagate) only touches
+                                // specific assignments, not every assignment using
+                                // the question. Without this, learningTreeNeedsUpdate()
+                                // would keep flagging this tree as stale even though
+                                // the root is already current, and a later manual
+                                // "Update to Latest" - triggered only by that stale
+                                // flag - would wipe this assignment's submissions a
+                                // second time for no reason.
+                                (new AssignmentQuestionLearningTree())->patchNodeRevisionInAssignmentSnapshot($updatable_assignment_id, $question->id, $newQuestionRevision->id);
                                 unset($updatable_assignment_ids[$key]);
                             } else {
                                 $pendingQuestionRevision = new PendingQuestionRevision();

@@ -601,6 +601,7 @@ Route::group(['middleware' => ['auth:api', 'analytics','rate.limit.by.user']], f
     Route::post('/learning-trees/clone', 'LearningTreeController@clone');
     Route::post('/learning-trees/{learningTree}/create-learning-tree-from-template', 'LearningTreeController@createLearningTreeFromTemplate');
     Route::patch('/assignments/{assignment}/learning-tree/{learningTree}/update-to-latest-revision', 'AssignmentSyncQuestionController@updateLearningTreeToLatestRevision');
+    Route::get('/assignments/{assignment}/learning-tree/{learningTree}/snapshot', 'LearningTreeController@showAssignmentSnapshot');
 
     Route::patch('/learning-tree-histories/{learningTree}', 'LearningTreeHistoryController@updateLearningTreeFromHistory');
     Route::patch('/learning-tree-histories/{learningTree}/redo', 'LearningTreeHistoryController@redoLearningTreeFromHistory');

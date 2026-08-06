@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\AssignmentQuestionLearningTree;
 use App\BetaCourseApproval;
 use App\Custom\FCMNotification;
 use App\DiscussionComment;
@@ -3538,7 +3539,7 @@ class AssignmentSyncQuestionController extends Controller
                 }
             }
             //if they've already explored the learning tree, then we can let them view it right at the start
-            $learning_tree_titles_by_question_id = [];
+            $learning_tree_titles_by_learning_tree_id = [];
             if ($assignment->assessment_type === 'learning tree') {
                 $learning_trees_with_at_least_one_node_submission = DB::table('learning_tree_node_submissions')
                     ->where('user_id', $request->user()->id)
@@ -3549,16 +3550,54 @@ class AssignmentSyncQuestionController extends Controller
                     ->pluck('learning_tree_id')
                     ->toArray();
                 $learning_tree_ids = [];
-                $number_of_learning_tree_paths_by_question_id = [];
+                $number_of_learning_tree_paths_by_learning_tree_id = [];
                 $assignment_learning_trees = $assignment->learningTrees();
                 foreach ($assignment_learning_trees as $learning_tree) {
                     $learning_tree_ids[] = $learning_tree->learning_tree_id;
                 }
 
                 $learning_trees = LearningTree::whereIn('id', $learning_tree_ids)->get();
+                // EK: keyed by learning_tree_id, NOT root_node_question_id - the root
+                // node's question_id can itself change (an instructor swaps which
+                // question the root points to, not just its revision), at which point
+                // it no longer matches assignment_question.question_id until "update to
+                // latest" runs. learning_tree_id never changes, so it's the only safe
+                // key to read these back out by (see $learning_trees_by_question_id
+                // below, which maps the *old* assignment_question.question_id to this
+                // same stable learning_tree_id).
+                $number_of_learning_tree_paths_by_learning_tree_id = [];
+                $learning_tree_titles_by_learning_tree_id = [];
+                // EK: only instructors/TAs get the "this tree is out of date" alert -
+                // students shouldn't see it, and there's no reason to run the
+                // comparison queries below for every student viewing the assignment.
+                $learning_tree_needs_update_by_learning_tree_id = [];
+                // EK: powers whether the "update to latest" modal shows the scary
+                // checkbox or a plain confirm - see
+                // AssignmentQuestionLearningTree::updateRisksRealStudentSubmissions().
+                // Only worth computing (extra queries) when the tree is actually
+                // flagged as needing an update, since that's the only time the
+                // modal is reachable from the UI; defaults to true (the safe
+                // assumption) otherwise.
+                $learning_tree_update_risks_real_submissions_by_learning_tree_id = [];
+                $assignmentQuestionLearningTree = new AssignmentQuestionLearningTree();
                 foreach ($learning_trees as $learningTree) {
-                    $number_of_learning_tree_paths_by_question_id[$learningTree->root_node_question_id] = count($learningTree->finalQuestionIds());
-                    $learning_tree_titles_by_question_id[$learningTree->root_node_question_id] = $learningTree->title;
+                    $number_of_learning_tree_paths_by_learning_tree_id[$learningTree->id] = count($learningTree->finalQuestionIds());
+                    $learning_tree_titles_by_learning_tree_id[$learningTree->id] = $learningTree->title;
+                    if (in_array($request->user()->role, [2, 5])) {
+                        try {
+                            $assignment_question_learning_tree_row = $assignmentQuestionLearningTree
+                                ->getAssignmentQuestionLearningTreeByLearningTreeId($assignment->id, $learningTree->id);
+                            $learning_tree_needs_update_by_learning_tree_id[$learningTree->id] =
+                                $assignmentQuestionLearningTree->learningTreeNeedsUpdate($assignment_question_learning_tree_row, $learningTree);
+                        } catch (Exception $e) {
+                            //no matching assignment_question_learning_tree row - nothing to compare, so nothing to flag
+                            $learning_tree_needs_update_by_learning_tree_id[$learningTree->id] = false;
+                        }
+                        if ($learning_tree_needs_update_by_learning_tree_id[$learningTree->id]) {
+                            $learning_tree_update_risks_real_submissions_by_learning_tree_id[$learningTree->id] =
+                                $assignmentQuestionLearningTree->updateRisksRealStudentSubmissions($assignment, $learningTree, $assignmentSyncQuestion);
+                        }
+                    }
                 }
 
                 $number_learning_tree_resets_available = DB::table('learning_tree_resets')
@@ -3750,7 +3789,16 @@ class AssignmentSyncQuestionController extends Controller
                 $assignment->questions[$key]['library'] = $question->library;
                 $assignment->questions[$key]['page_id'] = $question->page_id;
                 $assignment->questions[$key]['common_question_text'] = $assignment->common_question_text;
-                $title = $assignment->assessment_type === 'learning tree' ? $learning_tree_titles_by_question_id[$question->id] : $question->title;
+                // EK: falls back to the live question's own title if the tree's root
+                // node question_id has been changed (to an entirely different
+                // question, not just a new revision) since this tree was added to
+                // the assignment. Looked up via learning_tree_id (stable), not
+                // question_id, for the same reason as learning_tree_needs_update
+                // below - assignment_question.question_id can lag behind the tree's
+                // current root_node_question_id until "update to latest" runs.
+                $title = $assignment->assessment_type === 'learning tree'
+                    ? ($learning_tree_titles_by_learning_tree_id[$learning_trees_by_question_id[$question->id]] ?? $question->title)
+                    : $question->title;
                 $assignment->questions[$key]['title'] = $custom_question_titles[$question->id] ?: $title;
                 $assignment->questions[$key]['h5p_non_adapt'] = $question_h5p_non_adapt[$question->id] ?? null;
 
@@ -3859,8 +3907,21 @@ class AssignmentSyncQuestionController extends Controller
                     $assignment->questions[$key]['learning_tree_id'] = $learning_trees_by_question_id[$question->id];
                     $assignment->questions[$key]['number_resets_available'] = $number_resets_available_by_question_id[$question->id] ?? 0;
                     $assignment->questions[$key]['at_least_one_learning_tree_node_submission'] = $at_least_one_learning_tree_node_submission_by_question_id[$question->id] ?? false;
-                    $assignment->questions[$key]['number_of_learning_tree_paths'] = $number_of_learning_tree_paths_by_question_id[$question->id] ?? 0;
+                    // EK: look these two up by learning_tree_id (stable), not
+                    // question_id - see the note where
+                    // $number_of_learning_tree_paths_by_learning_tree_id is built.
+                    $assignment->questions[$key]['number_of_learning_tree_paths'] = $number_of_learning_tree_paths_by_learning_tree_id[$assignment->questions[$key]['learning_tree_id']] ?? 0;
                     $assignment->questions[$key]['number_of_successful_paths_for_a_reset'] = $number_of_successful_paths_for_a_reset[$question->id] ?? 0;
+                    // EK: powers the instructor-facing "this Learning Tree's structure
+                    // is different, or at least one node has a newer revision" alert -
+                    // see AssignmentQuestionLearningTree::learningTreeNeedsUpdate().
+                    $assignment->questions[$key]['learning_tree_needs_update'] = $learning_tree_needs_update_by_learning_tree_id[$assignment->questions[$key]['learning_tree_id']] ?? false;
+                    // EK: powers whether the "update to latest" modal shows the scary
+                    // "submissions will be removed" checkbox or a plain confirm - see
+                    // AssignmentQuestionLearningTree::updateRisksRealStudentSubmissions().
+                    // Defaults to true (the safe assumption) since it's only actually
+                    // computed above when learning_tree_needs_update is true.
+                    $assignment->questions[$key]['learning_tree_update_risks_real_submissions'] = $learning_tree_update_risks_real_submissions_by_learning_tree_id[$assignment->questions[$key]['learning_tree_id']] ?? true;
                 }
 
                 $assignment->questions[$key]['last_submitted'] = ($last_submitted !== 'N/A')
@@ -4326,6 +4387,103 @@ class AssignmentSyncQuestionController extends Controller
         }
         return $response;
 
+
+    }
+
+    /**
+     * Instructor-facing "update this Learning Tree to its latest revision"
+     * action - the tree-wide counterpart to updateToLatestRevision() above.
+     * Re-syncs the tree's stored structure/revision snapshot to match its
+     * live definition and removes all student work tied to the tree (see
+     * AssignmentQuestionLearningTree::updateToLatestRevision() for the full
+     * breakdown of what gets touched).
+     *
+     * @param Request $request
+     * @param Assignment $assignment
+     * @param LearningTree $learningTree
+     * @param AssignmentSyncQuestion $assignmentSyncQuestion
+     * @param AssignmentQuestionLearningTree $assignmentQuestionLearningTree
+     * @return array
+     * @throws Exception
+     */
+    public
+    function updateLearningTreeToLatestRevision(Request                        $request,
+                                                Assignment                     $assignment,
+                                                LearningTree                   $learningTree,
+                                                AssignmentSyncQuestion         $assignmentSyncQuestion,
+                                                AssignmentQuestionLearningTree $assignmentQuestionLearningTree): array
+    {
+        $response['type'] = 'error';
+        try {
+            $new_root_question = Question::find($learningTree->root_node_question_id);
+            if (!$new_root_question) {
+                $response['message'] = "The root node's question no longer exists.";
+                return $response;
+            }
+
+            //throws if there's no matching row - that would mean the tree isn't actually in this assignment
+            $assignment_question_learning_tree = $assignmentQuestionLearningTree
+                ->getAssignmentQuestionLearningTreeByLearningTreeId($assignment->id, $learningTree->id);
+            $assignment_question = DB::table('assignment_question')
+                ->where('id', $assignment_question_learning_tree->assignment_question_id)
+                ->first();
+            $current_question = $assignment_question ? Question::find($assignment_question->question_id) : null;
+            if (!$current_question) {
+                $response['message'] = "No question is currently attached to this Learning Tree in this assignment.";
+                return $response;
+            }
+
+            // EK: authorize against $current_question - whatever question is
+            // *currently* attached to this assignment (assignment_question.question_id)
+            // - not $new_root_question (the tree's live root, which may have been
+            // swapped to an entirely different question and so may not correspond
+            // to any assignment_question row yet). Same "current vs. live root"
+            // distinction as AssignmentQuestionLearningTree::updateToLatestRevision().
+            //
+            //Reuses the same authorization check as a normal question's "update to
+            //latest revision" - both ultimately gate on "can this user manage this
+            //assignment_question", which doesn't differ for a Learning Tree's root node.
+            $authorized = Gate::inspect('updateToLatestRevision', [$assignmentSyncQuestion, $assignment, $current_question]);
+            if (!$authorized->allowed()) {
+                $response['message'] = $authorized->message();
+                return $response;
+            }
+            // EK: only require the "I understand submissions will be removed"
+            // confirmation when it's actually true - recomputed here rather
+            // than trusting whatever the frontend sent, since the frontend's
+            // copy of this (used to decide whether to even show the checkbox)
+            // can go stale between page load and the button click.
+            if ($assignmentQuestionLearningTree->updateRisksRealStudentSubmissions($assignment, $learningTree, $assignmentSyncQuestion)
+                && !$request->understand_student_submissions_removed) {
+                $response['message'] = "You must confirm that you understand that student submissions will be removed.";
+                return $response;
+            }
+
+            DB::beginTransaction();
+            $update_response = $assignmentQuestionLearningTree->updateToLatestRevision($assignment, $learningTree, $assignmentSyncQuestion);
+            DB::commit();
+
+            $student_submissions_message = $update_response['student_emails_associated_with_submissions']
+                ? "In addition, the student submissions for this Learning Tree have been removed and the scores have been updated."
+                : "There were no student submissions to this Learning Tree so no student scores were updated.";
+
+            $response['message'] = "The Learning Tree has been updated.  $student_submissions_message";
+            $response['student_emails_associated_with_submissions'] = $update_response['student_emails_associated_with_submissions'];
+            // EK: the frontend can't just reload the current URL - it embeds the
+            // question id the page was originally loaded with (/questions/view/{id}),
+            // and that id may no longer be part of this assignment if the root node
+            // was swapped to a different question. Send back the new one so the
+            // frontend can navigate to a URL that's still valid.
+            $response['new_root_question_id'] = $new_root_question->id;
+            $response['type'] = 'success';
+
+        } catch (Exception $e) {
+            DB::rollback();
+            $h = new Handler(app());
+            $h->report($e);
+            $response['message'] = "We were unable to update this Learning Tree to its latest revision.  Please try again or contact us for assistance.";
+        }
+        return $response;
 
     }
 

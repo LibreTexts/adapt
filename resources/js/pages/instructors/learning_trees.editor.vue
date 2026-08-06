@@ -3,6 +3,7 @@
     <AllFormErrors :all-form-errors="allFormErrors" :modal-id="'modal-form-errors-learning-tree'"/>
     <LearningTreeProperties :learning-tree-form="learningTreeForm"
                             :learning-tree-id="learningTreeId"
+                            :author-name="authorName"
                             :framework-item-sync-learning-tree="frameworkItemSyncLearningTree"
                             @resetLearningTreePropertiesModal="resetLearningTreePropertiesModal"
                             @saveLearningTreeProperties="saveLearningTreeProperties"
@@ -213,6 +214,16 @@
           <b-button size="sm" variant="outline-secondary" @click="$bvModal.hide('modal-update-node')">
             Exit Node
           </b-button>
+          <span v-if="isAuthor">
+            <b-button size="sm"
+                      variant="primary"
+                      :disabled="isUpdating"
+                      @click="submitUpdateNode"
+            >
+              <span v-if="!isUpdating">Save</span>
+              <span v-if="isUpdating"><b-spinner small type="grow"/> Updating...</span>
+            </b-button>
+          </span>
         </div>
       </template>
       <div v-if="!showNodeModalContents">
@@ -356,6 +367,26 @@
         </div>
       </div>
     </b-modal>
+    <!-- TREE TITLE / ID BAR -->
+    <div v-if="learningTreeId && !assignmentId" id="learning-tree-title-bar" class="px-2 pt-1">
+      <h1 style="font-size: 26px; line-height: 1.1;" class="page-title mb-0 text-primary font-weight-normal">
+        <b-icon icon="tree" variant="success"/>{{ title }}
+      </h1>
+      <small class="text-muted">
+        <span>
+          Learning Tree ID: <span id="learning-tree-id-value">{{ learningTreeId }}</span>
+          <span class="text-info">
+            <a href=""
+               aria-label="Copy Learning Tree ID"
+               @click.prevent="doCopy('learning-tree-id-value')"
+            >
+              <font-awesome-icon :icon="copyIcon"/>
+            </a>
+          </span>
+        </span>
+      </small>
+      <hr style="margin-top:7px">
+    </div>
     <!-- TOP TOOLBAR -->
     <div v-if="isAuthor && (!inIFrame || fromAllLearningTrees)" id="toolbar">
       <b-icon id="properties-tooltip"
@@ -468,6 +499,7 @@ import { h5pResizer } from '~/helpers/H5PResizer'
 import 'vue-select/dist/vue-select.css'
 import { getLearningOutcomes, subjectOptions } from '~/helpers/LearningOutcomes'
 import { processReceiveMessage, addGlow, getTechnology, getTechnologySrcDoc } from '~/helpers/HandleTechnologyResponse'
+import { webworkStudentCssUpdates, h5pStudentCssUpdates } from '~/helpers/CSSUpdates'
 import LearningTreeProperties from '../../components/LearningTreeProperties.vue'
 import { doCopy } from '../../helpers/Copy'
 import ConsultInsight from '../../components/ConsultInsight.vue'
@@ -489,6 +521,7 @@ export default {
   },
   data: () => ({
     inIFrame: false,
+    assignmentId: 0,
     rootAssessmentSubmissionInfo: null,
     questionToEdit: {},
     nodeModalTitle: '',
@@ -512,6 +545,7 @@ export default {
     rootNodeQuestionId: 0,
     questionId: '',
     isAuthor: false,
+    authorName: '',
     fromAllLearningTrees: 0,
     learningOutcome: '',
     subject: null,
@@ -1017,6 +1051,35 @@ export default {
         }
       }
       let vm = this
+      // EK: root-node submission must never be possible from inside the
+      // tree, for students or instructors alike. The student case is
+      // handled by processReceiveMessage()/hideSubmitButtonsIfCannotSubmit()
+      // below once submitButtonActive is false (see openNodeModal()), but
+      // that helper's webwork branch only ever runs for role===3 - it's
+      // shared with questions.view, so widening that role check there risks
+      // changing behavior on the normal assignment page in ways this file
+      // can't see. Handle the instructor case locally instead: grey out
+      // webwork's own submit button the same way, independent of role,
+      // whenever this node is the tree's root.
+      if (this.isRootNode && getTechnology(event.origin) === 'webwork') {
+        let webworkMessage = {}
+        try {
+          webworkMessage = JSON.parse(event.data)
+        } catch (e) {
+          // not a JSON message from webwork - ignore
+        }
+        if (webworkMessage.type === 'webwork.lifecycle.loaded') {
+          event.source.postMessage(JSON.stringify(webworkStudentCssUpdates), event.origin)
+        }
+      }
+      // EK: same fix, same reasoning, for h5p - hideSubmitButtonsIfCannotSubmit()'s
+      // h5p branch is also role===3-only. h5p signals "ready" as a bare
+      // string message ('loaded' or '"loaded"'), not a JSON object with a
+      // type field like webwork, so the detection here has to match that
+      // shape instead of reusing the webwork branch's JSON.parse check.
+      if (this.isRootNode && getTechnology(event.origin) === 'h5p' && (event.data === '"loaded"' || event.data === 'loaded')) {
+        event.source.postMessage(JSON.stringify(h5pStudentCssUpdates), event.origin)
+      }
       this.processReceiveMessage(vm, this.$route.name, event)
     },
     updateLearningNodeToCompleted () {
@@ -1183,6 +1246,14 @@ export default {
       this.showNodeModalContents = false
       let questionId = this.nodeToUpdate.querySelector('input[name="question_id"]').value
       this.isRootNode = parseInt(this.nodeToUpdate.querySelector('input[name="blockid"]').value) === 0
+      // EK: submitButtonActive was hardcoded true and never updated, so
+      // hideSubmitButtonsIfCannotSubmit() (shared with questions.view) never
+      // had a reason to grey out webwork's own submit button for the root
+      // node - its condition is `!vm.submitButtonActive`, which was always
+      // false. This only covers the student (role===3) case; see the
+      // instructor-facing fix in receiveMessage() below for why webwork
+      // specifically also needs separate handling there.
+      this.submitButtonActive = !this.isRootNode
       if (this.isRootNode) {
         // EK: prefer the root block's own rendered question_id (same source
         // used for every other node) and only fall back to the component-level
@@ -1526,6 +1597,24 @@ export default {
     },
     async getLearningTreeLearningTreeId (learningTreeId) {
       try {
+        // EK: inside an assignment, the canvas must render what was
+        // actually assigned (the locked snapshot), not live edits made to
+        // the tree since - previously this always fetched the live tree
+        // regardless of assignment context, so e.g. adding a node showed
+        // up on every student's canvas immediately, even though node
+        // *content* has always been locked to the snapshot's revision via
+        // LearningTreeNodeAssignmentQuestionController::show(). isAuthor
+        // is forced false here since editing controls should never appear
+        // when viewing a locked snapshot.
+        if (this.assignmentId) {
+          const { data } = await axios.get(`/api/assignments/${this.assignmentId}/learning-tree/${learningTreeId}/snapshot`)
+          this.isAuthor = false
+          if (data.learning_tree) {
+            let learningTree = data.learning_tree.replaceAll('/assets/img', this.asset('assets/img'))
+            flowy.import(JSON.parse(learningTree))
+          }
+          return
+        }
         const { data } = await axios.get(`/api/learning-trees/${learningTreeId}`)
         this.title = data.title
         this.description = data.description
@@ -1539,6 +1628,7 @@ export default {
         this.canUndo = data.can_undo
         this.canRedo = Boolean(data.can_redo)
         this.isAuthor = data.author_id === this.user.id || this.isAdmin
+        this.authorName = data.author_name
         if (data.learning_tree) {
           let learningTree = data.learning_tree.replaceAll('/assets/img', this.asset('assets/img'))
           flowy.import(JSON.parse(learningTree))

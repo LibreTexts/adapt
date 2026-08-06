@@ -1075,7 +1075,7 @@ class Submission extends Model
                 ->join('learning_trees', 'assignment_question_learning_tree.learning_tree_id', '=', 'learning_trees.id')
                 ->where('assignment_id', $data['assignment_id'])
                 ->where('question_id', $data['question_id'])
-                ->select('learning_tree')
+                ->select('assignment_question_learning_tree.learning_tree')
                 ->get();
             $message = 'Auto-graded submission saved.';
             $submitted_work = false;

@@ -14,15 +14,19 @@
           <h2 class="h5 modal-title">
             Tree Properties
           </h2>
-          <div v-if="learningTreeId">
+          <div v-if="learningTreeId" class="d-flex align-items-center">
             <small>Learning Tree ID: <span :id="`learning-tree-id-${learningTreeId}`">{{ learningTreeId }}</span>
             </small>
             <a href=""
+               class="d-flex align-items-center ml-1"
                aria-label="Copy Learning Tree ID"
                @click.prevent="doCopy(`learning-tree-id-${learningTreeId}`)"
             >
-              <font-awesome-icon :icon="copyIcon" class="text-muted pl-1"/>
+              <font-awesome-icon :icon="copyIcon" class="text-muted"/>
             </a>
+          </div>
+          <div v-if="authorName">
+            <small>Author: {{ authorName }}</small>
           </div>
         </div>
         <button type="button" aria-label="Close"
@@ -406,6 +410,10 @@ export default {
     learningTreeId: {
       type: Number,
       default: 0
+    },
+    authorName: {
+      type: String,
+      default: ''
     },
     learningTreeForm: {
       type: Object,

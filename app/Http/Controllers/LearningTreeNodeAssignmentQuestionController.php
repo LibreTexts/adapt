@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Assignment;
+use App\AssignmentQuestionLearningTree;
 use App\Exceptions\Handler;
 use App\JWE;
 use App\LearningTree;
@@ -131,6 +132,7 @@ class LearningTreeNodeAssignmentQuestionController extends Controller
      * @param LearningTreeNodeSubmission $learningTreeNodeSubmission
      * @param LearningTreeNodeSeed $learningTreeNodeSeed
      * @param LearningTreeNodeAssignmentQuestion $learningTreeNodeAssignmentQuestion
+     * @param AssignmentQuestionLearningTree $assignmentQuestionLearningTree
      * @return array
      * @throws Exception
      */
@@ -141,7 +143,8 @@ class LearningTreeNodeAssignmentQuestionController extends Controller
                   Question                           $nodeQuestion,
                   LearningTreeNodeSubmission         $learningTreeNodeSubmission,
                   LearningTreeNodeSeed               $learningTreeNodeSeed,
-                  LearningTreeNodeAssignmentQuestion $learningTreeNodeAssignmentQuestion): array
+                  LearningTreeNodeAssignmentQuestion $learningTreeNodeAssignmentQuestion,
+                  AssignmentQuestionLearningTree     $assignmentQuestionLearningTree): array
     {
         $response['type'] = 'error';
         $authorized = Gate::inspect('show', [$learningTreeNodeAssignmentQuestion, $assignment->id, $learningTree, $nodeQuestion]);
@@ -153,12 +156,57 @@ class LearningTreeNodeAssignmentQuestionController extends Controller
         try {
             $question = new Question();
 
+            // EK: lock this node to whatever question_revision_id was
+            // recorded in this assignment's tree snapshot (set when the tree
+            // was added, or last refreshed via "update to latest revision"),
+            // rather than always serving the question's current/live content.
+            // This has to happen BEFORE formatQuestionFromDatabase() below,
+            // since that's what actually renders the revision-specific
+            // fields (title, text_question, qti_json, webwork_code, etc.)
+            // into what gets sent to the student.
+            $assignment_question_learning_tree = null;
+            try {
+                $assignment_question_learning_tree = $assignmentQuestionLearningTree
+                    ->getAssignmentQuestionLearningTreeByLearningTreeId($assignment->id, $learningTree->id);
+            } catch (Exception $e) {
+                //no matching row - nothing to lock to, so fall back to the live question below
+            }
+            $locked_question_revision_id = $assignmentQuestionLearningTree
+                ->getLockedQuestionRevisionId($assignment_question_learning_tree, $nodeQuestion->id);
+            $locked_question_revision = null;
+            if ($locked_question_revision_id) {
+                $locked_question_revision = DB::table('question_revisions')->where('id', $locked_question_revision_id)->first();
+                if ($locked_question_revision) {
+                    $nodeQuestion = $nodeQuestion->updateWithQuestionRevision($locked_question_revision);
+                }
+            }
+
             $node_question_result = $question->formatQuestionFromDatabase($request, $nodeQuestion);
+            // EK: formatQuestionFromDatabase() rewrites technology_iframe
+            // for webwork questions into a bare preview URL (via
+            // getPreviewWebworkProblemJWT()), not real <iframe> HTML - fine
+            // for whatever standalone preview use that method serves
+            // elsewhere, but getTechnologySrcAndProblemJWT() below still
+            // needs the real iframe HTML to extract sourceFilePath from,
+            // and crashes trying to parse the bare URL as HTML instead.
+            // $question and $nodeQuestion are the same object here (fill()
+            // returns $this), so restoring the real value once covers both
+            // that call and formatIframeSrc()'s use of the same property
+            // further down.
+            $locked_technology_iframe = $nodeQuestion->technology_iframe;
             $nodeQuestion = $question->fill($node_question_result);
+            $nodeQuestion->technology_iframe = $locked_technology_iframe;
             if ($nodeQuestion->technology === 'text' || $nodeQuestion->assessment_type === 'exposition') {
                 if (substr($nodeQuestion->non_technology_iframe_src, -2) === '/0') {
-                    $latest_revision_number = $nodeQuestion->latestQuestionRevision('revision_number');
-                    $nodeQuestion->non_technology_iframe_src = substr($nodeQuestion->non_technology_iframe_src, 0, -2) . '/' . $latest_revision_number;
+                    // EK: use the locked revision's own revision_number when we
+                    // have one, so the exposition iframe points at the same
+                    // revision the rest of this response was built from -
+                    // previously this always pointed at whatever the latest
+                    // revision happened to be, regardless of locking above.
+                    $revision_number = $locked_question_revision
+                        ? $locked_question_revision->revision_number
+                        : $nodeQuestion->latestQuestionRevision('revision_number');
+                    $nodeQuestion->non_technology_iframe_src = substr($nodeQuestion->non_technology_iframe_src, 0, -2) . '/' . $revision_number;
                 }
                 $min_number_of_minutes_in_exposition_node = $request->user()->fake_student || $request->user()->role !== 3
                     ? 5 * 1000
