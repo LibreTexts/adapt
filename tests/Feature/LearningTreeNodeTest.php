@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Assignment;
+use App\AssignmentQuestionLearningTree;
 use App\AssignmentSyncQuestion;
 use App\AssignToTiming;
 use App\Course;
@@ -12,6 +13,7 @@ use App\LearningTreeNodeDescription;
 use App\LearningTreeNodeSubmission;
 use App\LearningTreeReset;
 use App\Question;
+use App\QuestionRevision;
 use App\Section;
 use App\User;
 use App\Traits\Test;
@@ -59,11 +61,11 @@ class LearningTreeNodeTest extends TestCase
                 'assignment_id' => $this->assignment->id,
                 'learning_tree_id' => $this->learning_tree->id,
                 'question_id' => $this->node_question->id]);
-            LearningTreeNodeDescription::create(['user_id' => $this->student_user->id,
-                'learning_tree_id' => $this->learning_tree->id,
-                'question_id' => $this->node_question->id,
-                'title' => 'sdfdsf',
-                'description'=> 'sdfsdfsdfsd']);
+        LearningTreeNodeDescription::create(['user_id' => $this->student_user->id,
+            'learning_tree_id' => $this->learning_tree->id,
+            'question_id' => $this->node_question->id,
+            'title' => 'sdfdsf',
+            'description'=> 'sdfsdfsdfsd']);
     }
 
     /** @test */
@@ -166,6 +168,157 @@ class LearningTreeNodeTest extends TestCase
             'learning_tree_id' => $this->learning_tree->id,
             'question_id' => $this->node_question->id,
             'check_for_reset' => 0]);
+    }
+
+    // ------------------------------------------------------------------
+    // Revision-locking additions below. These build their own
+    // assignment_question_learning_tree snapshot on top of the shared
+    // setup() above, since setup() inserts assignment_question by hand
+    // (pre-dating this feature) and never creates a snapshot row at all.
+    // ------------------------------------------------------------------
+
+    /**
+     * Adds an assignment_question_learning_tree row with a real snapshot,
+     * on top of the assignment_question row setup() already created by hand,
+     * so getLockedQuestionRevisionId() has something to find.
+     */
+    private function addSnapshotWithLockedRevision(): void
+    {
+        $assignment_question = DB::table('assignment_question')
+            ->where('assignment_id', $this->assignment->id)
+            ->where('question_id', $this->root_node_question->id)
+            ->first();
+        $assignmentQuestionLearningTree = new AssignmentQuestionLearningTree();
+        DB::table('assignment_question_learning_tree')->insert([
+            'assignment_question_id' => $assignment_question->id,
+            'learning_tree_id' => $this->learning_tree->id,
+            'learning_tree' => $assignmentQuestionLearningTree->buildLearningTreeSnapshot($this->learning_tree),
+            'number_of_successful_paths_for_a_reset' => 1
+        ]);
+    }
+
+    /** @test */
+    public function node_is_served_using_its_locked_revision_not_the_live_question()
+    {
+        // NOTE: not using `title` here - show() deliberately overwrites it
+        // afterward with this node's LearningTreeNodeDescription (created in
+        // setup() above, title 'sdfdsf'), which is correct, separate
+        // behavior unrelated to revision locking. text_question is a
+        // straight passthrough from formatQuestionFromDatabase() that
+        // nothing else in show() touches.
+        factory(QuestionRevision::class)->create([
+            'question_id' => $this->node_question->id,
+            'revision_number' => 1,
+            'technology' => 'text',
+            'text_question' => 'Locked text content'
+        ]);
+        $this->addSnapshotWithLockedRevision();
+
+        // question changes after the snapshot was recorded
+        $this->node_question->text_question = 'Live text changed after locking';
+        $this->node_question->save();
+
+        $response = $this->actingAs($this->student_user)
+            ->getJson("/api/learning-tree-node-assignment-question/assignment/{$this->assignment->id}/learning-tree/{$this->learning_tree->id}/question/{$this->node_question_id}")
+            ->content();
+
+        $this->assertEquals('Locked text content', json_decode($response)->node_question->text_question);
+    }
+
+    /** @test */
+    public function node_falls_back_to_live_question_when_no_revision_was_recorded()
+    {
+        // no QuestionRevision rows created for node_question at all
+        $this->addSnapshotWithLockedRevision();
+
+        $response = $this->actingAs($this->student_user)
+            ->getJson("/api/learning-tree-node-assignment-question/assignment/{$this->assignment->id}/learning-tree/{$this->learning_tree->id}/question/{$this->node_question_id}")
+            ->content();
+
+        $this->assertEquals($this->node_question->text_question, json_decode($response)->node_question->text_question);
+    }
+
+    /** @test */
+    public function exposition_node_iframe_uses_the_locked_revision_number()
+    {
+        // Question::formatQuestionFromDatabase() builds non_technology_iframe_src
+        // from $question_info['revision_number'] - since the locked revision is
+        // merged onto $nodeQuestion before that call, the URL comes out using the
+        // locked revision's number directly (confirmed against Question.php).
+        //
+        // NOTE: getHeaderHtmlIframeSrc() itself (App\Traits\IframeFormatter)
+        // isn't a file I've seen - non_technology=1 here is a guess at what
+        // makes it actually build a URL rather than returning ''. If this
+        // still fails, the trait itself is needed to know what it actually
+        // requires.
+        $this->node_question->non_technology = 1;
+        $this->node_question->save();
+        $locked_revision = factory(QuestionRevision::class)->create([
+            'question_id' => $this->node_question->id,
+            'revision_number' => 3,
+            'technology' => 'text',
+            'non_technology' => 1
+        ]);
+        $this->addSnapshotWithLockedRevision();
+
+        $response = $this->actingAs($this->student_user)
+            ->getJson("/api/learning-tree-node-assignment-question/assignment/{$this->assignment->id}/learning-tree/{$this->learning_tree->id}/question/{$this->node_question_id}")
+            ->content();
+        $iframe_src = json_decode($response)->node_question->non_technology_iframe_src;
+
+        $this->assertStringEndsWith('/' . $locked_revision->revision_number, $iframe_src);
+    }
+
+    /** @test */
+    public function viewing_a_past_node_submission_uses_the_locked_revision()
+    {
+        // Question::getTechnologySrcAndProblemJWT()'s h5p case builds
+        // technology_src by parsing the src attribute out of an actual
+        // <iframe> tag in technology_iframe (via getIframeSrcFromHtml()) -
+        // technology_id itself isn't read directly, confirmed against
+        // Question.php.
+        $locked_iframe = '<iframe src="https://studio.libretexts.org/h5p/111/embed"></iframe>';
+        $live_iframe = '<iframe src="https://studio.libretexts.org/h5p/222/embed"></iframe>';
+
+        $this->node_question->technology = 'h5p';
+        $this->node_question->technology_iframe = $locked_iframe;
+        $this->node_question->save();
+        factory(QuestionRevision::class)->create([
+            'question_id' => $this->node_question->id,
+            'revision_number' => 1,
+            'technology' => 'h5p',
+            'technology_iframe' => $locked_iframe
+        ]);
+        $this->addSnapshotWithLockedRevision();
+
+        // question's iframe changes after the snapshot was recorded
+        $this->node_question->technology_iframe = $live_iframe;
+        $this->node_question->save();
+
+        $response = $this->actingAs($this->student_user)
+            ->getJson("api/learning-tree-node-submission/{$this->learning_tree_node_submission->id}")
+            ->content();
+        $data = json_decode($response, true);
+
+        $this->assertStringContainsString('111', $data['technology_iframe_src'] ?? '');
+        $this->assertStringNotContainsString('222', $data['technology_iframe_src'] ?? '');
+    }
+
+    /** @test */
+    public function editing_node_metadata_is_allowed_even_when_submissions_exist()
+    {
+        // learning_tree_node_submission already exists for this tree from
+        // setup() - this used to be unconditionally blocked
+        $this->actingAs($this->user)
+            ->patchJson("/api/learning-trees/nodes/{$this->learning_tree->id}", [
+                'question_id' => $this->node_question->id,
+                'title' => 'Updated node title',
+                'notes' => '',
+                'node_description' => 'Some node description',
+                'is_root_node' => false,
+                'learning_outcome' => null
+            ])
+            ->assertJson(['type' => 'success']);
     }
 
 }

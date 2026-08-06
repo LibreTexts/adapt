@@ -10,7 +10,6 @@ use App\LearningTree;
 use App\LearningTreeAnalytics;
 use App\LearningTreeNode;
 use App\LearningTreeNodeDescription;
-use App\LearningTreeNodeSubmission;
 use App\LearningTreeReset;
 use App\Question;
 use App\Score;
@@ -40,12 +39,13 @@ class LearningTreeNodeController extends Controller
             return $response;
         }
 
+        // EK: node metadata (title/notes/description/learning outcome) isn't part
+        // of the structure+revision snapshot locked onto an assignment (see
+        // AssignmentQuestionLearningTree::buildLearningTreeSnapshot()), so editing
+        // it here can never affect what an already-assigned tree is serving to
+        // students. The old "block if any submission exists anywhere" check
+        // predates revision-locking and is no longer needed.
         $response['type'] = 'error';
-        $submission_exists = LearningTreeNodeSubmission::where('learning_Tree_id', $learningTree->id)->exists();
-        if ($submission_exists) {
-            $response['message'] = "A submission exists for this Learning Tree so you cannot alter it.";
-            return $response;
-        }
         try {
             $data = $request->validated();
 

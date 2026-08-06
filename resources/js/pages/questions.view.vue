@@ -2544,6 +2544,7 @@
             <div
               v-if="questions.length
                 && questions[currentPage-1].question_revision_id !== questions[currentPage-1].question_revision_id_latest
+                && !questions[currentPage-1].learning_tree_id
                 && !questions[currentPage-1].viewing_latest_revision
                 && !isAnonymousUser"
             >
@@ -2597,8 +2598,35 @@
                 </b-button>
               </b-alert>
             </div>
+            <div
+              v-if="questions.length
+                && questions[currentPage-1].learning_tree_id
+                && questions[currentPage-1].learning_tree_needs_update"
+            >
+              <b-alert show variant="warning" class="text-center">
+                This Learning Tree's structure is different than when it was added to this assignment, or at least
+                one of its node questions has a newer revision available.
+                <b-button
+                  size="sm"
+                  variant="primary"
+                  @click.prevent="showUpdateLearningTreeRevision()"
+                >
+                  Update to Latest
+                </b-button>
+              </b-alert>
+            </div>
           </div>
         </b-container>
+        <UpdateLearningTreeRevision
+          v-if="questions.length && questions[currentPage-1] && questions[currentPage-1].learning_tree_id"
+          :key="`update-learning-tree-revision`"
+          :assignment-id="+assignmentId"
+          :learning-tree-id="+questions[currentPage-1].learning_tree_id"
+          :assignment-name="name"
+          :question-number="currentPage"
+          :submissions-at-risk="questions[currentPage-1].learning_tree_update_risks_real_submissions"
+          @reloadSingleQuestion="reloadAfterLearningTreeUpdate"
+        />
         <b-container
           v-if="questions[currentPage-1] && questions[currentPage-1].learning_tree_id"
         >
@@ -3753,6 +3781,7 @@ import QRCodeStyling from 'qr-code-styling'
 import { qrCodeConfig } from '../helpers/QrCode'
 import Report from '../components/Report.vue'
 import UpdateRevision from '../components/questions/UpdateRevision.vue'
+import UpdateLearningTreeRevision from '../components/questions/UpdateLearningTreeRevision.vue'
 import uniqueId from 'vue-select/src/utility/uniqueId'
 import {
   processReceiveMessage,
@@ -3809,6 +3838,7 @@ export default {
     SubmitMoleculeSubmission,
     SubmissionArray,
     UpdateRevision,
+    UpdateLearningTreeRevision,
     Report,
     CaseStudyNotesViewer,
     QtiJsonAnswerViewer,
@@ -4219,7 +4249,7 @@ export default {
             const settings_override = q.flashcard_card_settings ? JSON.parse(q.flashcard_card_settings) : null
             // hint lives at the question level (q.hint), but also check inside card for bulk-imported cards
             const hint = q.hint || card.hint || null
-            return { ...card, hint, question_id: q.id, question_editor_user_id: q.question_editor_user_id, student_response: q.student_response || null, settings_override }
+            return { ...card, hint, question_id: q.id, student_response: q.student_response || null, settings_override }
           } catch (e) {
             return null
           }
@@ -4295,6 +4325,10 @@ export default {
     window.removeEventListener('visibilitychange', this.visibilityChange)
   },
   async mounted () {
+    if (localStorage.learningTreeUpdateMessage) {
+      this.$noty.success(localStorage.learningTreeUpdateMessage)
+      localStorage.removeItem('learningTreeUpdateMessage')
+    }
     if (['0', '1'].includes(localStorage.presentationMode)) {
       this.presentationMode = localStorage.presentationMode === '1'
     } else {
@@ -4958,6 +4992,21 @@ export default {
         return false
       }
       this.$bvModal.show('modal-show-revision')
+    },
+    showUpdateLearningTreeRevision () {
+      this.$bvModal.show('modal-update-learning-tree-revision')
+    },
+    reloadAfterLearningTreeUpdate (newRootQuestionId) {
+      // EK: can't just reload() this page - its URL embeds the question id it
+      // was loaded with (/questions/view/{id}), and that id may no longer be
+      // part of this assignment if the root node was swapped to a different
+      // question. Navigate to the new root question's own URL instead, same
+      // pattern as reloadByQuestionNumber()/movePageByArrow() elsewhere here.
+      // The success message itself is stashed in localStorage by
+      // UpdateLearningTreeRevision.vue and shown by mounted() below, once
+      // there's actually a page around to see it.
+      const questionId = newRootQuestionId || this.questions[this.currentPage - 1].id
+      window.location.href = `/assignments/${this.assignmentId}/questions/view/${questionId}`
     },
     async showLatestRevision () {
       try {
