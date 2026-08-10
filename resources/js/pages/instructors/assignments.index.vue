@@ -758,6 +758,23 @@
       </b-modal>
 
       <b-container v-if="canViewAssignments">
+        <div v-show="course.lms_outage">
+          <b-alert variant="warning" :show="true">
+            <span class="font-weight-bold">LMS access is temporarily disabled for this course.</span>
+            <p class="mb-1 mt-2">
+              Your LMS is currently experiencing an outage, so this course's LMS connection has been temporarily
+              turned off. In the meantime, please let your students know to go to
+              <a href="https://adapt.libretexts.org" target="_blank">adapt.libretexts.org</a>, click
+              <strong>Login/Register</strong>, then click <strong>Reset your password</strong>. Once they've reset
+              their password, they'll be able to log in directly and complete their assignments.
+            </p>
+            <p class="mb-0">
+              Grades will not be passed back to your LMS for any assignment a student hasn't already entered
+              through your LMS at least once. Once LMS access is restored, you'll need to manually reconcile those
+              grades yourself under <strong>Assignment Information</strong> and <strong>Assignment Gradebook</strong>.
+            </p>
+          </b-alert>
+        </div>
         <div v-show="betaCoursesInfo.length>0">
           <b-alert variant="info" :show="true">
             <span class="font-weight-bold">

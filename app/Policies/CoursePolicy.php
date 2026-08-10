@@ -26,6 +26,16 @@ class CoursePolicy
             : Response::deny('You are not allowed to update the discipline for this course.');
 
     }
+
+    /**
+     * @return Response
+     */
+    public function manageLmsOutage(): Response
+    {
+        return Helper::isAdmin()
+            ? Response::allow()
+            : Response::deny('You are not allowed to manage LMS outages.');
+    }
     /**
      * @param User $user
      * @param Course $course

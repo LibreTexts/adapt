@@ -32,6 +32,7 @@ use App\Jobs\DeleteAssignmentDirectoryFromS3;
 use App\Jobs\ProcessImportCourse;
 use App\Jobs\ProcessResetCourse;
 use App\LmsAPI;
+use App\LmsOutageCourse;
 use App\LtiNamesAndRolesUrl;
 use App\LtiRegistration;
 use App\Section;
@@ -1784,6 +1785,7 @@ class CourseController extends Controller
                 'enrolled_users' => $course->realStudentsWhoCanSubmit()->isNotEmpty(),
                 'auto_update_question_revisions' => $course->auto_update_question_revisions,
                 'lms' => $course->lms,
+                'lms_outage' => LmsOutageCourse::where('course_id', $course->id)->whereNull('turned_on_at')->exists(),
                 'lms_error' => $lms_error,
                 'lms_course_id' => $course->lms_course_id,
                 'lms_only_entry' => $course->lms_only_entry,
