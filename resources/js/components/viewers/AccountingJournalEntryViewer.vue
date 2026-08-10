@@ -4,7 +4,7 @@
     <div v-if="qtiJson.entries && qtiJson.entries.length > 0" class="instructions-section pb-4 mb-4">
       <h5 class="mb-3">Journal Entry Descriptions:</h5>
       <div v-for="(entry, entryIndex) in qtiJson.entries" :key="`entry-instruction-${entryIndex}`" class="pb-2">
-        <strong>{{ entry.entryText }}:</strong> {{ entry.entryDescription }}
+        <strong>{{ escapeDollar(entry.entryText) }}:</strong> {{ escapeDollar(entry.entryDescription) }}
       </div>
     </div>
 
@@ -62,7 +62,7 @@
                 v-if="rowIndex === entry.rows.length - 1 && getEntryNarrative(entryIndex)"
                 class="entry-narrative"
               >
-                {{ getEntryNarrative(entryIndex) }}
+                {{ escapeDollar(getEntryNarrative(entryIndex)) }}
               </div>
             </td>
             <td>
@@ -125,7 +125,7 @@ export default {
       const options = [{ value: null, text: 'Select an entry...' }]
       if (this.qtiJson.entries) {
         this.qtiJson.entries.forEach((entry, index) => {
-          options.push({ value: index, text: entry.entryText })
+          options.push({ value: index, text: this.escapeDollar(entry.entryText) })
         })
       }
       return options
@@ -162,6 +162,13 @@ export default {
     this.loadStudentResponse()
   },
   methods: {
+    // Escapes literal dollar signs so MathJax's $...$ / $$...$$ delimiters
+    // don't try to parse plain text (account descriptions, narratives, etc.)
+    // as math. Safe to call on any string, including null/undefined.
+    escapeDollar (text) {
+      if (text === null || text === undefined) return text
+      return String(text).replace(/\$/g, '\\$')
+    },
     async getAccountTitles () {
       try {
         const { data } = await axios.get('/api/questions/valid-accounting-journal-entries')
@@ -187,7 +194,7 @@ export default {
       if (this.qtiJson.entries) {
         this.qtiJson.entries.forEach((entry, index) => {
           if (!selectedByOthers.includes(index)) {
-            options.push({ value: index, text: entry.entryText })
+            options.push({ value: index, text: this.escapeDollar(entry.entryText) })
           }
         })
       }
