@@ -161,10 +161,15 @@
           <div id="qrCodeCanvas" ref="qrCodeCanvas" class="ml-2"/>
         </b-form-group>
       </b-card>
-      <b-card :header-html="getHeaderHtml('Descriptions, Instructions, and Notifications')"
-              body-class="pb-0 card-body-pl"
+      <b-card body-class="pb-0 card-body-pl"
               class="mb-3"
       >
+        <template #header>
+          <div class="d-flex align-items-center justify-content-between">
+            <h2 class="h7 m-0">Descriptions, Instructions, and Notifications</h2>
+            <ConsultInsight :url="'https://commons.libretexts.org/insight/descriptions-instructions-and-notifications-properties'"/>
+          </div>
+        </template>
         <b-form-group
           v-if="courseId"
           label-cols-sm="4"
@@ -318,10 +323,15 @@
         </div>
       </b-card>
       <b-card
-        :header-html="getHeaderHtml('Modality')"
         body-class="pb-0 card-body-pl"
         class="mb-3"
       >
+        <template #header>
+          <div class="d-flex align-items-center justify-content-between">
+            <h2 class="h7 m-0">Modality</h2>
+            <ConsultInsight :url="'https://commons.libretexts.org/insight/modality-settings'"/>
+          </div>
+        </template>
         <b-alert :show="isFormativeCourse" alert>
           This assignment is part of a formative course. It will automatically be marked as formative.
         </b-alert>
@@ -572,10 +582,15 @@
         <div v-if="user.role ===2">
           <b-card v-if="!isFormativeCourse && form.formative !== '1'"
                   id="scoring-type-card"
-                  :header-html="getHeaderHtml('Scoring')"
                   body-class="pb-0 card-body-pl"
                   class="mb-3"
           >
+            <template #header>
+              <div class="d-flex align-items-center justify-content-between">
+                <h2 class="h7 m-0">Scoring</h2>
+                <ConsultInsight :url="'https://commons.libretexts.org/insight/scoring-settings'"/>
+              </div>
+            </template>
             <b-card-text>
               <b-form-group
                 v-if="form.source === 'a'"
@@ -838,8 +853,13 @@
           <b-card v-show="form.source === 'a'"
                   class="mb-3"
                   body-class="pb-0 card-body-pl"
-                  :header-html="getHeaderHtml('Assignment Mode')"
           >
+            <template #header>
+              <div class="d-flex align-items-center justify-content-between">
+                <h2 class="h7 m-0">Assignment Mode</h2>
+                <ConsultInsight :url="'https://commons.libretexts.org/insight/assignment-mode-settings'"/>
+              </div>
+            </template>
             <b-form-group
               label-cols-sm="4"
               label-cols-lg="3"
@@ -1292,33 +1312,38 @@
         body-class="pb-0 card-body-pl"
         class="mb-3"
       >
-          <b-form-group
-            label-cols-sm="4"
-            label-cols-lg="3"
-            label-for="lms_grade_passback"
-          >
-            <template v-slot:label>
-              Grade Passback*
-              <QuestionCircleTooltip :id="'lms_grade_passback_tooltip'"/>
-              <b-tooltip target="lms_grade_passback_tooltip" delay="250" triggers="hover focus">
-                With the automatic option, grades are passed back to your LMS each time a student submits.
-              </b-tooltip>
-            </template>
-            <b-form-radio-group v-model="form.lms_grade_passback" required stacked>
-              <b-form-radio name="lms" value="automatic">Automatic</b-form-radio>
-              <b-form-radio name="lms" value="manual">Manual</b-form-radio>
-            </b-form-radio-group>
-          </b-form-group>
+        <b-form-group
+          label-cols-sm="4"
+          label-cols-lg="3"
+          label-for="lms_grade_passback"
+        >
+          <template v-slot:label>
+            Grade Passback*
+            <QuestionCircleTooltip :id="'lms_grade_passback_tooltip'"/>
+            <b-tooltip target="lms_grade_passback_tooltip" delay="250" triggers="hover focus">
+              With the automatic option, grades are passed back to your LMS each time a student submits.
+            </b-tooltip>
+          </template>
+          <b-form-radio-group v-model="form.lms_grade_passback" required stacked>
+            <b-form-radio name="lms" value="automatic">Automatic</b-form-radio>
+            <b-form-radio name="lms" value="manual">Manual</b-form-radio>
+          </b-form-radio-group>
+        </b-form-group>
       </b-card>
 
       <!-- Secondary Approval: hidden for flashcard -->
       <b-card
         v-show="form.assessment_type !== 'flashcard' && form.assessment_type !== 'clicker' && form.source === 'a' && !isFormativeCourse && +form.formative !== 1"
         id="submit-work-card"
-        :header-html="getHeaderHtml('Secondary Approval')"
         body-class="pb-0 card-body-pl"
         class="mb-3"
       >
+        <template #header>
+          <div class="d-flex align-items-center justify-content-between">
+            <h2 class="h7 m-0">Secondary Approval</h2>
+            <ConsultInsight :url="'https://commons.libretexts.org/insight/secondary-approval-for-real-time-questions'"/>
+          </div>
+        </template>
         <b-card-text>
           <b-form-group
             label-cols-sm="4"
@@ -1395,10 +1420,15 @@
         v-show="form.assessment_type !== 'flashcard'
         && form.assessment_type !== 'clicker'
 && form.source === 'a'"
-        :header-html="getHeaderHtml('Hints')"
         body-class="pb-0 card-body-pl"
         class="mb-3"
       >
+        <template #header>
+          <div class="d-flex align-items-center justify-content-between">
+            <h2 class="h7 m-0">Hints</h2>
+            <ConsultInsight :url="'https://commons.libretexts.org/insight/hints-settings'"/>
+          </div>
+        </template>
         <b-form-group label-cols-sm="4" label-cols-lg="3" label-for="hint">
           <template v-slot:label>
             Can View Hint*
@@ -1453,10 +1483,15 @@
       <!-- Dynamic Questioning: hidden for flashcard -->
       <b-card
         v-show="form.assessment_type !== 'flashcard' && form.source === 'a'"
-        :header-html="getHeaderHtml('Dynamic Questioning')"
         body-class="pb-0 card-body-pl"
         class="mb-3"
       >
+        <template #header>
+          <div class="d-flex align-items-center justify-content-between">
+            <h2 class="h7 m-0">Dynamic Questioning</h2>
+            <ConsultInsight :url="'https://commons.libretexts.org/insight/dynamic-questioning-properties'"/>
+          </div>
+        </template>
         <b-form-group
           v-show="form.assessment_type !== 'clicker'"
           label-cols-sm="4"
@@ -1713,10 +1748,15 @@
 
       <b-card
         v-if="!isFormativeCourse && +form.formative !== 1 && form.source === 'a' && form.assessment_type !== 'clicker' && form.assessment_type !== 'flashcard'"
-        :header-html="getHeaderHtml('Late Policy')"
         body-class="pb-0 card-body-pl"
         class="mb-3"
       >
+        <template #header>
+          <div class="d-flex align-items-center justify-content-between">
+            <h2 class="h7 m-0">Late Policy</h2>
+            <ConsultInsight :url="'https://commons.libretexts.org/insight/late-policy-setting'"/>
+          </div>
+        </template>
         <b-card-text>
           <b-form-group label-cols-sm="4" label-cols-lg="3" label-for="late_policy">
             <template v-slot:label>
@@ -1794,10 +1834,15 @@
         </b-card-text>
       </b-card>
       <b-card
-        :header-html="getHeaderHtml('Deadlines')"
         body-class="pb-3 card-body-pl"
         class="mb-3"
       >
+        <template #header>
+          <div class="d-flex align-items-center justify-content-between">
+            <h2 class="h7 m-0">Deadlines</h2>
+            <ConsultInsight :url="'https://commons.libretexts.org/insight/deadlines-settings'"/>
+          </div>
+        </template>
         <b-form-group
           v-if="!courseId"
           label-cols-sm="4"
@@ -2020,6 +2065,7 @@ import AutoRelease from './AutoRelease.vue'
 import { defaultAssignTos, getAssignmentTemplateOptions } from '~/helpers/AssignmentProperties'
 import { updateCompletionSplitOpenEndedSubmissionPercentage } from '~/helpers/CompletionScoringMode'
 import AllFormErrors from '~/components/AllFormErrors'
+import ConsultInsight from '~/components/ConsultInsight'
 import { fixDatePicker } from '~/helpers/accessibility/FixDatePicker'
 import { fixCKEditor } from '~/helpers/accessibility/fixCKEditor'
 import CKEditorFileToLinkUploader from './CKEditorFileToLinkUploader.vue'
@@ -2049,7 +2095,8 @@ export default {
     ErrorMessage,
     ckeditor: CKEditor.component,
     AllFormErrors,
-    FontAwesomeIcon
+    FontAwesomeIcon,
+    ConsultInsight
   },
   middleware: 'auth',
   props: {
