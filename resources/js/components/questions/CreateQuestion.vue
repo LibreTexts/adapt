@@ -649,10 +649,18 @@
         />
         <div v-if="showQtiAnswer && questionForm.solution_html" v-html="questionForm.solution_html"/>
       </div>
-      <ViewQuestions v-if="questionForm.technology !== 'qti'"
-                     :key="questionToViewKey"
-                     :question-to-view="questionToView"
-      />
+      <div v-if="questionForm.technology !== 'qti'">
+        <SolutionFileHtml
+          v-if="questionToView.solution_html || questionToView.render_webwork_solution"
+          :key="`preview-solution-${questionToViewKey}`"
+          :questions="[questionToView]"
+          :current-page="1"
+        />
+        <ViewQuestions
+          :key="questionToViewKey"
+          :question-to-view="questionToView"
+        />
+      </div>
       <template #modal-footer>
         <b-button
           variant="primary"
@@ -3199,6 +3207,7 @@ const textEntryInteractionJson = {
 export default {
   name: 'CreateQuestion',
   components: {
+    SolutionFileHtml,
     Autocomplete,
     AccountingMultiPartComputation,
     WebworkMacroPickerModal,
@@ -6143,6 +6152,7 @@ export default {
             return false
           }
           this.questionToView = data.question
+          this.questionToView.solution_type = data.question.solution_html || data.question.render_webwork_solution ? 'html' : null
         } else {
           switch (this.qtiQuestionType) {
             case ('three_d_model_multiple_choice'):
