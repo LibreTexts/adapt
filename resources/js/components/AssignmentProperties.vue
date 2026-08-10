@@ -1741,7 +1741,7 @@
             </b-form-radio-group>
           </b-form-group>
           <div v-show="form.late_policy === 'deduction'">
-            <b-form-group label-cols-sm="4" label-cols-lg="3" label="Late Deduction Percent"
+            <b-form-group label-cols-sm="4" label-cols-lg="3" label="Late Deduction Percent*"
                           label-for="late_deduction_percent"
             >
               <b-form-row>
