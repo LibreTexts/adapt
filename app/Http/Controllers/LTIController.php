@@ -146,8 +146,8 @@ class LTIController extends Controller
 
             $launch->update(['assignment_id' => $assignment->id]);
             $launch_data = json_decode($launch->jwt_body, true);
-            $assignments_and_grades_url = $launch_data["https://purl.imsglobal.org/spec/lti-ags/claim/endpoint"]["lineitem"];
-            /*LtiAssignmentsAndGradesUrl::updateOrCreate(
+            /*$assignments_and_grades_url = $launch_data["https://purl.imsglobal.org/spec/lti-ags/claim/endpoint"]["lineitem"];
+            LtiAssignmentsAndGradesUrl::updateOrCreate(
                 ['assignment_id' => $assignment->id],
                 ['url' => $assignments_and_grades_url]
             );*/
