@@ -320,6 +320,9 @@ export async function editAssignmentProperties (assignmentProperties, vm) {
   vm.form.default_points_per_question = assignmentProperties.default_points_per_question
   vm.form.total_points = assignmentProperties.total_points
   vm.showDefaultPointsPerQuestion = assignmentProperties.points_per_question === 'number of points'
+  if (vm.showDefaultPointsPerQuestion && !vm.form.default_points_per_question) {
+    vm.form.default_points_per_question = 10
+  }
   vm.form.points_per_question = assignmentProperties.points_per_question
   vm.form.scoring_type = assignmentProperties.scoring_type
   if (vm.form.scoring_type === 'c') {
