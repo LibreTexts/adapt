@@ -373,12 +373,14 @@ class QuestionBankController extends Controller
                         $question_ids = $question_ids->where('qti_json_type', $nursing_formatted_question_types_with_values[$request->question_type]);
                     } else if ($request->question_type === 'discuss_it') {
                         $question_ids = $question_ids->where('qti_json_type', 'discuss_it');
-                    } else if (in_array($request->question_type, ['Marker', 'Submit Molecule'])) {
+                    } else if (in_array($request->question_type, ['Marker', 'Submit Molecule', 'Flashcard', 'Accounting Journal Entry', 'Accounting Report', 'Accounting Multi Part Computation'])) {
                         $question_ids = $question_ids->where('qti_json_type', strtolower(str_replace(' ', '_', $request->question_type)));
                     } else if ($request->qti_content_type === 'sketcher') {
                         $question_ids = $question_ids->whereIn('qti_json_type', ['marker', 'submit_molecule']);
+                    } else if ($request->qti_content_type === 'accounting') {
+                        $question_ids = $question_ids->whereIn('qti_json_type', ['accounting_journal_entry', 'accounting_report', 'accounting_multi_part_computation']);
                     } else {
-                        $basic_types = ['multiple_choice', 'true_false', 'numerical', 'multi_numerical','multiple_answers', 'fill_in_the_blank', 'select_choice', 'matching'];
+                        $basic_types = ['multiple_choice', 'true_false', 'numerical', 'multi_numerical','multiple_answers', 'fill_in_the_blank', 'select_choice', 'matching', 'flashcard'];
                         switch ($qti_question_type) {
                             case('basic'):
                                 $question_ids = $question_ids->whereIn('qti_json_type', $basic_types);
@@ -491,6 +493,18 @@ class QuestionBankController extends Controller
                 }
                 if ($questions[$key]->qti_json_type === 'discuss_it') {
                     $questions[$key]->question_type = 'Discuss-it';
+                }
+                if ($questions[$key]->qti_json_type === 'flashcard') {
+                    $questions[$key]->question_type = 'Flashcard';
+                }
+                if ($questions[$key]->qti_json_type === 'accounting_journal_entry') {
+                    $questions[$key]->question_type = 'Accounting Journal Entry';
+                }
+                if ($questions[$key]->qti_json_type === 'accounting_report') {
+                    $questions[$key]->question_type = 'Accounting Report';
+                }
+                if ($questions[$key]->qti_json_type === 'accounting_multi_part_computation') {
+                    $questions[$key]->question_type = 'Accounting Multi Part Computation';
                 }
                 if (!$value->technology_id) {
                     $questions[$key]->technology_id = 'None';

@@ -58,6 +58,7 @@
                                   :technology="allQuestionsTechnology"
                                   :formatted-question-type="formattedQuestionType"
                                   :interactive-formatted-types="interactiveH5PFormattedTypes"
+                                  :qti-content-type="qtiContentType"
                                   @setFormattedQuestionType="setFormattedQuestionType"
       />
       <template #modal-footer="{ ok }">
@@ -1010,6 +1011,9 @@
                         <b-form-radio value="sketcher">
                           Sketcher
                         </b-form-radio>
+                        <b-form-radio value="accounting">
+                          Accounting
+                        </b-form-radio>
                         <b-form-radio value="discuss_it" @click="setFormattedQuestionType('discuss_it')">
                           Discuss-it
                         </b-form-radio>
@@ -1072,7 +1076,7 @@
                     </b-form>
                   </div>
                   <b-form-group
-                    v-show="['basic','nursing','all','sketcher'].includes(qtiContentType)"
+                    v-show="['basic','nursing','all','sketcher','accounting'].includes(qtiContentType)"
                     label-for="adapt-id"
                     label-cols-sm="1"
                     label-align-sm="right"
@@ -1080,7 +1084,7 @@
                     label="Type"
                   >
                     <span style="font-size:14px" :class="!formattedQuestionType ? 'text-muted' : ''">{{
-                        formattedQuestionType ? formattedQuestionType : 'None Chosen'
+                        formattedQuestionType ? displayFormattedQuestionType(formattedQuestionType) : 'None Chosen'
                       }}</span>
                     <span class="ml-2">
                       <b-button variant="outline-info" size="sm" @click="initChooseType()">
@@ -1922,6 +1926,23 @@ export default {
       }
       return false
     },
+    displayFormattedQuestionType (formattedQuestionType) {
+      // The underlying stored/matched value always stays 'Accounting Journal Entry' /
+      // 'Accounting Report' / 'Accounting Multi Part Computation' - this only changes
+      // what's shown. When 'All' is selected, types from every bucket are mixed
+      // together, so keep the 'Accounting' qualifier for clarity. When a specific
+      // bucket (e.g. Accounting) is already selected, the qualifier is redundant,
+      // so trim it.
+      if (this.qtiContentType === 'all') {
+        return formattedQuestionType
+      }
+      const accountingDisplayLabels = {
+        'Accounting Journal Entry': 'Journal Entry',
+        'Accounting Report': 'Report',
+        'Accounting Multi Part Computation': 'Multi-part Computation'
+      }
+      return accountingDisplayLabels[formattedQuestionType] || formattedQuestionType
+    },
     nursingFormattedQuestionTypes () {
       return ['Bow Tie',
         'Multiple Choice',
@@ -1947,15 +1968,18 @@ export default {
       this.formattedQuestionTypesOptionsByTechnology = this.formattedQuestionTypesOptions
       if (this.allQuestionsTechnology !== 'any') {
         this.formattedQuestionTypesOptionsByTechnology = this.formattedQuestionTypesOptionsByTechnology.filter(item => item.technology === this.allQuestionsTechnology)
-        if (['basic', 'nursing', 'sketcher'].includes(this.qtiContentType)) {
+        if (['basic', 'nursing', 'sketcher', 'accounting'].includes(this.qtiContentType)) {
           let options
           switch (this.qtiContentType) {
             case ('basic'):
               options = [
-                'Multiple Choice', 'True/False', 'Single Numerical', 'Multi Numerical', 'Multiple Answer', 'Fill-in-the-blank', 'Select Choice', 'Matching']
+                'Multiple Choice', 'True/False', 'Single Numerical', 'Multi Numerical', 'Multiple Answer', 'Fill-in-the-blank', 'Select Choice', 'Matching', 'Flashcard']
               break
             case ('sketcher'):
               options = ['Submit Molecule', 'Marker']
+              break
+            case ('accounting'):
+              options = ['Accounting Journal Entry', 'Accounting Report', 'Accounting Multi Part Computation']
               break
             case ('nursing'):
               options = this.nursingFormattedQuestionTypes()

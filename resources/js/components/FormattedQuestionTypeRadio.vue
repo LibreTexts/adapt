@@ -47,7 +47,7 @@
                       :value="option.formatted_question_type"
                       @change="setFormattedQuestionType(option.formatted_question_type)"
         >
-          {{ option.formatted_question_type }}
+          {{ displayFormattedQuestionType(option.formatted_question_type) }}
         </b-form-radio>
       </div>
     </div>
@@ -71,6 +71,10 @@ export default {
       type: Array,
       default: () => {
       }
+    },
+    qtiContentType: {
+      type: String,
+      default: ''
     }
   },
   data: () => ({
@@ -98,6 +102,21 @@ export default {
     }
   },
   methods: {
+    displayFormattedQuestionType (formattedQuestionType) {
+      // Mirrors the same rule in QuestionsGet.vue: show the full 'Accounting ...'
+      // label when 'All' is selected (types from every bucket are mixed together),
+      // trim the redundant 'Accounting ' prefix when a specific bucket is already
+      // selected. The underlying value/v-model is untouched either way.
+      if (this.qtiContentType === 'all') {
+        return formattedQuestionType
+      }
+      const accountingDisplayLabels = {
+        'Accounting Journal Entry': 'Journal Entry',
+        'Accounting Report': 'Report',
+        'Accounting Multi Part Computation': 'Multi-part Computation'
+      }
+      return accountingDisplayLabels[formattedQuestionType] || formattedQuestionType
+    },
     setH5pTypeToView (h5pTypeToView) {
       this.formattedQuestionTypesToView = this.formattedQuestionTypesOptionsByTechnology
       if (h5pTypeToView === 'auto-graded') {
