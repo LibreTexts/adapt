@@ -134,7 +134,7 @@ class LTIController extends Controller
                 ->where('id', $assignment->course->id)
                 ->update(['lms_course_name' => session()->get('lms_course_name')]);
 
-            $current_lti_launch_by_assignment_id = LTILaunch::where('assignment_id', $assignment->id)
+            $current_lti_launch_by_assignment_id = LtiLaunch::where('assignment_id', $assignment->id)
                 ->where('user_id', $request->user()->id)
                 ->where('launch_id', '<>', session()->get('lms_launch_id'))
                 ->first();
@@ -145,12 +145,12 @@ class LTIController extends Controller
             $launch = LtiLaunch::where('launch_id', session()->get('lms_launch_id'))->first();
 
             $launch->update(['assignment_id' => $assignment->id]);
-            $launch_data = json_decode($launch->jwt_body, true);
-            /*$assignments_and_grades_url = $launch_data["https://purl.imsglobal.org/spec/lti-ags/claim/endpoint"]["lineitem"];
+            /*$launch_data = json_decode($launch->jwt_body, true);
+            $assignments_and_grades_url = $launch_data["https://purl.imsglobal.org/spec/lti-ags/claim/endpoint"]["lineitem"];
             LtiAssignmentsAndGradesUrl::updateOrCreate(
                 ['assignment_id' => $assignment->id],
                 ['url' => $assignments_and_grades_url]
-            );*/
+            );
             $names_and_roles_url = $launch_data["https://purl.imsglobal.org/spec/lti-nrps/claim/namesroleservice"]["context_memberships_url"];
             /*LtiNamesAndRolesUrl::updateOrCreate(
                 ['course_id' => $assignment->course->id],
