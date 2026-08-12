@@ -145,7 +145,7 @@
                triggers="hover focus"
     >
       If you would like to serve your assignments through an LMS, we'll let your LMS handle assigning students and the
-      course gradebook. Currently we support Canvas but will be expanding per instructor request.
+      course gradebook. Currently we support Canvas, D2L, and Blackboard.
     </b-tooltip>
     <b-tooltip target="public_tooltip"
                delay="250"

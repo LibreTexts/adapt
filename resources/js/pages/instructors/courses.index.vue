@@ -346,11 +346,29 @@
     <b-modal
       id="modal-course-details"
       ref="modal"
-      title="Course Details"
       size="lg"
       :no-close-on-backdrop="true"
       @hidden="resetModalForms"
     >
+      <template #modal-header>
+        <div class="d-flex align-items-center justify-content-between w-100">
+          <h5 class="modal-title mb-0">
+            Course Details
+          </h5>
+          <div class="d-flex align-items-center">
+            <ConsultInsight :url="'https://commons.libretexts.org/insight/adapt-course-properties---general-information'"
+                            class="mr-2"
+            />
+            <button type="button"
+                    class="close"
+                    aria-label="Close"
+                    @click="$bvModal.hide('modal-course-details')"
+            >
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+        </div>
+      </template>
       <CourseForm :form="newCourseForm"/>
       <template #modal-footer>
         <b-button

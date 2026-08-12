@@ -11,7 +11,15 @@
                background="#FFFFFF"
       />
       <div v-if="!isLoading && [2,5].includes(user.role)">
-        <b-card header="default" header-html="<h2 class=&quot;h7&quot;>General Information</h2>">
+        <b-card>
+          <template #header>
+            <div class="d-flex align-items-center justify-content-between">
+              <h2 class="h7 m-0">
+                General Information
+              </h2>
+              <ConsultInsight :url="'https://commons.libretexts.org/insight/adapt-course-properties---general-information'"/>
+            </div>
+          </template>
           <b-card-text>
             <CourseForm :form="editCourseForm" :course="course"/>
             <b-button class="float-right" size="sm" variant="primary" @click="updateCourse">
@@ -33,12 +41,14 @@ import Loading from 'vue-loading-overlay'
 import 'vue-loading-overlay/dist/vue-loading.css'
 import { fixInvalid } from '~/helpers/accessibility/FixInvalid'
 import AllFormErrors from '~/components/AllFormErrors'
+import ConsultInsight from '~/components/ConsultInsight'
 
 export default {
   components: {
     CourseForm,
     AllFormErrors,
-    Loading
+    Loading,
+    ConsultInsight
   },
   metaInfo () {
     return { title: 'Course General Information' }
