@@ -1825,6 +1825,9 @@
                   />
                   {{ getTitle(currentPage) }}
                 </h1>
+                <b-badge v-if="masteryRetakeEnabled && masteryAttempt" variant="info" class="mr-2">
+                  Assignment attempt {{ masteryAttempt.number }} · {{ capitalize(masteryAttempt.status.replace('_', ' ')) }}
+                </b-badge>
                 <small v-show="questionStatus"
                        :class="getQuestionStatusClass()"
                        style="position: relative; top: -2px;"
@@ -1867,6 +1870,38 @@
                 </small>
               </b-col>
             </b-row>
+            <b-alert
+              v-if="masteryRetakeEnabled && masteryAttempt && masteryAttempt.status !== 'in_progress'"
+              :variant="masteryAttempt.status === 'mastered' ? 'success' : 'info'"
+              show
+              class="mt-2 mb-1"
+            >
+              <div class="d-flex flex-wrap align-items-center justify-content-between">
+                <div>
+                  <strong>{{ masteryAttemptResult }}</strong>
+                  <div v-if="masteryCanRetake">
+                    Practice every question again. Your highest score stays the same.
+                  </div>
+                  <div v-else>
+                    No additional assignment attempts are available.
+                  </div>
+                </div>
+                <b-button
+                  v-if="masteryCanRetake"
+                  variant="primary"
+                  class="ml-sm-3 mt-2 mt-sm-0"
+                  :disabled="startingMasteryRetake"
+                  @click="startMasteryRetake"
+                >
+                  <template v-if="startingMasteryRetake">
+                    Preparing Attempt {{ masteryAttempt.number * 1 + 1 }}...
+                  </template>
+                  <template v-else>
+                    Start Attempt {{ masteryAttempt.number * 1 + 1 }}
+                  </template>
+                </b-button>
+              </div>
+            </b-alert>
           </b-container>
         </div>
       </div>
@@ -2771,7 +2806,7 @@
                         @resetResponse="resetSubmission"
                       />
                       <b-alert :show="!submitButtonActive" variant="info">
-                        No additional submissions will be accepted.
+                        {{ closedSubmissionMessage }}
                       </b-alert>
                     </div>
                     <div style="margin-left: auto">
@@ -3160,7 +3195,7 @@
                               @cardChanged="cardChanged"
                             />
                             <b-alert :show="!submitButtonActive && assessmentType !== 'clicker'" variant="info">
-                              No additional submissions will be accepted.
+                              {{ closedSubmissionMessage }}
                             </b-alert>
                           </div>
                           <div
@@ -3200,7 +3235,7 @@
                               />
                             </div>
                             <b-alert :show="!submitButtonActive && iframeDomLoaded" variant="info">
-                              No additional submissions will be accepted.
+                              {{ closedSubmissionMessage }}
                             </b-alert>
                           </div>
                         </div>
@@ -3217,7 +3252,7 @@
                         </b-button>
                       </div>
                       <b-alert :show="!submitButtonActive" variant="info" class="mt-3">
-                        No additional submissions will be accepted.
+                        {{ closedSubmissionMessage }}
                       </b-alert>
                     </div>
                     <div v-if="isOpenEndedTextSubmission && user.role === 3 && !isAnonymousUser">
@@ -3614,7 +3649,7 @@
                     :question-id="+questions[currentPage-1].id"
                   />
                   <b-alert :show="!submitButtonActive" variant="info">
-                    No additional submissions will be accepted.
+                    {{ closedSubmissionMessage }}
                   </b-alert>
                 </div>
               </div>
@@ -3895,6 +3930,9 @@ export default {
     modalSubmissionAcceptedTitle: 'Submission Accepted',
     reportCacheKey: 0,
     completedAllAssignmentQuestions: false,
+    masteryRetakeEnabled: false,
+    masteryAttempt: null,
+    startingMasteryRetake: false,
     submissionArray: [],
     unconfirmedSubmission: [],
     questionNumbersShownOutOfIframe: true,
@@ -4209,6 +4247,36 @@ export default {
     ...mapGetters({
       user: 'auth/user'
     }),
+    // Derive the completion message and action from the server-provided lifecycle state.
+    masteryCanRetake () {
+      return Boolean(this.masteryRetakeEnabled && this.masteryAttempt && this.masteryAttempt.can_retake)
+    },
+    closedSubmissionMessage () {
+      if (!this.masteryRetakeEnabled || !this.masteryAttempt) {
+        const question = this.questions[this.currentPage - 1]
+        if (question && Boolean(Number(question.answered_correctly_at_least_once))) {
+          return 'This question has been answered correctly.'
+        }
+        if (question && this.numberOfAllowedAttempts !== 'unlimited' &&
+          Number(question.submission_count) >= Number(this.numberOfAllowedAttempts)) {
+          return 'This question has reached its response limit.'
+        }
+        return 'No additional submissions will be accepted.'
+      }
+      if (this.masteryAttempt.status === 'in_progress') {
+        return `A response has been submitted for this question in assignment attempt ${this.masteryAttempt.number}.`
+      }
+      if (this.masteryCanRetake) {
+        return `Assignment attempt ${this.masteryAttempt.number} is complete. Start a new attempt to answer this question again.`
+      }
+      return `Assignment attempt ${this.masteryAttempt.number} is complete. No additional assignment attempts are available.`
+    },
+    masteryAttemptResult () {
+      if (!this.masteryAttempt) return ''
+      return this.masteryAttempt.status === 'mastered'
+        ? `Assignment mastered in attempt ${this.masteryAttempt.number}.`
+        : `Attempt ${this.masteryAttempt.number} complete — ${this.masteryAttempt.score * 1}/${this.masteryAttempt.possible_score * 1} points.`
+    },
     allFlashcards () {
       if (this.assessmentType !== 'flashcard') return []
       return this.questions
@@ -5192,6 +5260,26 @@ export default {
       this.processingUpdatingQuestionView = false
     },
     uniqueId,
+    // Ask the server to replace current question state before loading the next assignment attempt.
+    async startMasteryRetake () {
+      if (!this.masteryCanRetake || this.startingMasteryRetake) return
+      this.startingMasteryRetake = true
+      try {
+        const { data } = await axios.post(`/api/assignments/${this.assignmentId}/mastery-attempts`, {
+          previous_attempt_id: this.masteryAttempt.id
+        })
+        this.masteryAttempt = data.mastery_attempt
+        window.location.reload()
+      } catch (error) {
+        const message = error.response && error.response.data && error.response.data.message
+          ? error.response.data.message
+          : 'A new assignment attempt could not be prepared. Please try again.'
+        this.$noty.error(message)
+        if (error.response && error.response.status === 409) window.location.reload()
+      } finally {
+        this.startingMasteryRetake = false
+      }
+    },
     hideModalSubmissionAccepted () {
       this.modalSubmissionAcceptedTitle = 'Submission Accepted'
       this.saveSubmissionConfirmation()
@@ -5300,6 +5388,12 @@ export default {
       return learningTreeId
     },
     async canSubmit () {
+      if (this.masteryRetakeEnabled && this.masteryAttempt && this.masteryAttempt.status !== 'in_progress') {
+        this.submitButtonActive = false
+        this.questionStatus = 'closed'
+        this.canViewHint = false
+        return
+      }
       try {
         const isForge = +this.isForge()
         const { data } = await axios.get(`/api/submissions/can-submit/assignment/${this.assignmentId}/question/${this.questions[this.currentPage - 1].id}/is-forge/${isForge}`)
@@ -5321,7 +5415,7 @@ export default {
       }
     },
     async saveSubmissionConfirmation () {
-      if (this.completedAllAssignmentQuestions) {
+      if (this.completedAllAssignmentQuestions && !this.masteryRetakeEnabled) {
         this.$bvModal.show('modal-assignment-completed')
       }
       try {
@@ -6609,6 +6703,9 @@ export default {
       }
 
       console.log(data)
+      if (data.mastery_attempt) {
+        this.masteryAttempt = data.mastery_attempt
+      }
       this.cacheKey++
       this.questions[this.currentPage - 1].submissions_array = []
       this.submissionDataType = ['success', 'info'].includes(data.type) ? data.type : 'danger'
@@ -7123,6 +7220,7 @@ export default {
         this.assignmentCanSubmitWork = assignment.can_submit_work
         this.canContactInstructorAutoGraded = assignment.can_contact_instructor_auto_graded
         this.algorithmicAssignment = Boolean(assignment.algorithmic)
+        this.masteryRetakeEnabled = Boolean(assignment.mastery_retake_enabled)
         this.canContactGrader = assignment.can_contact_grader
         this.betaAssignmentsExist = assignment.beta_assignments_exist
         this.isBetaAssignment = assignment.is_beta_assignment
@@ -7254,6 +7352,7 @@ export default {
         }
 
         this.questions = data.questions
+        this.masteryAttempt = data.mastery_attempt || null
         this.isInstructorLoggedInAsStudent = data.is_instructor_logged_in_as_student
         this.isInstructorWithAnonymousView = data.is_instructor_with_anonymous_view
         if (this.isInstructor()) {

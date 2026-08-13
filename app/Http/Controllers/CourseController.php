@@ -2176,6 +2176,7 @@ class CourseController extends Controller
                 'maximum_number_of_allowed_attempts_notifications',
                 'submitted_works',
                 'submitted_work_pending_scores',
+                'mastery_assignment_attempts',
                 'h5p_activity_sets'];
             foreach ($tables as $table) {
                 DB::table($table)->whereIn('assignment_id', $assignment_ids)->delete();

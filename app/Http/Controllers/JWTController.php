@@ -8,11 +8,13 @@ use App\AssignmentSyncQuestion;
 use App\CanGiveUp;
 use App\DataShop;
 use App\Exceptions\Handler;
+use App\Exceptions\MasteryRetakeConflictException;
 use App\Http\Requests\StoreSubmission;
 use App\JWE;
 use App\LearningTree;
 use App\LearningTreeNodeSubmission;
 use App\Score;
+use App\Services\MasteryAssignmentAttemptService;
 use App\Submission;
 use App\UnconfirmedSubmission;
 use App\User;
@@ -155,6 +157,17 @@ class JWTController extends Controller
                 throw new Exception($problemJWT->adapt->technology . " is not an accepted technology.  Please contact us for assistance.");
             }
 
+            $callback_assignment = Assignment::find($problemJWT->adapt->assignment_id);
+            $callback_user = User::find($problemJWT->sub);
+            if ($callback_assignment && $callback_assignment->mastery_retake_enabled) {
+                app(MasteryAssignmentAttemptService::class)->validateSubmission(
+                    $callback_assignment,
+                    $callback_user,
+                    $problemJWT->adapt->mastery_attempt_id ?? null,
+                    (int)$problemJWT->adapt->question_id
+                );
+            }
+
             if ($problemJWT->adapt->technology === 'webwork' && isset($answerJWT->score['answers'])) {
                 $answers = $answerJWT->score['answers'];
                 foreach ($answers as $value) {
@@ -190,6 +203,7 @@ class JWTController extends Controller
             $request['assignment_id'] = $problemJWT->adapt->assignment_id;
             $request['question_id'] = $problemJWT->adapt->question_id;
             $request['technology'] = $problemJWT->adapt->technology;
+            $request['mastery_attempt_id'] = $problemJWT->adapt->mastery_attempt_id ?? null;
             $request['learning_tree_id'] = $problemJWT->adapt->learning_tree_id ?? null;
             $request['branch_id'] = $problemJWT->adapt->branch_id ?? null;
             //nothing to be saved since this is a learning tree assignment and it's part of a remediation
@@ -225,6 +239,12 @@ class JWTController extends Controller
             }
             return $Submission->store($request, new Submission(), new Assignment(), new Score(), new DataShop(), new AssignmentSyncQuestion());
 
+        } catch (MasteryRetakeConflictException $e) {
+            return response()->json([
+                'type' => 'error',
+                'reason' => $e->reason(),
+                'message' => $e->getMessage()
+            ], 409);
         } catch (Exception $e) {
             if ($log_exception) {
                 $h = new Handler(app());

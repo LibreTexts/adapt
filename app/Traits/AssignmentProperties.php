@@ -193,6 +193,8 @@ trait AssignmentProperties
             'submitted_work_format' =>+$request->can_submit_work ? json_encode($request->submitted_work_format) : null,
             'hint_penalty' => $this->getHintPenalty($request),
             'algorithmic' => $this->getAlgorithmic($request),
+            'mastery_retake_enabled' => (int)$request->mastery_retake_enabled,
+            'mastery_number_of_allowed_attempts' => $request->mastery_number_of_allowed_attempts,
             'solutions_availability' => $this->getSolutionsAvailability($request),
             'flashcard_settings' => $request->assessment_type === 'flashcard' ? json_encode($request->flashcard_settings) : null,
             // learning tree
@@ -233,6 +235,8 @@ trait AssignmentProperties
     public function getDataToUpdate($data, $request)
     {
         $data['number_of_allowed_attempts'] = $this->getNumberOfAllowedAttempts($request);
+        $data['mastery_retake_enabled'] = (int)$request->mastery_retake_enabled;
+        $data['mastery_number_of_allowed_attempts'] = $request->mastery_number_of_allowed_attempts;
         $data['number_of_allowed_attempts_penalty'] = $this->getNumberOfAllowedAttemptsPenalty($request);
         $data['can_view_hint'] = $request->can_view_hint;
         $data['hint_penalty'] = $this->getHintPenalty($request);

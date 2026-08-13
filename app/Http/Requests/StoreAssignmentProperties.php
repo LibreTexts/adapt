@@ -19,6 +19,8 @@ use App\Rules\IsValidPeriodOfTime;
 use App\Rules\IsADateLaterThan;
 use App\Rules\IsValidAssesmentTypeForScoringType;
 use App\Rules\SubmittedWorkFormatRule;
+use App\Services\MasteryAssignmentAttemptService;
+use App\Services\MasteryRetakeEligibility;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -47,6 +49,12 @@ class StoreAssignmentProperties extends FormRequest
      */
     protected function prepareForValidation(): void
     {
+        if (!$this->has('mastery_retake_enabled')) {
+            $this->merge(['mastery_retake_enabled' => 0]);
+        }
+        if (!$this->has('mastery_number_of_allowed_attempts')) {
+            $this->merge(['mastery_number_of_allowed_attempts' => 'unlimited']);
+        }
         if ($this->assessment_type !== 'flashcard') {
             $this->merge(['flashcard_settings' => null]);
         }
@@ -77,6 +85,11 @@ class StoreAssignmentProperties extends FormRequest
                 'default_open_ended_submission_type' => Rule::in(['file', 'rich text', 'audio', 0]),
                 'notifications' => Rule::in([0, 1]),
                 'formative' => Rule::in([0, 1]),
+                'mastery_retake_enabled' => Rule::in([0, 1]),
+                'mastery_number_of_allowed_attempts' => [
+                    'required_if:mastery_retake_enabled,1',
+                    new IsValidNumberOfAllowedAttempts()
+                ],
                 'can_contact_instructor_auto_graded' => Rule::in(['always', 'before submission', 'before due date', 'after due date', 'never'])
             ];
             if (!$formative) {
@@ -242,6 +255,52 @@ class StoreAssignmentProperties extends FormRequest
             }
         }
         return $rules;
+    }
+
+    /**
+     * Apply whole-assignment attempt eligibility and student-work locks after field validation.
+     */
+    public function withValidator($validator): void
+    {
+        $validator->after(function ($validator) {
+            $assignment = $this->route('assignment');
+            if (!($assignment instanceof Assignment)) {
+                $assignment = new Assignment();
+            }
+
+            if ($assignment->exists
+                && app(MasteryAssignmentAttemptService::class)->hasRealStudentAttempts($assignment)
+                && (bool)$assignment->mastery_retake_enabled !== (bool)$this->mastery_retake_enabled) {
+                $validator->errors()->add(
+                    'mastery_retake_enabled',
+                    'Whole-assignment attempts cannot be enabled or disabled after a student attempt exists.'
+                );
+                return;
+            }
+
+            if ($assignment->exists
+                && !(bool)$assignment->mastery_retake_enabled
+                && (bool)$this->mastery_retake_enabled
+                && $assignment->hasNonFakeStudentFileOrQuestionSubmissions()) {
+                $validator->errors()->add(
+                    'mastery_retake_enabled',
+                    'Whole-assignment attempts cannot be enabled after student work exists.'
+                );
+                return;
+            }
+
+            if (!(bool)$this->mastery_retake_enabled) {
+                return;
+            }
+
+            $overrides = $this->all();
+            $eligibility = app(MasteryRetakeEligibility::class)
+                ->evaluate($assignment, $overrides, false);
+            foreach ($eligibility->reasons() as $reason) {
+                $validator->errors()->add('mastery_retake_enabled', $reason['message']);
+            }
+
+        });
     }
 
     /**

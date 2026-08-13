@@ -95,6 +95,7 @@ class Course extends Model
 
         DB::table('submissions')->whereIn('assignment_id', $assignment_ids)->delete();
         DB::table('submission_files')->whereIn('assignment_id', $assignment_ids)->delete();
+        DB::table('mastery_assignment_attempts')->whereIn('assignment_id', $assignment_ids)->delete();
         DB::table('scores')->whereIn('assignment_id', $assignment_ids)->delete();
         DB::table('cutups')->whereIn('assignment_id', $assignment_ids)->delete();
         DB::table('seeds')->whereIn('assignment_id', $assignment_ids)->delete();

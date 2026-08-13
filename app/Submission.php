@@ -4,7 +4,9 @@
 namespace App;
 
 use App\Exceptions\Handler;
+use App\Exceptions\MasteryRetakeConflictException;
 use App\Helpers\Helper;
+use App\Services\MasteryAssignmentAttemptService;
 use App\Traits\JWT;
 use DOMDocument;
 use \Exception;
@@ -934,6 +936,24 @@ class Submission extends Model
         $data['user_id'] = Auth::user()->id;
         $assignment = $Assignment->find($data['assignment_id']);
 
+        $mastery_attempt_service = app(MasteryAssignmentAttemptService::class);
+        $mastery_attempt = null;
+        try {
+            $mastery_attempt = $mastery_attempt_service->validateSubmission(
+                $assignment,
+                Auth::user(),
+                $data['mastery_attempt_id'] ?? null,
+                (int)$data['question_id']
+            );
+        } catch (MasteryRetakeConflictException $e) {
+            return [
+                'type' => 'error',
+                'status' => 409,
+                'reason' => $e->reason(),
+                'message' => $e->getMessage()
+            ];
+        }
+
 
         if ($assignment->course->anonymous_users && (Helper::isAnonymousUser() || Helper::hasAnonymousUserSession())) {
             $response['type'] = 'success';
@@ -1063,6 +1083,7 @@ class Submission extends Model
 
         $data['all_correct'] = $data['score'] >= floatval($assignment_question->points);//>= so I don't worry about decimals
 
+        $mastery_completion = ['completed' => false, 'attempt' => $mastery_attempt];
         try {
             //do the extension stuff also
             $submission = Submission::where('user_id', $data['user_id'])
@@ -1124,6 +1145,10 @@ class Submission extends Model
                         $plural = $assignment->number_of_allowed_attempts === '1' ? '' : 's';
                         $message = "You are only allowed $assignment->number_of_allowed_attempts attempt$plural.  ";
                         $response['message'] = $message;
+                        if ($mastery_attempt) {
+                            $response['status'] = 409;
+                            $response['reason'] = 'duplicate_submission';
+                        }
                         if ($assignment->assessment_type === 'learning tree') {
                             $response['learning_tree_message'] = true;
                             $response['message'] = $message;
@@ -1163,6 +1188,13 @@ class Submission extends Model
                     }
                 }
                 DB::beginTransaction();
+                if ($mastery_attempt) {
+                    $mastery_attempt = $mastery_attempt_service->lockForSubmission(
+                        $assignment,
+                        Auth::user(),
+                        $mastery_attempt->id
+                    );
+                }
                 $submission->submission = $data['submission'];
                 $submission->answered_correctly_at_least_once = $data['all_correct'];
                 $submission->score = request()->user()->role === 3 ? $this->applyLatePenalyToScore($assignment, $data['score']) : $data['score'];
@@ -1219,6 +1251,22 @@ class Submission extends Model
                     }
                 }
                 DB::beginTransaction();
+                if ($mastery_attempt) {
+                    $mastery_attempt = $mastery_attempt_service->lockForSubmission(
+                        $assignment,
+                        Auth::user(),
+                        $mastery_attempt->id
+                    );
+                    if (Submission::where('user_id', $data['user_id'])
+                        ->where('assignment_id', $data['assignment_id'])
+                        ->where('question_id', $data['question_id'])
+                        ->exists()) {
+                        throw new MasteryRetakeConflictException(
+                            'duplicate_submission',
+                            'A response to this question has already been recorded for the active attempt.'
+                        );
+                    }
+                }
                 $submission = Submission::create(['user_id' => $data['user_id'],
                     'assignment_id' => $data['assignment_id'],
                     'question_id' => $data['question_id'],
@@ -1269,10 +1317,22 @@ class Submission extends Model
                 }
             }
 
-            $score->updateAssignmentScore($data['user_id'], $assignment->id, $assignment->lms_grade_passback === 'automatic');
+            if ($mastery_attempt) {
+                $mastery_completion = $mastery_attempt_service->completeIfReady(
+                    $assignment,
+                    Auth::user(),
+                    $mastery_attempt
+                );
+                if ($mastery_completion['completed']) {
+                    $score->updateAssignmentScore($data['user_id'], $assignment->id, false);
+                }
+                $response['mastery_attempt'] = $mastery_attempt_service->payload($mastery_completion['attempt']);
+            } else {
+                $score->updateAssignmentScore($data['user_id'], $assignment->id, $assignment->lms_grade_passback === 'automatic');
+            }
             try {
                 $assignment_course_info = $assignment->assignmentCourseInfo();
-                if ($assignment_course_info->instructor === 'Brian Lindshield') {
+                if (!$mastery_attempt && $assignment_course_info->instructor === 'Brian Lindshield') {
                     $assignment_score = Score::where('user_id', request()->user()->id)
                         ->where('assignment_id', $data['assignment_id'])
                         ->first();
@@ -1325,6 +1385,27 @@ class Submission extends Model
             }
 
             DB::commit();
+            if ($mastery_completion['completed'] && $assignment->lms_grade_passback === 'automatic') {
+                try {
+                    // Mastery completion is locally authoritative. Passback happens only
+                    // after the attempt and best score have committed successfully.
+                    $score->updateAssignmentScore($data['user_id'], $assignment->id, true);
+                } catch (Exception $passback_exception) {
+                    Log::error('mastery_attempt.passback_failed', [
+                        'assignment_id' => $assignment->id,
+                        'user_id' => $data['user_id'],
+                        'attempt_id' => $mastery_completion['attempt']->id,
+                        'message' => $passback_exception->getMessage()
+                    ]);
+                    $h = new Handler(app());
+                    $h->report($passback_exception);
+                }
+            }
+        } catch (MasteryRetakeConflictException $e) {
+            DB::rollback();
+            $response['status'] = 409;
+            $response['reason'] = $e->reason();
+            $response['message'] = $e->getMessage();
         } catch (Exception $e) {
             DB::rollback();
             $h = new Handler(app());

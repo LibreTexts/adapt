@@ -163,13 +163,21 @@ export default {
           { property: 'Assessment Type', value: _.startCase(this.assignment.assessment_type) }
         )
         if (this.assignment.assessment_type === 'real time') {
-          this.items.push(
-            { property: 'Number of Allowed Attempts', value: _.startCase(this.assignment.number_of_allowed_attempts) }
-          )
-          if (this.assignment.number_of_allowed_attempts !== '1') {
+          const wholeAssignmentAttempts = Boolean(this.assignment.mastery_retake_enabled)
+          this.items.push({
+            property: 'Assignment Attempt Policy',
+            value: wholeAssignmentAttempts ? 'Whole-assignment attempts' : 'Per-question attempts'
+          })
+          this.items.push({
+            property: wholeAssignmentAttempts ? 'Assignment Attempts' : 'Responses per Question',
+            value: _.startCase(wholeAssignmentAttempts
+              ? this.assignment.mastery_number_of_allowed_attempts
+              : this.assignment.number_of_allowed_attempts)
+          })
+          if (!wholeAssignmentAttempts && this.assignment.number_of_allowed_attempts !== '1') {
             this.items.push(
               {
-                property: 'Attempts Penalty',
+                property: 'Penalty per Additional Response',
                 value: this.assignment.number_of_allowed_attempts_penalty + '%'
               }
             )

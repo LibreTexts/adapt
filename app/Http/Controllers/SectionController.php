@@ -87,6 +87,10 @@ class SectionController extends Controller
             foreach ($course->assignments as $assignment) {
                 $assignment->scores()->whereIn('user_id', $enrolled_user_ids)->delete();
                 $assignment->seeds()->whereIn('user_id', $enrolled_user_ids)->delete();
+                DB::table('mastery_assignment_attempts')
+                    ->where('assignment_id', $assignment->id)
+                    ->whereIn('user_id', $enrolled_user_ids)
+                    ->delete();
                 $submission->where('assignment_id', $assignment->id)
                     ->whereIn('user_id', $enrolled_user_ids)
                     ->delete();
