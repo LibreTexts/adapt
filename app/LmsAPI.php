@@ -24,6 +24,7 @@ class LmsAPI extends Model
         switch ($lti_registration->iss) {
             case('https://canvas.instructure.com'):
             case('https://canvas.libretexts.org'):
+            case('https://staging-canvas.libretexts.org'):
                 $canvasAPI = new CanvasAPI($lti_registration, $user_id);
                 $response = $canvasAPI->updateAssignment($course_id, $assignment_id, $data);
                 break;
@@ -47,6 +48,7 @@ class LmsAPI extends Model
         switch ($lti_registration->iss) {
             case('https://canvas.instructure.com'):
             case('https://canvas.libretexts.org'):
+            case('https://staging-canvas.libretexts.org'):
                 $canvasAPI = new CanvasAPI($lti_registration, $user_id);
                 $response = $canvasAPI->deleteAssignment($course_id, $assignment_id);
                 break;
@@ -71,6 +73,7 @@ class LmsAPI extends Model
         switch ($lti_registration->iss) {
             case('https://canvas.instructure.com'):
             case('https://canvas.libretexts.org'):
+            case('https://staging-canvas.libretexts.org'):
                 $canvasAPI = new CanvasAPI($lti_registration, $user_id);
                 $response = $canvasAPI->createAssignment($course_id, $data);
                 break;
@@ -94,6 +97,7 @@ class LmsAPI extends Model
             switch ($lti_registration->iss) {
                 case('https://canvas.instructure.com'):
                 case('https://canvas.libretexts.org'):
+                case('https://staging-canvas.libretexts.org'):
                     $canvasAPI = new CanvasAPI($lti_registration, $user_id);
                     $response = $canvasAPI->getAssignments($course_id);
                     break;
@@ -122,6 +126,7 @@ class LmsAPI extends Model
         switch ($iss) {
             case('https://canvas.instructure.com'):
             case('https://canvas.libretexts.org'):
+            case('https://staging-canvas.libretexts.org'):
                 $url = "$iss/courses/$course_id";
                 break;
             default:
@@ -141,6 +146,7 @@ class LmsAPI extends Model
             switch ($lti_registration->iss) {
                 case('https://canvas.instructure.com'):
                 case('https://canvas.libretexts.org'):
+                case('https://staging-canvas.libretexts.org'):
                     $canvasAPI = new CanvasAPI($lti_registration, $user_id);
                     $response = $canvasAPI->getCourse($course_id);
                     break;
@@ -170,6 +176,7 @@ class LmsAPI extends Model
             switch ($lti_registration->iss) {
                 case('https://canvas.instructure.com'):
                 case('https://canvas.libretexts.org'):
+                case('https://staging-canvas.libretexts.org'):
                     $canvasAPI = new CanvasAPI($lti_registration, $user_id);
                     $response = $canvasAPI->getCourses();
                     if ($response['type'] === 'success') {

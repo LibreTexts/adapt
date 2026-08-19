@@ -86,7 +86,7 @@
         </div>
         <div v-if="logoLoaded && showToggleStudentView || (user && user.role === 5)" class="float-right">
           <toggle-button
-            v-if="showToggleStudentView && (user !== null) && toggleInstructorStudentViewRouteNames.includes($route.name)"
+            v-if="showToggleStudentView && (user !== null)  && toggleInstructorStudentViewRouteNames.includes($route.name)"
             tabindex="0" class="mt-2" :width="140" :value="isInstructorView" :sync="true" :font-size="14" :margin="4"
             :color="toggleColors" :labels="{ checked: 'Instructor View', unchecked: 'Student View' }"
             :aria-label="isInstructorView ? 'Instructor view shown' : 'Student view shown'"
@@ -350,7 +350,7 @@ export default {
         this.getBreadcrumbs(this.$router.history.current)
         this.breadcrumbsLoaded = true
       }
-      this.showToggleStudentView = this.user !== null && (this.user.role === 2 || this.user.fake_student)
+      this.showToggleStudentView = this.user !== null && (this.user.role === 2 || (this.user.fake_student && this.user.instructor_user_id))
       this.isInstructorView = this.user !== null && this.user.role === 2
       this.isAnonymousUser = this.user !== null && this.user.email === 'anonymous'
     }

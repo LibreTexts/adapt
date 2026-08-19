@@ -4,17 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Enrollment;
 use App\Exceptions\Handler;
-use App\LtiAssignmentsAndGradesUrl;
 use App\LtiGradePassback;
 use App\LtiLaunch;
-use App\LtiNamesAndRolesUrl;
 use App\LtiRegistration;
 use App\LtiToken;
 use App\OIDC;
 use App\Section;
 use App\User;
 use Exception;
-use GuzzleHttp\Middleware;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\RedirectResponse;
@@ -31,7 +28,7 @@ use App\Custom\LTIDatabase;
 use App\Assignment;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
-use Psr\Http\Message\RequestInterface;
+
 
 
 class LTIController extends Controller
@@ -244,51 +241,83 @@ class LTIController extends Controller
             $custom = isset($launch->get_launch_data()['https://purl.imsglobal.org/spec/lti/claim/custom']) ?
                 $launch->get_launch_data()['https://purl.imsglobal.org/spec/lti/claim/custom'] : [];
 
-            $email = $launch->get_launch_data()['email'] ?? null;
-            if (!$email) {
-                echo "We can't seem to get this user's email.  Typically this happens if you're trying to connect in Student View mode or if you neglected to set the Privacy Level to Public when configuring this tool.";
-                exit;
+            //moved up (used to run after the user lookup below) so we know whether this is a
+            //Canvas "View as Student" / Test Student launch before deciding whether a missing
+            //email should block the launch entirely.
+            //if this has not been configured yet, there will be no resource link id
+            $resource_link_id = $launch->get_launch_data()['https://purl.imsglobal.org/spec/lti/claim/resource_link']['id'];
+            $linked_assignment = $assignment->where('lms_resource_link_id', $resource_link_id)->first();
+            if (!$linked_assignment && isset($custom['canvas_assignment_id'])) {
+                //need to think this logic through
+                $linked_assignment = $assignment->where('lms_assignment_id', $custom['canvas_assignment_id'])->first();
             }
-            //check by email first because this is the most recent account *******THINK ABOUT THIS!!!!!!********
-            $sub = $launch->get_launch_data()['sub'];
-            $lti_user = null;
-            $launch_redirect = null;
-            if ($sub) {
-                $lti_user = $user->where('lms_user_id', $sub)->first();
-            }
-            if (!$lti_user) {
-                $launch_redirect = DB::table('launch_redirects')
-                    ->where('original_email', $email)
-                    ->first();
-                if ($launch_redirect) {
-                    $redirect_email = $launch_redirect->redirect_email;
-                    $lti_user = $user->where('email', $redirect_email)->first();
-                    if (!$lti_user) {
-                        throw new Exception("Redirect email {$redirect_email} does not map to a user.");
-                    }
-                    $email = $redirect_email;
+
+            //Canvas's Test Student (used for "View as Student" / Student View) never has an
+            //email, but it does carry this role in the roles claim, so use that instead of
+            //email presence to detect it.
+            $roles = $launch->get_launch_data()['https://purl.imsglobal.org/spec/lti/claim/roles'] ?? [];
+            $is_test_student = false;
+            foreach ($roles as $role) {
+                if (strpos($role, 'person#TestUser') !== false) {
+                    $is_test_student = true;
+                    break;
                 }
             }
 
-            if (!$lti_user) {
-                $lti_user = $user->where('email', $email)->first();
+            $email = $launch->get_launch_data()['email'] ?? null;
+            if (!$email && !$is_test_student) {
+                echo "We can't seem to get this user's email.  Typically this happens if you're trying to connect in Student View mode or if you neglected to set the Privacy Level to Public when configuring this tool.";
+                exit;
             }
+            $sub = $launch->get_launch_data()['sub'];
+            $launch_redirect = null;
 
-            if (!$lti_user) {
-                $lti_user = User::create([
-                    'first_name' => $launch->get_launch_data()['given_name'],
-                    'last_name' => $launch->get_launch_data()['family_name'],
-                    'email' => $email,
-                    'role' => 3,
-                    'time_zone' => 'America/Los_Angeles',
-                    'lms_user_id' => $sub,
-                    'email_verified_at' => now(),
-                ]);
+            if ($is_test_student) {
+                if (!$linked_assignment) {
+                    echo "You are entering as a test student but have not linked up your assignment yet.";
+                    exit;
+                }
+                $lti_user = $this->_getFakeStudent($linked_assignment);
             } else {
-                ///eventually I shouldn't need the following code since they'll all be new
-                if (!$lti_user->sub && !$launch_redirect) {
-                    $lti_user->lms_user_id = $sub;
-                    $lti_user->save();
+                //check by email first because this is the most recent account *******THINK ABOUT THIS!!!!!!********
+                $lti_user = null;
+                if ($sub) {
+                    $lti_user = $user->where('lms_user_id', $sub)->first();
+                }
+                if (!$lti_user) {
+                    $launch_redirect = DB::table('launch_redirects')
+                        ->where('original_email', $email)
+                        ->first();
+                    if ($launch_redirect) {
+                        $redirect_email = $launch_redirect->redirect_email;
+                        $lti_user = $user->where('email', $redirect_email)->first();
+                        if (!$lti_user) {
+                            throw new Exception("Redirect email {$redirect_email} does not map to a user.");
+                        }
+                        $email = $redirect_email;
+                    }
+                }
+
+                if (!$lti_user) {
+                    $lti_user = $user->where('email', $email)->first();
+                }
+
+                if (!$lti_user) {
+                    $lti_user = User::create([
+                        'first_name' => $launch->get_launch_data()['given_name'],
+                        'last_name' => $launch->get_launch_data()['family_name'],
+                        'email' => $email,
+                        'role' => 3,
+                        'time_zone' => 'America/Los_Angeles',
+                        'lms_user_id' => $sub,
+                        'email_verified_at' => now(),
+                    ]);
+                } else {
+                    ///eventually I shouldn't need the following code since they'll all be new
+                    if (!$lti_user->sub && !$launch_redirect) {
+                        $lti_user->lms_user_id = $sub;
+                        $lti_user->save();
+                    }
                 }
             }
             DB::table('users')->where('instructor_user_id', $lti_user->id)->update(['instructor_user_id' => null]);
@@ -305,13 +334,6 @@ class LTIController extends Controller
             //  file_put_contents(base_path() . '//lti_log.text', "Launch:" . print_r($launch->get_launch_data(), true) . "\r\n", FILE_APPEND);
             //  file_put_contents(base_path() . '//lti_log.text', "Launch:" . print_r($request->all(), true) . "\r\n", FILE_APPEND);
 
-            //if this has not been configured yet, there will be no resource link id
-            $resource_link_id = $launch->get_launch_data()['https://purl.imsglobal.org/spec/lti/claim/resource_link']['id'];
-            $linked_assignment = $assignment->where('lms_resource_link_id', $resource_link_id)->first();
-            if (!$linked_assignment && isset($custom['canvas_assignment_id'])) {
-                //need to think this logic through
-                $linked_assignment = $assignment->where('lms_assignment_id', $custom['canvas_assignment_id'])->first();
-            }
             $lms_launch_in_new_window = (int)($launch->get_launch_data()['iss'] === 'https://blackboard.com');
 
             //This code was also testing for Canvas on Dev server, so you can set $lms_launch_in_new_window to true if needed.
@@ -425,6 +447,31 @@ class LTIController extends Controller
                 echo "Error: . {$e->getMessage()}";
             }
         }
+    }
+
+    /**
+     * Finds or creates a reusable fake student for Canvas "View as Student" (Test Student)
+     * launches, so instructors can preview an assignment without a real email/account.
+     * One fake student is shared per course, matching the pattern used elsewhere in this
+     * method (see the auto-enroll block above) via `fake_student` on the users table.
+     *
+     * @param Assignment $assignment
+     * @return User
+     * @throws Exception
+     */
+    private function _getFakeStudent(Assignment $assignment): User
+    {
+        $course_id = $assignment->course->id;
+        $section = (new Section())->where('course_id', $course_id)->first();
+        if (!$section) {
+            throw new Exception("No section was found for course $course_id, so a fake student could not be enrolled.");
+        }
+
+        $fake_student_user_id = $section->course->enrollments()
+            ->join('users', 'enrollments.user_id', '=', 'users.id')
+            ->where('users.fake_student', 1)
+            ->value('users.id');
+        return User::find($fake_student_user_id);
     }
 
 

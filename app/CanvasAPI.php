@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use stdClass;
 
@@ -39,9 +40,17 @@ class CanvasAPI extends Model
         $lmsAccessToken = new LmsAccessToken();
         $lms_access_token = $lmsAccessToken->where('user_id', $this->user_id)->where('school_id', $this->lti_registration->school_id)->first();
         if (!app()->environment('local') && $lms_access_token->updated_at <= Carbon::now()->subMinutes(30)->toDateTimeString()) {
-            $result = $this->getAccessToken();
+            // Pass the already school-scoped refresh_token in explicitly so getAccessToken()
+            // doesn't independently re-query the DB (which was only filtering by user_id and
+            // could grab a different school's row when a user has tokens for multiple schools).
+            $result = $this->getAccessToken('', $lms_access_token->refresh_token);
             if ($result['type'] === 'success') {
                 $lms_access_token->access_token = $result['access_token'];
+                // Some Canvas instances rotate the refresh_token on every use. If we don't
+                // persist the new one, the next refresh attempt fails with invalid_grant.
+                if (isset($result['refresh_token'])) {
+                    $lms_access_token->refresh_token = $result['refresh_token'];
+                }
                 $lms_access_token->save();
             } else {
                 throw new Exception('Could not create the access token for the API call: ' . $result['message']);
@@ -234,58 +243,59 @@ class CanvasAPI extends Model
 
     /**
      * @param string $authorization_code
+     * @param string $refresh_token
      * @return array
      */
-    public function getAccessToken(string $authorization_code = ''): array
+    public function getAccessToken(string $authorization_code = '', string $refresh_token = ''): array
     {
 
         $api_key = $this->lti_registration->api_key;//from the developer board
         $api_secret = $this->lti_registration->api_secret;
         $result['type'] = 'error';
 
-
         $token_url = "{$this->lti_registration->auth_server}/login/oauth2/token";
         $callback_uri = request()->getSchemeAndHttpHost() . "/instructors/courses/lms/access-granted";
 
-        $authorization = base64_encode("$api_key:$api_secret");
-        $header = array("Authorization: Basic $authorization", "Content-Type: application/x-www-form-urlencoded");
         if ($authorization_code) {
-            $content = "grant_type=authorization_code&code=$authorization_code";
+            $content = ['grant_type' => 'authorization_code', 'code' => $authorization_code];
         } else {
-            $refresh_token = DB::table('lms_access_tokens')
-                ->where('user_id', $this->user_id)
-                ->first()
-                ->refresh_token;
-            $content = "grant_type=refresh_token&refresh_token=$refresh_token";
+            // Refresh token is now passed in by the caller (already scoped to the correct
+            // user + school) instead of being independently queried here by user_id alone,
+            // which could previously grab the wrong school's refresh_token for users with
+            // tokens across multiple Canvas instances.
+            $content = ['grant_type' => 'refresh_token', 'refresh_token' => $refresh_token];
         }
-        $content .= "&redirect_uri=$callback_uri";
+        $content['redirect_uri'] = $callback_uri;
 
-        $curl = curl_init();
-        curl_setopt_array($curl, array(
-            CURLOPT_URL => $token_url,
-            CURLOPT_HTTPHEADER => $header,
-            CURLOPT_USERAGENT => 'ADAPT https://adapt.libretexts.org/ (adapt@libretexts.org)',
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => $content
-        ));
-        $response = curl_exec($curl);
-        curl_close($curl);
-        if ($response === false) {
+        $http = Http::withBasicAuth($api_key, $api_secret)
+            ->withHeaders(['User-Agent' => 'ADAPT https://adapt.libretexts.org/ (adapt@libretexts.org)'])
+            ->asForm();
 
-            $result['message'] = 'We were not able to connect with Canvas: ' . curl_error($curl) . '.  Please contact us for assistance.';
+        // Only skip SSL verification in local dev (e.g. self-signed certs on a
+        // local/Docker Canvas instance). Staging and production always verify.
+        if (app()->environment('local')) {
+            $http = $http->withOptions(['verify' => false]);
+        }
 
-        } elseif (isset(json_decode($response)->error)) {
-            $result['message'] = 'We were not able to connect with Canvas: ' . json_decode($response)->error . '.  Please contact us for assistance.';
-        } elseif (json_decode($response) === NULL) {
+        try {
+            $response = $http->post($token_url, $content);
+        } catch (\Exception $e) {
+            $result['message'] = 'We were not able to connect with Canvas: ' . $e->getMessage() . '.  Please contact us for assistance.';
+            return $result;
+        }
+
+        $body = $response->json();
+
+        if (is_null($body)) {
             $result['message'] = 'We were not able to obtain your access token.  Please contact us for assistance.';
+        } elseif (isset($body['error'])) {
+            $result['message'] = 'We were not able to connect with Canvas: ' . $body['error'] . '.  Please contact us for assistance.';
         } else {
             $result['type'] = 'success';
-            $result['access_token'] = json_decode($response)->access_token;
+            $result['access_token'] = $body['access_token'];
             //this will happen the first time.  Then it's reused
-            if (isset(json_decode($response)->refresh_token)) {
-                $result['refresh_token'] = json_decode($response)->refresh_token;
+            if (isset($body['refresh_token'])) {
+                $result['refresh_token'] = $body['refresh_token'];
             }
         }
         return $result;
@@ -302,57 +312,50 @@ class CanvasAPI extends Model
     private function _doCurl(string $access_token, string $type, string $url, array $data = []): array
     {
         $response['type'] = 'error';
-        $ch = curl_init();
-        switch ($type) {
-            case("GET"):
-                break;
-            case('POST'):
-                curl_setopt($ch, CURLOPT_POST, true);
-                curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
-                break;
-            case('PUT'):
-                curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
-                curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
-                break;
-            case('DELETE'):
-                curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "DELETE");
-                break;
-            default:
-                throw new Exception("Not a valid type for the Canvas API cURL");
-        }
 
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-
-        $authorization = "Authorization: Bearer $access_token"; // Prepare the authorisation token
-
-        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Accept: application/json', $authorization]); // Inject the token into the header
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Accept: application/json',
-            'User-Agent: ADAPT https://adapt.libretexts.org/ (adapt@libretexts.org)', // Add this line
-            $authorization
+        $http = Http::withHeaders([
+            'Accept' => 'application/json',
+            'User-Agent' => 'ADAPT https://adapt.libretexts.org/ (adapt@libretexts.org)',
+            'Authorization' => "Bearer $access_token",
         ]);
-        curl_setopt($ch, CURLOPT_URL, $this->_buildUrl($url));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
-        $result = curl_exec($ch); // Execute the cURL statement
-        if ($result === false) {
-            $response['message'] = 'Connection issue: ' . curl_error($ch);
+        $full_url = $this->_buildUrl($url);
 
-        } else {
-            $original_result = $result;
-            $result = json_decode($result);
-            if ($result === null) {
-                $response['message'] = $original_result;
-            } else if (is_object($result) && property_exists($result, 'errors')) {
-                $curl_error = json_encode($result->errors);
-                $response['message'] = "Canvas cURL error: $curl_error";
-            } else {
-                $response['type'] = 'success';
-                $response['message'] = $result;
+        try {
+            switch ($type) {
+                case('GET'):
+                    $api_response = $http->get($full_url);
+                    break;
+                case('POST'):
+                    $api_response = $http->asForm()->post($full_url, $data);
+                    break;
+                case('PUT'):
+                    $api_response = $http->asForm()->put($full_url, $data);
+                    break;
+                case('DELETE'):
+                    $api_response = $http->delete($full_url, $data);
+                    break;
+                default:
+                    throw new Exception("Not a valid type for the Canvas API cURL");
             }
+        } catch (Exception $e) {
+            $response['message'] = 'Connection issue: ' . $e->getMessage();
+            return $response;
         }
-        curl_close($ch);
+
+        $original_result = $api_response->body();
+        $result = json_decode($original_result); // decode as object, same shape as the old curl version
+
+        if ($result === null) {
+            $response['message'] = $original_result;
+        } else if (is_object($result) && property_exists($result, 'errors')) {
+            $curl_error = json_encode($result->errors);
+            $response['message'] = "Canvas cURL error: $curl_error";
+        } else {
+            $response['type'] = 'success';
+            $response['message'] = $result;
+        }
+
         return $response;
     }
 
