@@ -516,5 +516,13 @@ mjx-assistive-mml {
   overflow-y: auto;
 }
 
-
-
+/* QTI Matching question: cap the "choose a match" dropdown menu height so long
+   lists (esp. image/media options) scroll internally instead of running off
+   the bottom of the page. Applied via the b-dropdown `menu-class` prop in
+   MatchingViewer.vue, since that element is rendered by BootstrapVue and is
+   not reachable by that component's scoped styles. */
+.qti-matching-dropdown-menu {
+  max-height: 60vh !important;
+  overflow-y: auto !important;
+  overflow-x: hidden;
+}

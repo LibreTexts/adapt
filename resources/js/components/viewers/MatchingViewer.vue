@@ -22,6 +22,7 @@
                         :ref="`dropdown-${item.identifier}`"
                         :html="getChosenMatch(item)"
                         class="matching-dropdown m-md-2"
+                        menu-class="qti-matching-dropdown-menu"
                         no-flip
                         :variant="item.chosenMatchIdentifier === null ? 'secondary' : 'info'"
                         @shown="onDropdownShown(item)"
