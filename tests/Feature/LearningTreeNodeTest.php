@@ -170,6 +170,47 @@ class LearningTreeNodeTest extends TestCase
             'check_for_reset' => 0]);
     }
 
+    /** @test */
+    public function does_not_reseed_a_non_random_technology_node_after_an_incomplete_attempt()
+    {
+        // Regression test: LearningTreeNodeSubmissionController::show() used
+        // to decide whether to reseed/reset a node's display by calling
+        // $question->where('webwork_code', 'LIKE', '%random(%') - which
+        // builds an Eloquent query Builder (always truthy as an object)
+        // instead of actually checking the question's webwork_code, so the
+        // reseed branch fired for *any* technology (h5p included) whenever
+        // the assignment had reset_node_after_incorrect_attempt on and the
+        // node wasn't yet completed - wiping the student's submission_array
+        // and appending "You will be given a similar question to attempt."
+        // even though this node has nothing to do with randomized
+        // webwork/imathas seeding. h5p is used here specifically because
+        // it's unaffected by the *fixed* condition either way (neither
+        // disjunct can ever be true for it), so this isolates the reseed
+        // flag's effect on the response message from the technology-specific
+        // rendering call, which the h5p branch already exercises safely in
+        // correctly_applies_reset() above.
+        $this->assignment->reset_node_after_incorrect_attempt = 1;
+        $this->assignment->save();
+
+        $this->node_question->technology = 'h5p';
+        $this->node_question->save();
+
+        $this->learning_tree_node_submission->submission = json_encode(['answer' => 'some response']);
+        $this->learning_tree_node_submission->completed = 0;
+        // sidestep the unrelated check_for_reset/earned_reset bookkeeping
+        // (covered separately by correctly_applies_reset() above) so this
+        // test isolates only the reseed condition being fixed here.
+        $this->learning_tree_node_submission->check_for_reset = 0;
+        $this->learning_tree_node_submission->save();
+
+        $this->actingAs($this->student_user)
+            ->getJson("api/learning-tree-node-submission/{$this->learning_tree_node_submission->id}")
+            ->assertJson([
+                'type' => 'success',
+                'message' => 'Your submission was not correct.  ',
+            ]);
+    }
+
     // ------------------------------------------------------------------
     // Revision-locking additions below. These build their own
     // assignment_question_learning_tree snapshot on top of the shared

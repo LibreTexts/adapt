@@ -98,7 +98,8 @@ class LearningTreeNodeSubmissionController extends Controller
             $incorrectly_submitted_learning_tree_node_with_reseed_option = $submission
                 && $assignment->reset_node_after_incorrect_attempt
                 && !$learningTreeNodeSubmission->completed
-                && ($question->where('webwork_code', 'LIKE', "%random(%") || $question->technology === 'imathas');
+                && (($question->technology === 'webwork' && str_contains((string)$question->webwork_code, 'random('))
+                    || $question->technology === 'imathas');
             if (in_array($question->technology, ['webwork', 'imathas', 'qti'])) {
                 if ($incorrectly_submitted_learning_tree_node_with_reseed_option) {
                     $seed = $this->createSeedByTechnologyAssignmentAndQuestion($assignment, $question, true);

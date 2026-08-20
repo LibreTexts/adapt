@@ -28,7 +28,7 @@ class LearningTreeNodeSubmission extends Model
         $data = $request;
 
 //need learning tree id, should get branch question id
-        $data['user_id'] = Auth::user()->id;
+        $data['user_id'] = $request->user_id ? $request->user_id : Auth::user()->id;
 
         $assignment = Assignment::find($request->assignment_id);
 

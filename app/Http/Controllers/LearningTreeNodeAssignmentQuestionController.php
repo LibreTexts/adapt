@@ -22,6 +22,7 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 
 class LearningTreeNodeAssignmentQuestionController extends Controller
 {
@@ -237,7 +238,6 @@ class LearningTreeNodeAssignmentQuestionController extends Controller
             $extra_custom_claims['is_learning_tree_node'] = true;
             $extra_custom_claims['learning_tree_id'] = $learningTree->id;
             //$extra_custom_claims['branch_id'] = $branch_id;
-
             $technology_src_and_problemJWT = $question->getTechnologySrcAndProblemJWT($request, $assignment, $nodeQuestion, $seed, true, $domd, $JWE, $extra_custom_claims);
             $technology_src = $technology_src_and_problemJWT['technology_src'];
             $problemJWT = $technology_src_and_problemJWT['problemJWT'];

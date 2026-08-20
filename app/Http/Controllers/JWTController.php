@@ -197,6 +197,7 @@ class JWTController extends Controller
             if (isset($problemJWT->adapt->is_learning_tree_node)) {
                 $learningTreeNodeSubmission = new LearningTreeNodeSubmission();
                 $learning_tree = LearningTree::find($request['learning_tree_id']);
+                $request['user_id'] = $problemJWT->sub;
                 return $learningTreeNodeSubmission->store($request, new AssignmentQuestionLearningTree(), $learning_tree, new DataShop());
             }
             if (($request['technology'] === 'webwork') && $answerJWT->score === null) {
