@@ -2603,9 +2603,16 @@
                 && questions[currentPage-1].learning_tree_id
                 && questions[currentPage-1].learning_tree_needs_update"
             >
-              <b-alert show variant="warning" class="text-center">
+              <b-alert show variant="info" class="text-center">
                 This Learning Tree's structure is different than when it was added to this assignment, or at least
                 one of its node questions has a newer revision available.
+                <b-button
+                  size="sm"
+                  variant="outline-primary"
+                  @click.prevent="showLearningTreeRevisionComparison()"
+                >
+                  Compare
+                </b-button>
                 <b-button
                   size="sm"
                   variant="primary"
@@ -2626,6 +2633,16 @@
           :question-number="currentPage"
           :submissions-at-risk="questions[currentPage-1].learning_tree_update_risks_real_submissions"
           @reloadSingleQuestion="reloadAfterLearningTreeUpdate"
+        />
+        <LearningTreeRevisionComparison
+          v-if="questions.length && questions[currentPage-1] && questions[currentPage-1].learning_tree_id"
+          ref="learningTreeRevisionComparison"
+          :key="`learning-tree-revision-comparison`"
+          :assignment-id="+assignmentId"
+          :learning-tree-id="+questions[currentPage-1].learning_tree_id"
+          :assignment-name="name"
+          :root-node-question-id="+questions[currentPage-1].id"
+          @showUpdateLearningTreeRevision="showUpdateLearningTreeRevision"
         />
         <b-container
           v-if="questions[currentPage-1] && questions[currentPage-1].learning_tree_id"
@@ -3782,6 +3799,7 @@ import { qrCodeConfig } from '../helpers/QrCode'
 import Report from '../components/Report.vue'
 import UpdateRevision from '../components/questions/UpdateRevision.vue'
 import UpdateLearningTreeRevision from '../components/questions/UpdateLearningTreeRevision.vue'
+import LearningTreeRevisionComparison from '../components/questions/LearningTreeRevisionComparison.vue'
 import uniqueId from 'vue-select/src/utility/uniqueId'
 import {
   processReceiveMessage,
@@ -3839,6 +3857,7 @@ export default {
     SubmissionArray,
     UpdateRevision,
     UpdateLearningTreeRevision,
+    LearningTreeRevisionComparison,
     Report,
     CaseStudyNotesViewer,
     QtiJsonAnswerViewer,
@@ -4995,6 +5014,9 @@ export default {
     },
     showUpdateLearningTreeRevision () {
       this.$bvModal.show('modal-update-learning-tree-revision')
+    },
+    showLearningTreeRevisionComparison () {
+      this.$refs.learningTreeRevisionComparison.show()
     },
     reloadAfterLearningTreeUpdate (newRootQuestionId) {
       // EK: can't just reload() this page - its URL embeds the question id it

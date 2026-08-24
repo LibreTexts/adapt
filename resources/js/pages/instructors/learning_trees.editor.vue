@@ -167,7 +167,7 @@
       </div>
       <ViewQuestionWithoutModal :key="`question-to-view-${questionToViewKey}`"
                                 :question-to-view="nodeQuestion"
-                                :show-submit="!isRootNode"
+                                :show-submit="!isRootNode && !previewMode"
                                 @receiveMessage="receiveMessage"
       />
       <div v-show="completedNodeMessage" style="width:100%">
@@ -176,7 +176,7 @@
           You have successfully completed this question.
         </b-alert>
       </div>
-      <div v-if="nodeQuestion.technology === 'text' && !nodeQuestion.completed && timeLeft">
+      <div v-if="nodeQuestion.technology === 'text' && !nodeQuestion.completed && timeLeft && !previewMode">
         <hr>
         <countdown :time="timeLeft"
                    @end="giveCreditForCompletingLearningTreeNode"
@@ -368,7 +368,7 @@
       </div>
     </b-modal>
     <!-- TREE TITLE / ID BAR -->
-    <div v-if="learningTreeId && !assignmentId" id="learning-tree-title-bar" class="px-2 pt-1">
+    <div v-if="learningTreeId && !assignmentId && !previewMode" id="learning-tree-title-bar" class="px-2 pt-1">
       <h1 style="font-size: 26px; line-height: 1.1;" class="page-title mb-0 text-primary font-weight-normal">
         <b-icon icon="tree" variant="success"/>{{ title }}
       </h1>
@@ -521,6 +521,16 @@ export default {
   },
   data: () => ({
     inIFrame: false,
+    // EK: true when this editor instance is being embedded purely for a
+    // read-only look at the tree (LearningTreeRevisionComparison.vue's
+    // "current" vs. "in assignment" toggle) - never for real editing or
+    // real student navigation. Set from the ?previewMode=1 query param in
+    // mounted() below. Suppresses editing chrome (via isAuthor being
+    // forced false, same as the existing assignment-snapshot path),
+    // logging, give-credit, parent-completion gating, and submit/native
+    // submit UI, regardless of which tree source (live or snapshot) is
+    // being viewed.
+    previewMode: false,
     assignmentId: 0,
     rootAssessmentSubmissionInfo: null,
     questionToEdit: {},
@@ -668,6 +678,11 @@ export default {
       }
     }
     this.xCenter = this.$route.params.xCenter
+    // EK: read regardless of inIFrame - LearningTreeRevisionComparison.vue
+    // always embeds this component via iframe, but keeping this outside
+    // the inIFrame block matches how xCenter is already read above, and
+    // means a directly-navigated preview link (e.g. for debugging) works too.
+    this.previewMode = this.$route.query && this.$route.query.previewMode === '1'
 
     let tempblock
     let tempblock2
@@ -1061,7 +1076,7 @@ export default {
       // can't see. Handle the instructor case locally instead: grey out
       // webwork's own submit button the same way, independent of role,
       // whenever this node is the tree's root.
-      if (this.isRootNode && getTechnology(event.origin) === 'webwork') {
+      if ((this.isRootNode || this.previewMode) && getTechnology(event.origin) === 'webwork') {
         let webworkMessage = {}
         try {
           webworkMessage = JSON.parse(event.data)
@@ -1077,18 +1092,24 @@ export default {
       // string message ('loaded' or '"loaded"'), not a JSON object with a
       // type field like webwork, so the detection here has to match that
       // shape instead of reusing the webwork branch's JSON.parse check.
-      if (this.isRootNode && getTechnology(event.origin) === 'h5p' && (event.data === '"loaded"' || event.data === 'loaded')) {
+      if ((this.isRootNode || this.previewMode) && getTechnology(event.origin) === 'h5p' && (event.data === '"loaded"' || event.data === 'loaded')) {
         event.source.postMessage(JSON.stringify(h5pStudentCssUpdates), event.origin)
       }
       this.processReceiveMessage(vm, this.$route.name, event)
     },
     updateLearningNodeToCompleted () {
-      if (this.isRootNode) {
+      // EK: previewMode never touches real completion/submission state, so
+      // there's nothing to reload for - a reload here would also just kill
+      // the comparison modal's canvas.
+      if (this.isRootNode || this.previewMode) {
         return
       }
       location.reload()
     },
     async giveCreditForCompletingLearningTreeNode () {
+      if (this.previewMode) {
+        return
+      }
       try {
         const { data } = await axios.post(`/api/learning-tree-node-assignment-question/assignment/${this.assignmentId}/learning-tree/${this.learningTreeId}/question/${this.nodeQuestion.id}/give-credit-for-completion`)
         if (data.type === 'error') {
@@ -1253,7 +1274,7 @@ export default {
       // false. This only covers the student (role===3) case; see the
       // instructor-facing fix in receiveMessage() below for why webwork
       // specifically also needs separate handling there.
-      this.submitButtonActive = !this.isRootNode
+      this.submitButtonActive = !this.isRootNode && !this.previewMode
       if (this.isRootNode) {
         // EK: prefer the root block's own rendered question_id (same source
         // used for every other node) and only fall back to the component-level
@@ -1275,7 +1296,7 @@ export default {
       this.nodeForm.is_root_node = this.isRootNode
       if (this.assignmentId) {
         this.uncompletedNodes = []
-        if (!this.isRootNode && (this.learningTreeNodeUncompletedParentNodeTitlesByQuestionId[questionId] || []).length) {
+        if (!this.previewMode && !this.isRootNode && (this.learningTreeNodeUncompletedParentNodeTitlesByQuestionId[questionId] || []).length) {
           this.uncompletedNodes = this.learningTreeNodeUncompletedParentNodeTitlesByQuestionId[questionId]
           this.$bvModal.show('modal-cannot-answer-until-complete-parents')
           return false
@@ -1307,12 +1328,18 @@ export default {
         if (this.nodeQuestion.technology === 'text' || this.nodeQuestion.question_type === 'exposition') {
           this.timeLeft = this.nodeQuestion.time_left
         } else {
-          if (this.nodeQuestion.learning_tree_node_submission_id) {
+          // EK: previewMode is a read-only look at the node's content, not
+          // real navigation - skip pulling in whatever submission the
+          // previewing instructor happens to have on this question already,
+          // same reasoning as skipping logVisitedLearningTreeNode() below.
+          if (!this.previewMode && this.nodeQuestion.learning_tree_node_submission_id) {
             await this.showResponse({ learning_tree_node_submission_id: this.nodeQuestion.learning_tree_node_submission_id })
           }
         }
         this.completedNodeMessage = false
-        await this.logVisitedLearningTreeNode()
+        if (!this.previewMode) {
+          await this.logVisitedLearningTreeNode()
+        }
       } catch (error) {
         this.$noty.error(error.message)
       }
@@ -1627,7 +1654,10 @@ export default {
         this.assessmentQuestionId = data.question_id
         this.canUndo = data.can_undo
         this.canRedo = Boolean(data.can_redo)
-        this.isAuthor = data.author_id === this.user.id || this.isAdmin
+        // EK: same "never show editing controls" reasoning as the snapshot
+        // branch above - previewMode's "current tree" side is a read-only
+        // look at the live tree, even for the tree's own author.
+        this.isAuthor = this.previewMode ? false : (data.author_id === this.user.id || this.isAdmin)
         this.authorName = data.author_name
         if (data.learning_tree) {
           let learningTree = data.learning_tree.replaceAll('/assets/img', this.asset('assets/img'))
