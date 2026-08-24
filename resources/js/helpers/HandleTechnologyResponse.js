@@ -4,7 +4,8 @@ import {
   h5pStudentCssUpdates,
   webworkOnLoadCssUpdates,
   webworkStudentCssUpdates,
-  applyWarningsVisibility
+  applyWarningsVisibility,
+  setWebworkProblemBodyFont
 } from './CSSUpdates'
 
 export function getTechnology (body) {
@@ -91,6 +92,22 @@ export async function hideSubmitButtonsIfCannotSubmit (vm, routeName, technology
         // just do it on these 2 events or it will happen 50 million times and the browser will crash
         vm.iframeDomLoaded = true
         applyWarningsVisibility(vm.user)
+        // EK: routeName === 'instructors.learning_trees.editor' always runs
+        // one iframe deeper than the app itself (the tree modal), so
+        // vm.inIFrame there reflects the tree modal's own nesting, not
+        // whether the *app* is LTI-embedded. When that's the case, ask
+        // vm.inIFrame's parent (the app) directly instead. questions.view's
+        // vm.inIFrame already answers this correctly on its own, since it
+        // always runs at the app's true top level.
+        let isAppEmbedded
+        try {
+          isAppEmbedded = routeName === 'instructors.learning_trees.editor'
+            ? (vm.inIFrame ? window.parent !== window.top : window.self !== window.top)
+            : vm.inIFrame
+        } catch (e) {
+          isAppEmbedded = vm.inIFrame
+        }
+        setWebworkProblemBodyFont(isAppEmbedded)
         vm.event.source.postMessage(JSON.stringify(webworkOnLoadCssUpdates), vm.event.origin)
         console.log('webwork css applied')
         vm.addGlow(vm.event, vm.submissionArray, 'webwork')

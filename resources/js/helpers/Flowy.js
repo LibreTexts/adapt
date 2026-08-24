@@ -1,4 +1,10 @@
-export const flowy = function (canvas, grab, release, snapping, rearrange, spacing_x, spacing_y) {
+export const flowy = function (canvas, grab, release, snapping, rearrange, spacing_x, spacing_y, canEditNonRootInIframe) {
+  if (typeof canEditNonRootInIframe !== 'function') {
+    // EK: default preserves the old "no dragging non-root nodes inside any
+    // iframe" behavior for any other caller that doesn't opt in - only
+    // learning_trees_editor.vue currently passes this, wired to isAuthor.
+    canEditNonRootInIframe = function () { return false }
+  }
   if (!grab) {
     grab = function () {
     }
@@ -395,14 +401,19 @@ export const flowy = function (canvas, grab, release, snapping, rearrange, spaci
       if (hasParentClass(event.target, 'block')) {
         var theblock = event.target.closest('.block')
 
-        // EK don't let them mess with the tree except dragging the root assessment
+        // EK don't let them mess with the tree except dragging the root assessment -
+        // unless the caller confirms the current viewer actually has edit rights.
+        // inIFrame alone can't tell a student's locked assignment-snapshot view
+        // apart from an instructor/admin previewing-and-editing via the Browse
+        // Learning Trees page (which also embeds this canvas in an iframe), so we
+        // ask the caller (wired to isAuthor) rather than assuming every iframe is read-only.
         let inIFrame
         try {
           inIFrame = window.self !== window.top
         } catch (e) {
           inIFrame = false
         }
-        if (inIFrame && parseInt(theblock.querySelector('input[name="blockid"]').value) !== 0) {
+        if (inIFrame && !canEditNonRootInIframe() && parseInt(theblock.querySelector('input[name="blockid"]').value) !== 0) {
           return false
         }
         //

@@ -4464,7 +4464,7 @@ class AssignmentSyncQuestionController extends Controller
             DB::commit();
 
             $student_submissions_message = $update_response['student_emails_associated_with_submissions']
-                ? "In addition, the student submissions for this Learning Tree have been removed and the scores have been updated."
+                ? "In addition, the student submissions for this Learning Tree in this assignment have been removed and the scores for this assignment have been updated."
                 : "There were no student submissions to this Learning Tree so no student scores were updated.";
 
             $response['message'] = "The Learning Tree has been updated.  $student_submissions_message";

@@ -66,8 +66,9 @@
           :unchecked-value="false"
           @hidden="understandStudentSubmissionsRemoved=false"
         >
-          I understand that all student submissions for this Learning Tree (the root question and every node) will
-          be removed and their scores will be updated. Please inform your class to resubmit.
+          I understand that all student submissions for this Learning Tree in this assignment (the root question
+          and every node) will be removed and their scores for this assignment will be updated. Submissions for
+          this Learning Tree in any other assignment are not affected. Please inform your class to resubmit.
         </b-form-checkbox>
       </b-alert>
       <template #modal-footer>
@@ -170,7 +171,7 @@ export default {
     },
     async updateTheLearningTreeRevision () {
       if (!this.understandStudentSubmissionsRemoved) {
-        this.$noty.info('Please check the box stating that you understand that all existing student submissions for this Learning Tree will be removed and their assignment scores will be updated.')
+        this.$noty.info('Please check the box stating that you understand that all existing student submissions for this Learning Tree in this assignment will be removed and their scores for this assignment will be updated.')
         return false
       }
       try {

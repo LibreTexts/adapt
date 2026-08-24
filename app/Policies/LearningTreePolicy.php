@@ -110,7 +110,7 @@ class LearningTreePolicy
 
     public function destroy(User $user, LearningTree $learningTree): Response
     {
-        return ((int) $learningTree->user_id === $user->id)
+        return ((int) $learningTree->user_id === $user->id || Helper::isAdmin())
             ? Response::allow()
             : Response::deny('You are not allowed to delete this Learning Tree.');
 

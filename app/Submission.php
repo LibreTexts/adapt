@@ -1205,7 +1205,8 @@ class Submission extends Model
                                 4 => 'Slide4.png'
                             ];
                             $path_count_to_show = min($number_of_successful_paths_for_a_reset, 4);
-                            $message .= "<p style=\"text-align:center\"><img alt=\"Example of $path_count_to_show completed path$plural highlighted from the root of a Learning Tree down to $path_count_to_show final assessment node$plural\" style=\"max-width:100%;width:500px\" src=\"/assets/img/learning_trees/{$path_examples[$path_count_to_show]}\"></p>";
+                            $path_example_image_src = asset("assets/img/learning_trees/{$path_examples[$path_count_to_show]}");
+                            $message .= "<p style=\"text-align:center\"><img alt=\"Example of $path_count_to_show completed path$plural highlighted from the root of a Learning Tree down to $path_count_to_show final assessment node$plural\" style=\"max-width:100%;width:500px\" src=\"$path_example_image_src\"></p>";
                             if ($number_of_successful_paths_for_a_reset > 4) {
                                 $extra_paths = $number_of_successful_paths_for_a_reset - 4;
                                 $extra_plural = $extra_paths > 1 ? 's' : '';

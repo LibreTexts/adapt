@@ -199,11 +199,15 @@
     >
       <template #modal-header="{ close }">
         <div>
-          <h5>{{ nodeModalTitle || 'Node' }}</h5>
-          <small>
+          <h5 class="mb-0">{{ nodeModalTitle || 'Node' }}</h5>
+          <div v-if="previewMode && questionToView && questionToView.title" class="text-muted" style="font-size:16px;">
+            {{ questionToView.title }}
+          </div>
+          <small v-if="!previewMode">
             ADAPT ID:
             <span :id="`node-question-id-${nodeForm.question_id}`">{{ nodeForm.question_id }}</span></small>
-          <a href=""
+          <a v-if="!previewMode"
+             href=""
              aria-label="Copy Node ADAPT ID"
              @click.prevent="doCopy(`node-question-id-${nodeForm.question_id}`)"
           >
@@ -243,9 +247,9 @@
           type="text"
         />
       </div>
-      <div v-show="showNodeModalContents" style="border: 2px solid #343a40; border-radius: 4px; padding: 10px;">
+      <div v-show="showNodeModalContents" :style="previewMode ? '' : 'border: 2px solid #343a40; border-radius: 4px; padding: 10px;'">
         <b-form ref="form">
-          <b-form-group>
+          <b-form-group v-if="isAuthor">
             <div v-if="isAuthor" class="flex d-inline-flex" style="width:100%">
               <label class="pr-2" style="width:120px">Source ID#
                 <QuestionCircleTooltip :id="'source-id'"/>
@@ -279,7 +283,7 @@
               of the question you'd like to use for this node above.
             </b-alert>
           </b-form-group>
-          <div v-if="!isAuthor">
+          <div v-if="!isAuthor && !previewMode">
             <div>
               <label class="pr-2" style="width:120px">Source ID# {{ nodeForm.question_id }}
                 <QuestionCircleTooltip :id="'source-id-non-author'"/>
@@ -309,7 +313,7 @@
             type="text"
           />
         </div>
-        <div :style="`border: 4px solid ${nodeModalBorderColor}; border-radius: 4px; padding: 10px;`">
+        <div :style="previewMode ? '' : `border: 4px solid ${nodeModalBorderColor}; border-radius: 4px; padding: 10px;`">
           <ViewQuestionWithoutModal :key="`question-to-view-${questionToViewKey}`" :question-to-view="questionToView"/>
         </div>
       </div>
@@ -332,7 +336,7 @@
             />
             <has-error :form="nodeForm" field="node_description"/>
           </b-form-group>
-          <div v-if="!isAuthor">
+          <div v-if="!isAuthor && !previewMode">
             Node Description: {{ nodeForm.node_description ? nodeForm.node_description : 'None provided.' }}
           </div>
         </div>
@@ -350,7 +354,7 @@
             />
           </b-form-group>
         </div>
-        <div class="float-right">
+        <div v-if="!previewMode" class="float-right">
           <b-button size="sm" variant="outline-secondary" @click="$bvModal.hide('modal-update-node')">
             Exit Node
           </b-button>
@@ -688,7 +692,16 @@ export default {
     let tempblock2
     let vm = this
 
-    flowy(document.getElementById('canvas'), drag, release, snapping, rearranging, 20, 30)
+    // EK: passed as a live getter (not a plain boolean) since isAuthor and
+    // fromAllLearningTrees are still unset at this point in mounted() and
+    // only resolve after later async/route-param assignment - Flowy calls
+    // this at drag time, by which point both reflect their real values.
+    // Gated on fromAllLearningTrees (not isAuthor alone) so this bypass is
+    // scoped specifically to the Browse Learning Trees page's preview
+    // iframe - an author/admin viewing their own tree embedded inside an
+    // assignment must still go through isAuthor being forced false there,
+    // without also depending on that being airtight.
+    flowy(document.getElementById('canvas'), drag, release, snapping, rearranging, 20, 30, () => vm.isAuthor && Boolean(vm.fromAllLearningTrees))
 
     function addEventListenerMulti (type, listener, capture, selector) {
       let nodes = document.querySelectorAll(selector)
@@ -802,7 +815,7 @@ export default {
       await this.$nextTick()
       this.updateCanvasHeight()
       await this.updateLocation()
-      if (this.assignmentId) {
+      if (this.assignmentId && !this.previewMode) {
         await this.updateCompletionBorders()
       } else {
         let questionIds = this.getQuestionIdsFromNodes()
@@ -1567,6 +1580,10 @@ export default {
           this.assessmentQuestionId = this.learningTreeForm.question_id
           this.$bvModal.hide('modal-learning-tree-properties')
           flowy.import(LEARNING_TREE_TEMPLATE)
+          // EK: without this, the root shows LEARNING_TREE_TEMPLATE's raw
+          // inline style (blue) until saveLearningTree() below finishes and
+          // calls updateBorders() - this closes that gap immediately.
+          this.forceRootNodeBorderGreen()
           await this.$nextTick()
           this.updateCanvasHeight()
           await this.updateLocation()
@@ -1694,9 +1711,11 @@ export default {
         let div = $(el).parent('div')
         div.removeClass('question-border exposition-border empty-node-border').addClass(classToAdd)
       })
-      if (this.inIFrame) {
-        this.forceRootNodeBorderGreen()
-      }
+      // EK: root node should always read as green, in every context (full
+      // page, iframe, or a brand-new tree still on the default template) -
+      // previously this only ran inside an iframe, so the root fell through
+      // to the empty-node-border/switch logic above everywhere else.
+      this.forceRootNodeBorderGreen()
     },
     forceRootNodeBorderGreen () {
       const rootBlockIdInput = document.querySelector('.blockid[value="0"]')

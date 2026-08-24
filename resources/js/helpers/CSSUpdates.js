@@ -7,12 +7,21 @@ export const h5pOnLoadCssUpdates = {
   ]
 }
 
-const iframeTextType = window.self !== window.top ? ';font-size:17.6px;font-weight:400;color:#000000;font-family:Tahoma, Ariel, serif' : ''
 export var webworkOnLoadCssUpdates = {
   elements: [
     {
       selector: 'div#problem_body',
-      style: 'padding-top:0px;background: none;border: none;box-shadow: none' + iframeTextType
+      style: 'padding-top:0px;background: none;border: none;box-shadow: none'
+      // EK: font portion of this style used to be a module-level constant
+      // baked in from this bundle's own ambient window.self !== window.top -
+      // correct for questions.view (which always runs at the app's true
+      // top level, LTI-embedded or not), but wrong for the tree editor,
+      // which is *always* one iframe deeper (the tree modal itself)
+      // regardless of whether the app is LTI-embedded, so it always saw
+      // itself as "embedded" even when the app wasn't. See
+      // setWebworkProblemBodyFont() below - HandleTechnologyResponse.js
+      // now calls it with the app-level embedding status computed per
+      // caller, so the tree modal matches whatever questions.view shows.
     },
     {
       selector: '.attemptResultsHeader',
@@ -48,6 +57,14 @@ export var webworkOnLoadCssUpdates = {
     '.btn-primary:hover, .btn-primary:focus {color: #0058E6 !important;background-color: white !important;}',
     'p>a.knowl {display:none;}'],
   showSolutions: true
+}
+
+export function setWebworkProblemBodyFont (isEmbedded) {
+  const iframeTextType = isEmbedded ? ';font-size:17.6px;font-weight:400;color:#000000;font-family:Tahoma, Ariel, serif' : ''
+  const problemBodyElement = webworkOnLoadCssUpdates.elements.find(el => el.selector === 'div#problem_body')
+  if (problemBodyElement) {
+    problemBodyElement.style = 'padding-top:0px;background: none;border: none;box-shadow: none' + iframeTextType
+  }
 }
 
 export const h5pStudentCssUpdates = {

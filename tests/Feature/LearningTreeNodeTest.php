@@ -66,6 +66,11 @@ class LearningTreeNodeTest extends TestCase
             'question_id' => $this->node_question->id,
             'title' => 'sdfdsf',
             'description'=> 'sdfsdfsdfsd']);
+        // Helper::isAdmin() checks Auth::user()->email against admin_emails,
+        // and in the testing environment automatically treats me@me.com as
+        // an admin regardless of what's in that table - see
+        // App\Helpers\Helper::isAdmin().
+        $this->admin_user = factory(User::class)->create(['email' => 'me@me.com']);
     }
 
     /** @test */
@@ -418,5 +423,51 @@ class LearningTreeNodeTest extends TestCase
         $this->actingAs($this->student_user)
             ->getJson("/api/learning-tree-node-assignment-question/assignment/{$this->assignment->id}/learning-tree/{$this->learning_tree->id}/question/{$this->node_question_id}")
             ->assertJson(['type' => 'success']);
+    }
+
+    // ------------------------------------------------------------------
+    // LearningTreePolicy::destroy() - admin bypass regression tests.
+    // setup() already attaches a learning_tree_node_submission to
+    // $this->learning_tree for the tests above; the two tests below that
+    // actually delete the tree clear that row first so they're only
+    // exercising the permission check, not FK/cascade behavior.
+    // ------------------------------------------------------------------
+
+    /** @test */
+    public function owner_can_destroy_their_own_learning_tree()
+    {
+        $this->learning_tree_node_submission->delete();
+
+        $this->actingAs($this->user)
+            ->deleteJson("/api/learning-trees/{$this->learning_tree->id}")
+            ->assertJson(['type' => 'info', 'message' => 'The Learning Tree has been deleted.']);
+
+        $this->assertDatabaseMissing('learning_trees', ['id' => $this->learning_tree->id]);
+    }
+
+    /** @test */
+    public function non_owner_non_admin_cannot_destroy_someone_elses_learning_tree()
+    {
+        $this->actingAs($this->user_2)
+            ->deleteJson("/api/learning-trees/{$this->learning_tree->id}")
+            ->assertJson(['message' => 'You are not allowed to delete this Learning Tree.']);
+
+        $this->assertDatabaseHas('learning_trees', ['id' => $this->learning_tree->id]);
+    }
+
+    /** @test */
+    public function admin_can_destroy_a_learning_tree_they_do_not_own()
+    {
+        // Regression test: LearningTreePolicy::destroy() was missing the
+        // "|| Helper::isAdmin()" bypass that update()/updateNode() already
+        // had, so an admin could edit any Learning Tree but not delete one
+        // they didn't own.
+        $this->learning_tree_node_submission->delete();
+
+        $this->actingAs($this->admin_user)
+            ->deleteJson("/api/learning-trees/{$this->learning_tree->id}")
+            ->assertJson(['type' => 'info', 'message' => 'The Learning Tree has been deleted.']);
+
+        $this->assertDatabaseMissing('learning_trees', ['id' => $this->learning_tree->id]);
     }
 }
