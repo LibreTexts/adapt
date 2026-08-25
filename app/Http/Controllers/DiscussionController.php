@@ -145,8 +145,8 @@ class DiscussionController extends Controller
             $page = 1;
 
             $discussions = $discussion->getByAssignmentQuestionMediaUploadId($assignment, $question, $media_upload_id)['discussions'];
-            if ($assignment->id !== 94618 && $assignment->course->public && request()->user()->id !== $assignment->course->user_id) {
-               $discussions = [];
+            if (!in_array($assignment->id, [207943, 94618]) && $assignment->course->public && request()->user()->id !== $assignment->course->user_id) {
+                $discussions = [];
             }
             $response['page'] = $page;
             $response['discussions'] = $discussions;

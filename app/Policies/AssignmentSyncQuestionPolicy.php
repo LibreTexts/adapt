@@ -183,7 +183,7 @@ class AssignmentSyncQuestionPolicy
         $is_instructor = $assignment->course->ownsCourseOrIsCoInstructor($user->id);
         $is_student = in_array($user->id, $assignment->course->enrolledUsers->pluck('id')->toArray())
             || $user->fake_student
-            || ($assignment->formative && $user->formative_student);
+            || (($assignment->formative || $assignment->course->formative) && $user->formative_student);
 
         return $this->_questionInAssignment($assignment, $question) && ($is_instructor || $is_student);
     }
