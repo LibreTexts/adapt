@@ -157,6 +157,7 @@ class JWTController extends Controller
 
             if ($problemJWT->adapt->technology === 'webwork' && isset($answerJWT->score['answers'])) {
                 $answers = $answerJWT->score['answers'];
+                Log::info(json_encode($answers));
                 foreach ($answers as $value) {
                     if (isset($value['error_message']) && $value['error_message']) {
                         $log_exception = false;

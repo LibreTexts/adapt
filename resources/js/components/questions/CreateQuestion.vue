@@ -656,6 +656,12 @@
           :questions="[questionToView]"
           :current-page="1"
         />
+        <HintFileHtml
+          v-if="questionToView.render_webwork_hint"
+          :key="`preview-hint-${questionToViewKey}`"
+          :questions="[questionToView]"
+          :current-page="1"
+        />
         <ViewQuestions
           :key="questionToViewKey"
           :question-to-view="questionToView"
@@ -2998,6 +3004,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { getLearningOutcomes, subjectOptions } from '~/helpers/LearningOutcomes'
 import 'vue-select/dist/vue-select.css'
 import SolutionFileHtml from '~/components/SolutionFileHtml'
+import HintFileHtml from '~/components/HintFileHtml'
 import $ from 'jquery'
 
 import axios from 'axios'
@@ -3208,6 +3215,7 @@ export default {
   name: 'CreateQuestion',
   components: {
     SolutionFileHtml,
+    HintFileHtml,
     Autocomplete,
     AccountingMultiPartComputation,
     WebworkMacroPickerModal,

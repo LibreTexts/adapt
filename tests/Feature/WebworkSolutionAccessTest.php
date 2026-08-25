@@ -106,7 +106,7 @@ class WebworkSolutionAccessTest extends TestCase
     {
         $this->actingAs($user)
             ->getJson("/api/webwork/solution/$problemJWT")
-            ->assertJsonMissing(['message' => '<div class="alert alert-danger">No access: You do not have access to this weBWork solution.</div>']);
+            ->assertJsonMissing(['message' => 'No access: You do not have access to this weBWork solution.']);
     }
 
     private function assertAccessDenied(string $problemJWT, User $user, string $message): void
@@ -114,9 +114,9 @@ class WebworkSolutionAccessTest extends TestCase
         $response = $this->actingAs($user)
             ->getJson("/api/webwork/solution/$problemJWT");
 
-        $this->assertEquals('success', $response->json('type'));
+        $this->assertEquals('error', $response->json('type'));
         $this->assertEquals(
-            sprintf('<div class="alert alert-danger">%s</div>', "No access: $message"),
+            "No access: $message",
             $response->json('message')
         );
     }

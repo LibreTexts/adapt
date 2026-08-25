@@ -34,6 +34,21 @@ class WebworkPolicy
 
     /**
      * @param User $user
+     * @return Response
+     */
+    public function hint(User $user): Response
+    {
+        // Students must go through ShownHintController's confirm/penalty flow.
+        // This endpoint is only for previewing/authoring contexts (instructors,
+        // graders, admins, fake students), where there's no assignment/penalty
+        // context to speak of.
+        return $user->role !== 3 || $user->fake_student
+            ? Response::allow()
+            : Response::deny('You are not allowed to access this hint directly.');
+    }
+
+    /**
+     * @param User $user
      * @param Webwork $webwork
      * @param string $problemJWT
      * @return Response

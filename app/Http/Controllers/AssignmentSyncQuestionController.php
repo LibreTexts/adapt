@@ -2397,7 +2397,7 @@ class AssignmentSyncQuestionController extends Controller
                     $columns['submission'] = 'forge (final)';
                 } elseif ($value->qti_json_type === 'forge_iteration') {
                     $columns['submission'] = 'forge (draft)';
-                } elseif ($value->qti_json_type === 'three_d_model_multiple_choice'){
+                } elseif ($value->qti_json_type === 'three_d_model_multiple_choice') {
                     $columns['submission'] = '3D multiple choice';
                 }
 
@@ -4020,9 +4020,7 @@ class AssignmentSyncQuestionController extends Controller
                         $assignment->questions[$key]['qti_answer_json'] = json_encode($qti_answer_json);
                     }
                 }
-                if (request()->user()->role === 3) {
-                    $assignment->questions[$key]['webwork_code'] = null;
-                }
+
                 if ($show_solution
                     && request()->user()->role === 3
                     && ($render_webwork_solution || $imathas_solution)) {
@@ -4038,11 +4036,14 @@ class AssignmentSyncQuestionController extends Controller
                     : null;
                 $shown_hint = $assignment->can_view_hint && (Auth::user()->role === 2 || (Auth::user()->role === 3 && in_array($question->id, $shown_hints)));
                 $assignment->questions[$key]['shown_hint'] = $shown_hint;
-                $assignment->questions[$key]['hint_exists'] = $assignment->questions[$key]->hint !== null && $assignment->questions[$key]->hint !== '';
+                $assignment->questions[$key]['hint_exists'] = ($assignment->questions[$key]->hint !== null && $assignment->questions[$key]->hint !== '')
+                    || ($assignment->questions[$key]->webwork_code && str_contains($assignment->questions[$key]->webwork_code, 'BEGIN_PGML_HINT'));
                 $assignment->questions[$key]['hint'] = $shown_hint
                     ? $question->addTimeToS3Files($assignment->questions[$key]->hint, $domd)
                     : null;
-
+                if (request()->user()->role === 3) {
+                    $assignment->questions[$key]['webwork_code'] = null;
+                }
                 $assignment->questions[$key]['notes'] = Auth::user()->role === 2 ? $question->addTimeToS3Files($assignment->questions[$key]->notes, $domd) : null;
 
                 $custom_claims = [];

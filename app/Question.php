@@ -430,7 +430,9 @@ class Question extends Model
 
                 $custom_claims['aud'] = $webwork_domain;
                 $custom_claims['webwork']['problemSeed'] = $seed;
-                $custom_claims['webwork']['isInstructor'] = +(request()->user()->role === 2 || (request()->user()->role === 3 && request()->user()->fake_student)); //for debugging
+                $custom_claims['webwork']['isInstructor'] = 0;
+                $custom_claims['webwork']['view_problem_debugging_info'] =+(request()->user()->role === 2 || (request()->user()->role === 3 && request()->user()->fake_student)); //for debugging
+
                 $custom_claims['webwork']['hideElements'] = ['.ww-feedback-btn'];
                 if (!Helper::isWebworkMacroEditor()) {
                     $custom_claims['webwork']['hideElements'][] = '.Warnings';
@@ -4022,11 +4024,13 @@ class Question extends Model
 
         $custom_claims['aud'] = $webwork_domain;
         $custom_claims['webwork']['problemSeed'] = 1234567;
-        $custom_claims['webwork']['isInstructor'] = true;
+        $custom_claims['webwork']['isInstructor'] = 0;
+        $custom_claims['webwork']['view_problem_debugging_info'] =true;
         $custom_claims['webwork']['hideElements'] = ['.ww-feedback-btn'];
         if (!Helper::isWebworkMacroEditor()) {
             $custom_claims['webwork']['hideElements'][] = '.Warnings';
         }
+        $custom_claims['webwork']['showHints'] = 0;
         $custom_claims['webwork']['showSummary'] = 0;
         $custom_claims['webwork']['showSolutions'] = true;
         $custom_claims['webwork']['sourceFilePath'] = $source_file_path;

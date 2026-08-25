@@ -28,27 +28,44 @@ class WebworkController extends Controller
     {
         try {
             $authorized = Gate::inspect('solution', [$webwork, $problemJWT]);
-
+            $response['type'] = 'error';
             if (!$authorized->allowed()) {
-                return [
-                    'type'    => 'success',
-                    'message' => sprintf(
-                        '<div class="alert alert-danger">%s</div>',
-                        e($authorized->message())
-                    )
-                ];
+                $response['message'] = $authorized->message();
+                return $response;
             }
 
-            return $webwork->getSolution($problemJWT);
+            $response = $webwork->getSolution($problemJWT);
 
         } catch (Exception $e) {
             app(Handler::class)->report($e);
-
-            return [
-                'type'    => 'error',
-                'message' => '<div class="alert alert-danger">We were unable to retrieve the solution to this problem. Please try again or contact support.</div>'
-            ];
+            $response['message'] = 'We were unable to retrieve the solution to this problem. Please try again or contact support.';
         }
+        return $response;
+    }
+
+    /**
+     * @param string $problemJWT
+     * @param Webwork $webwork
+     * @return array
+     * @throws Exception
+     */
+    public function hint(string $problemJWT, Webwork $webwork): array
+    {
+        try {
+            $authorized = Gate::inspect('hint', $webwork);
+            $response['type'] = 'error';
+            if (!$authorized->allowed()) {
+                $response['message'] = $authorized->message();
+                return $response;
+            }
+
+            $response = $webwork->getHint($problemJWT);
+
+        } catch (Exception $e) {
+            app(Handler::class)->report($e);
+            $response['message'] = 'We were unable to retrieve the hint to this problem. Please try again or contact support.';
+        }
+        return $response;
     }
 
     /**

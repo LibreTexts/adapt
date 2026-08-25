@@ -9,6 +9,7 @@ use App\CanGiveUp;
 use App\CompiledPDFOverride;
 use App\Course;
 use App\Enrollment;
+use App\JWE;
 use App\LtiLaunch;
 use App\Question;
 use App\QuestionLevelOverride;
@@ -25,6 +26,7 @@ use App\Traits\Test;
 use App\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 use function dd;
@@ -996,7 +998,10 @@ class QuestionsViewTest extends TestCase
         $this->assignment->can_view_hint = true;
         $this->assignment->save();
 
-        $this->actingAs($this->user)
+        // $this->user owns the course and is role 2, which the policy always allows
+        // regardless of enrollment. Use a role-3 user who is genuinely not enrolled
+        // in this course to test the "not part of the course" denial.
+        $this->actingAs($this->student_user_2)
             ->postJson("/api/shown-hints/assignments/{$this->assignment->id}/question/{$this->question->id}")
             ->assertJson(['message' => 'You cannot view the hint since you are not part of the course.']);
 
@@ -1022,6 +1027,134 @@ class QuestionsViewTest extends TestCase
         $this->actingAs($this->student_user)
             ->postJson("/api/shown-hints/assignments/{$this->assignment->id}/question/{$this->question->id}")
             ->assertJson(['message' => 'The instructor does not want students to view this hint.']);
+    }
+
+    private function createWebworkProblemJWT(): string
+    {
+        $jwe = new JWE();
+        $secret = $jwe->getSecret('webwork');
+        \JWTAuth::getJWTProvider()->setSecret($secret);
+
+        $token = \JWTAuth::claims([
+            'adapt' => [
+                'assignment_id' => $this->assignment->id,
+                'question_id' => $this->question->id,
+                'technology' => 'webwork',
+            ],
+            'webwork' => [],
+            'imathas' => [],
+            'h5p' => [],
+        ])->fromUser($this->student_user);
+
+        $problemJWT = $jwe->encrypt($token, 'webwork');
+        \JWTAuth::getJWTProvider()->setSecret(config('myconfig.jwt_secret'));
+
+        return $problemJWT;
+    }
+
+    /** @test */
+    public function student_requesting_hint_on_webwork_question_gets_content_from_render_api()
+    {
+        $this->assignment->can_view_hint = true;
+        $this->assignment->save();
+
+        $this->question->technology = 'webwork';
+        $this->question->save();
+
+        Http::fake([
+            '*/render-api/hint*' => Http::response([
+                'status' => 200,
+                'message' => '<div>Use dimensional analysis.</div>',
+            ], 200),
+        ]);
+
+        $problemJWT = $this->createWebworkProblemJWT();
+
+        $this->actingAs($this->student_user)
+            ->postJson("/api/shown-hints/assignments/{$this->assignment->id}/question/{$this->question->id}", [
+                'problemJWT' => $problemJWT,
+            ])
+            ->assertJson([
+                'type' => 'success',
+                'hint' => '<div>Use dimensional analysis.</div>',
+            ]);
+    }
+
+    /** @test */
+    public function webwork_hint_render_api_failure_is_surfaced_to_student()
+    {
+        $this->assignment->can_view_hint = true;
+        $this->assignment->save();
+
+        $this->question->technology = 'webwork';
+        $this->question->save();
+
+        Http::fake([
+            '*/render-api/hint*' => Http::response('server error', 500),
+        ]);
+
+        $problemJWT = $this->createWebworkProblemJWT();
+
+        $this->actingAs($this->student_user)
+            ->postJson("/api/shown-hints/assignments/{$this->assignment->id}/question/{$this->question->id}", [
+                'problemJWT' => $problemJWT,
+            ])
+            ->assertJson(['type' => 'error']);
+    }
+
+    /** @test */
+    public function requesting_the_same_hint_twice_does_not_throw_a_duplicate_key_error()
+    {
+        $this->assignment->can_view_hint = true;
+        $this->assignment->save();
+
+        $this->actingAs($this->student_user)
+            ->postJson("/api/shown-hints/assignments/{$this->assignment->id}/question/{$this->question->id}")
+            ->assertJson(['type' => 'success']);
+
+        // Second call must not blow up on the shown_hints unique constraint
+        $this->actingAs($this->student_user)
+            ->postJson("/api/shown-hints/assignments/{$this->assignment->id}/question/{$this->question->id}")
+            ->assertJson(['type' => 'success']);
+
+        $this->assertEquals(1, DB::table('shown_hints')
+            ->where('user_id', $this->student_user->id)
+            ->where('assignment_id', $this->assignment->id)
+            ->where('question_id', $this->question->id)
+            ->count());
+    }
+
+    /** @test */
+    public function second_request_for_webwork_hint_refetches_fresh_content_instead_of_reusing_stale_data()
+    {
+        $this->assignment->can_view_hint = true;
+        $this->assignment->save();
+
+        $this->question->technology = 'webwork';
+        $this->question->save();
+
+        $problemJWT = $this->createWebworkProblemJWT();
+
+        $callCount = 0;
+        Http::fake(function () use (&$callCount) {
+            $callCount++;
+            return Http::response([
+                'status' => 200,
+                'message' => $callCount === 1 ? '<div>First hint call</div>' : '<div>Second hint call</div>',
+            ], 200);
+        });
+
+        $this->actingAs($this->student_user)
+            ->postJson("/api/shown-hints/assignments/{$this->assignment->id}/question/{$this->question->id}", [
+                'problemJWT' => $problemJWT,
+            ])
+            ->assertJson(['hint' => '<div>First hint call</div>']);
+
+        $this->actingAs($this->student_user)
+            ->postJson("/api/shown-hints/assignments/{$this->assignment->id}/question/{$this->question->id}", [
+                'problemJWT' => $problemJWT,
+            ])
+            ->assertJson(['hint' => '<div>Second hint call</div>']);
     }
 
     /** @test */

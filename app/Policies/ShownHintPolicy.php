@@ -55,7 +55,9 @@ class ShownHintPolicy
         if (session()->get('instructor_user_id')) {
             //logged in as student
             $has_access = true;
-
+        }
+        if (in_array($user->role, [2,4,5])){
+            $has_access = true;
         }
         return $has_access
             ? Response::allow()

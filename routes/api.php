@@ -703,6 +703,7 @@ Route::group(['middleware' => ['auth:api', 'analytics','rate.limit.by.user']], f
     Route::post('/webwork/src-doc/assignment/{assignment}/question/{question}', 'WebworkController@getSrcDoc');
     Route::get('/webwork/templates', 'WebworkController@templates');
     Route::get('/webwork/solution/{problemJWT}', 'WebworkController@solution');
+    Route::get('/webwork/hint/{problemJWT}', 'WebworkController@hint');
     Route::get('/webwork/submission-errors', 'WebworkController@SubmissionErrors');
 
     Route::get('/unconfirmed-submissions/assignment/{assignment}/question/{question}', 'UnconfirmedSubmissionController@show');

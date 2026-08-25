@@ -884,27 +884,11 @@
         either find a related problem or review the underlying concept.
       </p>
     </b-modal>
-
-    <b-modal v-if="questions[currentPage - 1]"
-             id="modal-hint"
-             title="Hint"
-    >
-      <b-alert :show="user.role === 2" variant="info">
-        Students receive a {{ hintPenaltyIfShownHint }}% penalty for viewing the hint.
-      </b-alert>
-      <div id="hint-html">
-        <span v-html="questions[currentPage - 1].hint"/>
-      </div>
-      <template #modal-footer="{ ok}">
-        <b-button
-          size="sm"
-          variant="primary"
-          @click="$bvModal.hide('modal-hint')"
-        >
-          OK
-        </b-button>
-      </template>
-    </b-modal>
+    <div v-if="questions[currentPage - 1] && questions[currentPage-1].hint_exists">
+      <HintModal :hint-penalty-if-shown-hint="hintPenaltyIfShownHint"
+                 :hint-html="questions[currentPage - 1].hint ? questions[currentPage - 1].hint : ''"
+      />
+    </div>
     <b-modal id="modal-confirm-show-hint"
              title="Confirm Show Hint"
     >
@@ -2657,7 +2641,8 @@
               <b-icon
                 icon="tree"
                 variant="success"
-              /> Enter Learning Tree
+              />
+              Enter Learning Tree
             </b-button>
             <span class="pl-2">
 
@@ -3831,6 +3816,7 @@ import { isQtiOrForgeWithQtiAnswerSolution, openEndedSubmissionTypeOptions } fro
 import { handleFixCKEditorWithPasteWarning } from '../helpers/ckeditor'
 import ForgeSettings from '../components/ForgeSettings.vue'
 import ForgeDueDates from '../components/ForgeDueDates.vue'
+import HintModal from '../components/HintModal.vue'
 
 Vue.prototype.$http = axios // needed for the audio player
 
@@ -3841,6 +3827,7 @@ export default {
   middleware: 'auth',
   layout: window.config.clickerApp ? 'blank' : 'default',
   components: {
+    HintModal,
     ForgeDueDates,
     ForgeSettings,
     NativeAudioVideoRecorder,
@@ -4939,16 +4926,15 @@ export default {
       }
     },
     showHintModal () {
-      if (this.questions[this.currentPage - 1].shown_hint) {
-        this.cleanHint()
+      if (!this.questions[this.currentPage - 1].shown_hint) {
+        this.$bvModal.show('modal-confirm-show-hint')
+        return
       }
-      !this.questions[this.currentPage - 1].shown_hint
-        ? this.$bvModal.show('modal-confirm-show-hint')
-        : this.$bvModal.show('modal-hint')
 
-      this.$nextTick(() => {
-        this.typesetMath(document.getElementById('hint-html'))
-      })
+      // Already recorded as shown — re-fetch the content instead of trusting
+      // whatever's cached locally, since webwork hints aren't persisted on
+      // the question and come back empty after a page reload.
+      this.handleShownHint()
     },
     isDiscussIt () {
       const question = this.questions[this.currentPage - 1]
@@ -5562,7 +5548,9 @@ export default {
     },
     async handleShownHint () {
       try {
-        const { data } = await axios.post(`/api/shown-hints/assignments/${this.assignmentId}/question/${this.questions[this.currentPage - 1].id}`)
+        const { data } = await axios.post(`/api/shown-hints/assignments/${this.assignmentId}/question/${this.questions[this.currentPage - 1].id}`, {
+          problemJWT: this.questions[this.currentPage - 1].problem_jwt
+        })
         if (data.type === 'error') {
           this.$noty.error(data.message)
           return false

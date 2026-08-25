@@ -2876,11 +2876,14 @@ class QuestionController extends Controller
                     $domain = $question->getWebworkDomain();
                     $endpoint = $question->getWebworkEndpoint();
                     $question['technology_iframe_src'] = "$domain/$endpoint?problemJWT=$problemJWT";
+                    $question['technology_iframe'] = $question['technology_iframe_src'];
                     if ($webwork->algorithmicSolution($request) || $webwork->inCodeSolution($request)) {
-                        $question['technology_iframe'] = $question['technology_iframe_src'];
                         $question['solution_html'] = null;
                         $question['solution_type'] = 'html';
                         $question['render_webwork_solution'] = true;
+                    }
+                    if ($webwork->hasHint($request)) {
+                        $question['render_webwork_hint'] = true;
                     }
                 } else {
                     $problem_jwt = '';

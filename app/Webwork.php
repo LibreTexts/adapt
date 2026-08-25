@@ -34,11 +34,35 @@ class Webwork extends Model
      */
     public function getSolution(string $problemJWT)
     {
+        return $this->_getRenderApiResult($problemJWT, 'solution');
+    }
+
+    /**
+     * @param string $problemJWT
+     * @return array|mixed
+     * @throws Exception
+     */
+    public function getHint(string $problemJWT)
+    {
+        return $this->_getRenderApiResult($problemJWT, 'hint');
+    }
+
+    /**
+     * Shared logic for render-api endpoints that take a re-signed/re-encrypted
+     * problemJWT (currently 'solution' and 'hint').
+     *
+     * @param string $problemJWT
+     * @param string $type 'solution' or 'hint' — used as both the JWT 'typ' claim and the render-api endpoint
+     * @return array|mixed
+     * @throws Exception
+     */
+    private function _getRenderApiResult(string $problemJWT, string $type)
+    {
         $jwe = new JWE();
         $secret = $jwe->getSecret('webwork');
         JWTAuth::getJWTProvider()->setSecret($secret);
         $claims = json_decode($jwe->decrypt($problemJWT, 'webwork'), 1);
-        $claims['typ'] = 'solution';
+        $claims['typ'] = $type;
         $allowedKeys = ['adapt', 'scheme_and_host', 'imathas', 'webwork', 'h5p', 'iss', 'aud', 'typ'];
         $claims = array_intersect_key($claims, array_flip($allowedKeys));
         $claims['problemJWT'] = $problemJWT;
@@ -48,7 +72,7 @@ class Webwork extends Model
             "render.libretexts.org"
             : "staging-render.libretexts.org";
 
-        $fullUrl = "https://$url/render-api/solution?problemJWT=$problemJWT";
+        $fullUrl = "https://$url/render-api/$type?problemJWT=$problemJWT";
         $token = config('myconfig.webwork_token');
         $http_response = Http::withToken($token)->post($fullUrl);
         if ($http_response->successful()) {
@@ -56,7 +80,7 @@ class Webwork extends Model
             $response['type'] = $response['status'] === 200 ? 'success' : 'error';
         } else {
             $response['type'] = 'error';
-            $response['message'] = "Could not get webworkSolution: " . $http_response->body();
+            $response['message'] = "Could not get webwork" . ucfirst($type) . ": " . $http_response->body();
         }
         return $response;
     }
@@ -276,5 +300,20 @@ class Webwork extends Model
             return true;
         }
         return false;
+    }
+
+    /**
+     * Detects whether the PG code defines a hint, so the "Show Hint" preview
+     * button can be conditionally shown.
+     *
+     * @param $value
+     * @return bool
+     */
+    public function hasHint($value): bool
+    {
+        if (!$value->webwork_code) {
+            return false;
+        }
+        return str_contains($value->webwork_code, 'BEGIN_PGML_HINT');
     }
 }
