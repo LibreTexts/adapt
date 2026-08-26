@@ -287,18 +287,20 @@ class Webwork extends Model
      */
     public function algorithmicSolution($value): bool
     {
+
         if (!$value->webwork_code) {
             return false;
         }
         if (
-            strpos($value->webwork_code, 'BEGIN_PGML_SOLUTION') !== false && // Ensure 'BEGIN_PGML_SOLUTION' exists
+            strpos($value->webwork_code, 'BEGIN_PGML_SOLUTION') !== false &&
             (
-                preg_match("/#-ULETH-#\s*BEGIN_PGML_SOLUTION/", $value->webwork_code) || // Match '#-ULETH-#' with optional spaces before 'BEGIN_PGML_SOLUTION'
-                !preg_match("/#\s*BEGIN_PGML_SOLUTION/", $value->webwork_code) // Ensure it does not start with '# BEGIN_PGML_SOLUTION'
+                strpos($value->webwork_code, '#-ULETH-#') !== false ||
+                !preg_match('/(?<!#)#\s*BEGIN_PGML_SOLUTION/', $value->webwork_code)
             )
         ) {
             return true;
         }
+
         return false;
     }
 

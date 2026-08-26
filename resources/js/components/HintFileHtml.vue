@@ -4,10 +4,11 @@
       <b-modal
         :id="`modal-show-html-hint-${modalId}`"
         ref="htmlModal"
-        title="Hint"
         size="lg"
         @shown="onHTMLHintModalShown"
-      >
+      ><template #modal-title>
+    <h2 class="editable mb-0">Hint</h2>
+  </template>
         <div v-if="questions[currentPage - 1].render_webwork_hint && !renderedWebworkHint">
           <div class="d-flex justify-content-center mb-3">
             <div class="text-center">

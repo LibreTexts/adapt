@@ -2,7 +2,9 @@
   <b-modal id="modal-hint"
            title="Hint"
            size="lg"
-  >
+  ><template #modal-title>
+    <h2 class="editable mb-0">Hint</h2>
+  </template>
     <b-alert :show="user.role === 2" variant="info">
       Students receive a {{ hintPenaltyIfShownHint }}% penalty for viewing the hint.
     </b-alert>
