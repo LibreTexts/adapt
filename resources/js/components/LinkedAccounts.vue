@@ -106,7 +106,13 @@
     </b-modal>
     <div class="mt-3">
       <div v-if="isMainAccount() || !linkedAccounts.length">
-        <b-card header-html="<h2 class=&quot;h7&quot;>Link Accounts</h2>">
+        <b-card>
+          <template #header>
+            <div class="d-flex align-items-center justify-content-between">
+              <h2 class="h7 m-0">Link Accounts</h2>
+              <ConsultInsight :url="'https://commons.libretexts.org/insight/how-to-handle-multiple-instructor-accounts-in-adapt'"/>
+            </div>
+          </template>
           <p>
             You can link multiple ADAPT instructor accounts together so that you can easily switch between your
             accounts.
@@ -180,6 +186,7 @@
 
 <script>
 import AllFormErrors from '~/components/AllFormErrors'
+import ConsultInsight from '~/components/ConsultInsight'
 import { fixInvalid } from '~/helpers/accessibility/FixInvalid'
 import { mapGetters } from 'vuex'
 import axios from 'axios'
@@ -187,7 +194,7 @@ import Form from 'vform'
 
 export default {
   scrollToTop: false,
-  components: { AllFormErrors },
+  components: { AllFormErrors, ConsultInsight },
   metaInfo () {
     return { title: 'Settings - Linked Accounts' }
   },
