@@ -3487,8 +3487,8 @@
                       <div class="mt-3">
                         <b-card header-html="<span class=&quot;font-weight-bold&quot;>Default Text</span>">
                           <p>
-                            You can add default text for your students to see in their own text editors when they
-                            attempt this question.
+                            Optionally, add text your students will see pre-filled in their own text editor
+                            when they open this question. Leave it blank if you don't want any default text.
                           </p>
                           <ckeditor
                             :key="questions[currentPage-1].id"
@@ -4201,7 +4201,7 @@ export default {
       solution_text: ''
     }),
     openEndedDefaultTextForm: new Form({
-      open_ended_default_text: 'Enter text that you would like to appear when your student sees the text submissions area.'
+      open_ended_default_text: ''
     }),
     textSubmissionForm: new Form({
       text_submission: '',
@@ -4504,6 +4504,18 @@ export default {
     getTechnologySrcDoc,
     addGlow,
     hideSubmitButtonsIfCannotSubmit,
+    normalizeEmptyRichText (html) {
+      if (!html) return ''
+      // CKEditor's "empty" state isn't actually an empty string — it's typically
+      // <p>&nbsp;</p>, <p></p>, or <p><br></p>. Strip tags and non-breaking
+      // spaces to check if there's any real content; if not, collapse to ''
+      // so we never persist instruction-shaped markup that merely looks blank.
+      const strippedOfMarkup = html
+        .replace(/<[^>]*>/g, '')
+        .replace(/&nbsp;/gi, ' ')
+        .trim()
+      return strippedOfMarkup.length ? html : ''
+    },
     async getWebworkSolution (problemJWT) {
       try {
         const { data } = await axios.get(`/api/webwork/solution/${problemJWT}`)
@@ -6119,6 +6131,9 @@ export default {
       this.$bvModal.hide('modal-reset-to-default-text')
     },
     async submitDefaultOpenEndedText () {
+      this.openEndedDefaultTextForm.open_ended_default_text = this.normalizeEmptyRichText(
+        this.openEndedDefaultTextForm.open_ended_default_text
+      )
       try {
         let questionId = this.questions[this.currentPage - 1].id
         const { data } = await this.openEndedDefaultTextForm.patch(`/api/assignments/${this.assignmentId}/questions/${questionId}/open-ended-default-text`)
