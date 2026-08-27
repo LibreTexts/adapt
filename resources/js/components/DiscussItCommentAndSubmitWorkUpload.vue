@@ -3,9 +3,11 @@
     <AllFormErrors :all-form-errors="allFormErrors" :modal-id="`modal-form-errors-file-upload`"/>
     <b-container>
       <div class="mt-3 ml-1">
-        <div class="h7">
+        <b-button size="sm" variant="info" @click="$bvModal.show(instructionsModalId)">
           Instructions
-        </div>
+        </b-button>
+      </div>
+      <b-modal :id="instructionsModalId" title="Instructions" ok-only ok-title="Close" button-size="sm">
         <div v-show="commentType === 'audio'">
           <span v-show="isPhone()">
 Use your phone to record and upload your {{ submissionType === 'discuss-it' ? 'audio comment' : 'submitted work' }} directly to ADAPT.
@@ -38,7 +40,7 @@ Use your phone to record and upload your {{ submissionType === 'discuss-it' ? 'a
           </file-upload>
           from your computer into ADAPT.
         </span>
-      </div>
+      </b-modal>
       <b-row class="upload mt-3 ml-1">
         <div v-if="files.length && (preSignedURL !== '')">
           <div v-for="file in files" :key="file.id">
@@ -124,6 +126,15 @@ export default {
     activeTranscript: [],
     orderedMediaUploads: []
   }),
+  computed: {
+    instructionsModalId () {
+      // Multiple instances of this component can be mounted at once
+      // (e.g. the audio and video sections of the Discuss-it compose
+      // panel), so the modal id must be unique per instance, not just
+      // per comment-type, or $bvModal.show() opens every matching id.
+      return `modal-discuss-it-instructions-${this.commentType}-${this._uid}`
+    }
+  },
   methods: {
     isPhone,
     initStartUpload () {

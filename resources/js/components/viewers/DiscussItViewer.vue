@@ -50,20 +50,20 @@
       </div>
       <table v-if="+discussItSettingsForm.completion_criteria" class="table table-striped table-responsive">
         <thead>
-          <tr>
-            <th scope="col">
-              Description
-            </th>
-            <th scope="col">
-              Minimum Number Required
-            </th>
-            <th scope="col">
-              Number Submitted
-            </th>
-            <th scope="col">
-              Requirement Satisfied
-            </th>
-          </tr>
+        <tr>
+          <th scope="col">
+            Description
+          </th>
+          <th scope="col">
+            Minimum Number Required
+          </th>
+          <th scope="col">
+            Number Submitted
+          </th>
+          <th scope="col">
+            Requirement Satisfied
+          </th>
+        </tr>
         </thead>
         <tr
           v-show="completionRequirements.find(item => item.key === 'min_number_of_initiated_discussion_threads')"
@@ -224,11 +224,11 @@
 
       <div v-if="commentType === 'audio'">
         <DiscussItCommentAndSubmitWorkUpload v-if="reRecording"
-                                :key="'re-record-audio'"
-                                :comment-type="'audio'"
-                                :assignment-id="assignmentId"
-                                :question-id="questionId"
-                                @saveUploadedAudioVideoComment="saveUploadedAudioVideoComment"
+                                             :key="'re-record-audio'"
+                                             :comment-type="'audio'"
+                                             :assignment-id="assignmentId"
+                                             :question-id="questionId"
+                                             @saveUploadedAudioVideoComment="saveUploadedAudioVideoComment"
         />
         <div v-if="isPhone()">
           <NativeAudioVideoRecorder v-if="reRecording"
@@ -261,11 +261,11 @@
       </div>
       <div v-if="commentType === 'video'">
         <DiscussItCommentAndSubmitWorkUpload v-if="reRecording"
-                                :key="'re-record-video'"
-                                :comment-type="'video'"
-                                :assignment-id="assignmentId"
-                                :question-id="questionId"
-                                @saveUploadedAudioVideoComment="saveUploadedAudioVideoComment"
+                                             :key="'re-record-video'"
+                                             :comment-type="'video'"
+                                             :assignment-id="assignmentId"
+                                             :question-id="questionId"
+                                             @saveUploadedAudioVideoComment="saveUploadedAudioVideoComment"
         />
         <NativeAudioVideoRecorder v-if="reRecording"
                                   key="update-video-comment"
@@ -793,189 +793,6 @@
         </b-button>
       </template>
     </b-modal>
-    <b-modal id="modal-new-comment"
-             :title="activeDiscussion.id ? 'New Comment' : 'New Thread'"
-             no-close-on-backdrop
-             size="lg"
-             :hide-footer="responseModeMissingError"
-             @shown="currentFile ='';updateModalToggleIndex('modal-new-comment')"
-    >
-      <div v-if="responseModeMissingError">
-        <b-alert variant="info" show>
-          The response mode (text, audio, video) for this Discuss-it question has not yet been set.
-          <span v-show="user && user.role === 3"> Please contact your instructor.</span>
-          <span v-show="user && user.role === 2"> Please add at least one response mode in your Discuss-it settings.</span>
-        </b-alert>
-      </div>
-      <div v-if="!responseModeMissingError">
-        <b-form-group>
-          <b-form-radio-group
-            v-model="commentType"
-            stacked
-            required
-            label="Comment Type:"
-          >
-            <b-form-radio v-show="showCommentTypeOption('text')" name="comment-type" value="text">
-              Text
-            </b-form-radio>
-            <b-form-radio v-show="showCommentTypeOption('audio')" name="comment-type"
-                          value="audio"
-            >
-              Audio
-            </b-form-radio>
-            <b-form-radio v-show="showCommentTypeOption('video')" name="comment-type"
-                          value="video"
-            >
-              Video
-            </b-form-radio>
-          </b-form-radio-group>
-        </b-form-group>
-        <div v-if="commentType === 'text'">
-          <DiscussItSatisfiesRequirement v-if="+discussItSettingsForm.completion_criteria"
-                                         :min-number-of-words="+minNumberOfWords"
-                                         :comment-form-text="commentForm.text"
-                                         :comment-type="'text'"
-          />
-          <ckeditor
-            id="discuss_it_text"
-            ref="discuss_it_text"
-            v-model="commentForm.text"
-            tabindex="0"
-            required
-            :config="discussItEditorConfig"
-            :class="{ 'is-invalid': commentForm.errors.has('text')}"
-            class="mb-2"
-            @namespaceloaded="onCKEditorNamespaceLoaded"
-            @ready="handleFixCKEditorWithPasteWarning"
-            @keydown="commentForm.errors.clear('text')"
-          />
-        </div>
-        <div v-if="commentType === 'audio'">
-          <div v-if="!discussionCommentAudio">
-            <DiscussItSatisfiesRequirement v-if="+discussItSettingsForm.completion_criteria"
-                                           ref="discussItSatisfiesRequirement"
-                                           :key="`discussItSatisfiesRequirement-${discussItSatisfiesRequirementKey}`"
-                                           :milliseconds-time-until-requirement-satisfied="millisecondsTimeUntilRequirementSatisfied"
-                                           :human-readable-time-until-requirement-satisfied="humanReadableTimeUntilRequirementSatisfied"
-                                           :comment-type="'audio'"
-                                           :show-satisfies-requirement-timer="showSatisfiesRequirementTimer"
-                                           @setRequirementSatisfied="setRequirementSatisfied"
-            />
-            <DiscussItCommentAndSubmitWorkUpload :key="'new-audio'"
-                                    :comment-type="'audio'"
-                                    :assignment-id="assignmentId"
-                                    :question-id="questionId"
-                                    @saveUploadedAudioVideoComment="saveUploadedAudioVideoComment"
-            />
-            <div v-if="isPhone()">
-              <NativeAudioVideoRecorder :key="`new-comment-${commentType}`"
-                                        :recording-type="'audio'"
-                                        :assignment-id="+assignmentId"
-                                        @saveComment="saveComment"
-                                        @startVideoRecording="startVideoRecording"
-                                        @stopVideoRecording="stopVideoRecording"
-                                        @updateDiscussionCommentVideo="updateDiscussionCommentVideo"
-              />
-            </div>
-            <div v-else>
-              <audio-recorder
-                id="discuss-it-recorder"
-                ref="recorder"
-                :upload-url="`/api/discussion-comments/assignment/${assignmentId}/question/${questionId}/audio`"
-                :attempts="1"
-                :time="3"
-                class="m-auto"
-                :show-download-button="false"
-                :after-recording="afterRecording"
-                :before-recording="beforeRecording"
-                :successful-upload="successfulRecordingUpload"
-                :failed-upload="failedRecordingUpload"
-                :mic-failed="micFailed"
-              />
-            </div>
-          </div>
-          <div v-if="discussionCommentAudio">
-            <iframe v-resize="{ log: false }"
-                    :src="`/discussion-comments/media-player/discussion-comment-id/${activeDiscussionCommentId}/is-phone/${+this.isPhone()}`"
-                    width="100%"
-                    frameborder="0"
-                    allowfullscreen
-            />
-            <div class="pb-4">
-              <b-button v-if="false"
-                        class="float-right mr-2"
-                        size="sm"
-                        variant="danger"
-                        @click="confirmDeleteComment('audio')"
-              >
-                Delete
-              </b-button>
-            </div>
-          </div>
-        </div>
-        <div v-show="commentType === 'video'">
-          <DiscussItSatisfiesRequirement
-            v-if="!discussionCommentVideo && Boolean(+discussItSettingsForm.completion_criteria)"
-            ref="discussItSatisfiesRequirement"
-            :key="`discussItSatisfiesRequirement-${discussItSatisfiesRequirementKey}`"
-            :milliseconds-time-until-requirement-satisfied="millisecondsTimeUntilRequirementSatisfied"
-            :human-readable-time-until-requirement-satisfied="humanReadableTimeUntilRequirementSatisfied"
-            :comment-type="commentType"
-            :show-satisfies-requirement-timer="showSatisfiesRequirementTimer"
-            @setRequirementSatisfied="setRequirementSatisfied"
-          />
-          <DiscussItCommentAndSubmitWorkUpload :key="'new-video'"
-                                  :comment-type="'video'"
-                                  :assignment-id="assignmentId"
-                                  :question-id="questionId"
-                                  @saveUploadedAudioVideoComment="saveUploadedAudioVideoComment"
-          />
-          <NativeAudioVideoRecorder :key="`new-comment-${commentType}`"
-                                    :recording-type="'video'"
-                                    :assignment-id="+assignmentId"
-                                    @saveComment="saveComment"
-                                    @startVideoRecording="startVideoRecording"
-                                    @stopVideoRecording="stopVideoRecording"
-                                    @updateDiscussionCommentVideo="updateDiscussionCommentVideo"
-          />
-        </div>
-      </div>
-      <template #modal-footer>
-        <span v-show="commentType === 'audio' && stoppedAudioRecording">
-          <span class="mr-2">
-            <b-button
-              variant="primary"
-              size="sm"
-              @click="saveAudio"
-            >
-              Save
-            </b-button>
-          </span>
-          <b-button
-            size="sm"
-            variant="outline-danger"
-            @click="reRecordAudio"
-          >
-            Delete and re-record
-          </b-button>
-        </span>
-        <span v-show="commentType === 'text'">
-          <b-button size="sm"
-                    variant="primary"
-                    @click="saveComment()"
-          >
-            Save
-          </b-button>
-        </span>
-        <b-button
-          size="sm"
-          class="float-right"
-          @click="$bvModal.hide('modal-new-comment')"
-        >
-          Cancel
-        </b-button>
-      </template>
-    </b-modal>
 
     <b-container>
       <div v-if="loaded
@@ -1030,7 +847,7 @@
                v-html="currentDiscussionMedia.text"
           />
         </b-col>
-        <b-col v-if="!previewingQuestion" class="border p-2 border-dark" style="font-size:small">
+        <b-col v-if="!previewingQuestion" class="border p-2 border-dark discuss-it-sticky-col" style="font-size:small">
           <div class="mb-2">
             <b-card v-if="+discussItSettingsForm.completion_criteria" header="default"
                     header-html="<h2 class='h7'>Submission Information</h2>"
@@ -1048,10 +865,10 @@
                   <CompletedIcon :completed="completionRequirement.requirement_satisfied" />
                   <span :class="completionRequirement.requirement_satisfied ? 'text-success' : 'text-danger'">
                     {{ completionRequirement.text }} <span
-                      v-if="completionRequirement.key === 'min_number_of_initiated_discussion_threads'"
-                    >   <QuestionCircleTooltip
-                          id="min-number-of-initiated-discussion-threads-tooltip"
-                        />
+                    v-if="completionRequirement.key === 'min_number_of_initiated_discussion_threads'"
+                  >   <QuestionCircleTooltip
+                    id="min-number-of-initiated-discussion-threads-tooltip"
+                  />
                       <b-tooltip target="min-number-of-initiated-discussion-threads-tooltip"
                                  delay="250"
                                  triggers="hover focus"
@@ -1060,8 +877,8 @@
                         {{ numberOfInitiatedDiscussionThreadsMessage }}
                       </b-tooltip></span>
                     <span v-if="completionRequirement.key === 'min_number_of_replies'">   <QuestionCircleTooltip
-                                                                                            id="min-number-of-replies-tooltip"
-                                                                                          />
+                      id="min-number-of-replies-tooltip"
+                    />
                       <b-tooltip target="min-number-of-replies-tooltip"
                                  delay="250"
                                  triggers="hover focus"
@@ -1069,8 +886,8 @@
                         {{ numberOfRepliesMessage }}
                       </b-tooltip></span>
                     <span v-if="completionRequirement.key === 'min_number_of_initiate_or_reply_in_threads'">   <QuestionCircleTooltip
-                                                                                                                 id="min-number-of-initiate-or-reply-in-threads-tooltip"
-                                                                                                               />
+                      id="min-number-of-initiate-or-reply-in-threads-tooltip"
+                    />
                       <b-tooltip target="min-number-of-initiate-or-reply-in-threads-tooltip"
                                  delay="250"
                                  triggers="hover focus"
@@ -1124,7 +941,7 @@
             </b-card>
           </div>
           <hr v-if="discussions.length && canStartDiscussionOrAddComments && !previewingQuestion">
-          <div v-if="canStartDiscussionOrAddComments && !previewingQuestion">
+          <div v-if="canStartDiscussionOrAddComments && !previewingQuestion" class="mb-3">
             <span v-if="groupOptions.length > 1 && user.role === 2" class="mr-2">
               <b-form-select id="group"
                              v-model="group"
@@ -1143,9 +960,188 @@
             </b-button>
             <span v-show="discussions.length > 1" class="float-right">
               <b-button variant="outline-info" size="sm" @click="showAllDiscussions">Show All</b-button> <b-button
-                size="sm" @click="hideAllDiscussions"
-              >Hide All</b-button>
+              size="sm" @click="hideAllDiscussions"
+            >Hide All</b-button>
             </span>
+          </div>
+          <div v-if="showComposePanel && !activeDiscussion.id"
+               id="discuss-it-compose-panel-new-thread"
+               class="discuss-it-compose-panel border rounded p-3 mb-3"
+          >
+            <div v-if="responseModeMissingError">
+              <b-alert variant="info" show>
+                The response mode (text, audio, video) for this Discuss-it question has not yet been set.
+                <span v-show="user && user.role === 3"> Please contact your instructor.</span>
+                <span v-show="user && user.role === 2"> Please add at least one response mode in your Discuss-it settings.</span>
+              </b-alert>
+            </div>
+            <div v-if="!responseModeMissingError">
+              <b-form-group>
+                <b-form-radio-group
+                  v-model="commentType"
+                  stacked
+                  required
+                  label="Comment Type:"
+                >
+                  <b-form-radio v-show="showCommentTypeOption('text')" name="comment-type" value="text">
+                    Text
+                  </b-form-radio>
+                  <b-form-radio v-show="showCommentTypeOption('audio')" name="comment-type"
+                                value="audio"
+                  >
+                    Audio
+                  </b-form-radio>
+                  <b-form-radio v-show="showCommentTypeOption('video')" name="comment-type"
+                                value="video"
+                  >
+                    Video
+                  </b-form-radio>
+                </b-form-radio-group>
+              </b-form-group>
+              <div v-if="commentType === 'text'">
+                <DiscussItSatisfiesRequirement v-if="+discussItSettingsForm.completion_criteria"
+                                               :min-number-of-words="+minNumberOfWords"
+                                               :comment-form-text="commentForm.text"
+                                               :comment-type="'text'"
+                />
+                <ckeditor
+                  id="discuss_it_text"
+                  ref="discuss_it_text"
+                  v-model="commentForm.text"
+                  tabindex="0"
+                  required
+                  :config="discussItEditorConfig"
+                  :class="{ 'is-invalid': commentForm.errors.has('text')}"
+                  class="mb-2"
+                  @namespaceloaded="onCKEditorNamespaceLoaded"
+                  @ready="handleFixCKEditorWithPasteWarning"
+                  @keydown="commentForm.errors.clear('text')"
+                />
+              </div>
+              <div v-if="commentType === 'audio'">
+                <div v-if="!discussionCommentAudio">
+                  <DiscussItSatisfiesRequirement v-if="+discussItSettingsForm.completion_criteria"
+                                                 ref="discussItSatisfiesRequirement"
+                                                 :key="`discussItSatisfiesRequirement-${discussItSatisfiesRequirementKey}`"
+                                                 :milliseconds-time-until-requirement-satisfied="millisecondsTimeUntilRequirementSatisfied"
+                                                 :human-readable-time-until-requirement-satisfied="humanReadableTimeUntilRequirementSatisfied"
+                                                 :comment-type="'audio'"
+                                                 :show-satisfies-requirement-timer="showSatisfiesRequirementTimer"
+                                                 @setRequirementSatisfied="setRequirementSatisfied"
+                  />
+                  <DiscussItCommentAndSubmitWorkUpload :key="'new-audio'"
+                                                       :comment-type="'audio'"
+                                                       :assignment-id="assignmentId"
+                                                       :question-id="questionId"
+                                                       @saveUploadedAudioVideoComment="saveUploadedAudioVideoComment"
+                  />
+                  <div v-if="isPhone()">
+                    <NativeAudioVideoRecorder :key="`new-comment-${commentType}`"
+                                              :recording-type="'audio'"
+                                              :assignment-id="+assignmentId"
+                                              @saveComment="saveComment"
+                                              @startVideoRecording="startVideoRecording"
+                                              @stopVideoRecording="stopVideoRecording"
+                                              @updateDiscussionCommentVideo="updateDiscussionCommentVideo"
+                    />
+                  </div>
+                  <div v-else class="discuss-it-recorder-scroll">
+                    <audio-recorder
+                      id="discuss-it-recorder"
+                      ref="recorder"
+                      :upload-url="`/api/discussion-comments/assignment/${assignmentId}/question/${questionId}/audio`"
+                      :attempts="1"
+                      :time="3"
+                      :show-download-button="false"
+                      :after-recording="afterRecording"
+                      :before-recording="beforeRecording"
+                      :successful-upload="successfulRecordingUpload"
+                      :failed-upload="failedRecordingUpload"
+                      :mic-failed="micFailed"
+                    />
+                  </div>
+                </div>
+                <div v-if="discussionCommentAudio">
+                  <iframe v-resize="{ log: false }"
+                          :src="`/discussion-comments/media-player/discussion-comment-id/${activeDiscussionCommentId}/is-phone/${+this.isPhone()}`"
+                          width="100%"
+                          frameborder="0"
+                          allowfullscreen
+                  />
+                  <div class="pb-4">
+                    <b-button v-if="false"
+                              class="float-right mr-2"
+                              size="sm"
+                              variant="danger"
+                              @click="confirmDeleteComment('audio')"
+                    >
+                      Delete
+                    </b-button>
+                  </div>
+                </div>
+              </div>
+              <div v-show="commentType === 'video'">
+                <DiscussItSatisfiesRequirement
+                  v-if="!discussionCommentVideo && Boolean(+discussItSettingsForm.completion_criteria)"
+                  ref="discussItSatisfiesRequirement"
+                  :key="`discussItSatisfiesRequirement-${discussItSatisfiesRequirementKey}`"
+                  :milliseconds-time-until-requirement-satisfied="millisecondsTimeUntilRequirementSatisfied"
+                  :human-readable-time-until-requirement-satisfied="humanReadableTimeUntilRequirementSatisfied"
+                  :comment-type="commentType"
+                  :show-satisfies-requirement-timer="showSatisfiesRequirementTimer"
+                  @setRequirementSatisfied="setRequirementSatisfied"
+                />
+                <DiscussItCommentAndSubmitWorkUpload :key="'new-video'"
+                                                     :comment-type="'video'"
+                                                     :assignment-id="assignmentId"
+                                                     :question-id="questionId"
+                                                     @saveUploadedAudioVideoComment="saveUploadedAudioVideoComment"
+                />
+                <NativeAudioVideoRecorder :key="`new-comment-${commentType}`"
+                                          :recording-type="'video'"
+                                          :assignment-id="+assignmentId"
+                                          @saveComment="saveComment"
+                                          @startVideoRecording="startVideoRecording"
+                                          @stopVideoRecording="stopVideoRecording"
+                                          @updateDiscussionCommentVideo="updateDiscussionCommentVideo"
+                />
+              </div>
+              <div class="mt-2">
+                <span v-show="commentType === 'audio' && stoppedAudioRecording">
+                  <span class="mr-2">
+                    <b-button
+                      variant="primary"
+                      size="sm"
+                      @click="saveAudio"
+                    >
+                      Save
+                    </b-button>
+                  </span>
+                  <b-button
+                    size="sm"
+                    variant="outline-danger"
+                    @click="reRecordAudio"
+                  >
+                    Delete and re-record
+                  </b-button>
+                </span>
+                <span v-show="commentType === 'text'">
+                  <b-button size="sm"
+                            variant="primary"
+                            @click="saveComment()"
+                  >
+                    Save
+                  </b-button>
+                </span>
+                <b-button
+                  size="sm"
+                  class="float-right"
+                  @click="closeComposePanel"
+                >
+                  Cancel
+                </b-button>
+              </div>
+            </div>
           </div>
           <div v-if="discussions.length">
             <div class="accordion" role="tablist">
@@ -1158,8 +1154,8 @@
                   <b-button v-b-toggle="`accordion-${discussionIndex}`" block variant="info">
                     {{ discussion.started_by }} on
                     {{ discussion.created_at }} <span class="float-right"><b-icon-eye
-                      v-show="!isOpen(discussionIndex)"
-                    /> <b-icon-eye-slash v-show="isOpen(discussionIndex)" />
+                    v-show="!isOpen(discussionIndex)"
+                  /> <b-icon-eye-slash v-show="isOpen(discussionIndex)" />
                     </span>
                   </b-button>
                 </b-card-header>
@@ -1214,10 +1210,190 @@
                       </div>
                       <b-button v-if="canStartDiscussionOrAddComments"
                                 size="sm"
+                                class="mb-3"
                                 @click="newComment(discussion)"
                       >
                         New Comment
                       </b-button>
+                      <div v-if="showComposePanel && activeDiscussion.id === discussion.id"
+                           :id="`discuss-it-compose-panel-${discussion.id}`"
+                           class="discuss-it-compose-panel border rounded p-3 mb-3"
+                      >
+                        <div v-if="responseModeMissingError">
+                          <b-alert variant="info" show>
+                            The response mode (text, audio, video) for this Discuss-it question has not yet been set.
+                            <span v-show="user && user.role === 3"> Please contact your instructor.</span>
+                            <span v-show="user && user.role === 2"> Please add at least one response mode in your Discuss-it settings.</span>
+                          </b-alert>
+                        </div>
+                        <div v-if="!responseModeMissingError">
+                          <b-form-group>
+                            <b-form-radio-group
+                              v-model="commentType"
+                              stacked
+                              required
+                              label="Comment Type:"
+                            >
+                              <b-form-radio v-show="showCommentTypeOption('text')" name="comment-type" value="text">
+                                Text
+                              </b-form-radio>
+                              <b-form-radio v-show="showCommentTypeOption('audio')" name="comment-type"
+                                            value="audio"
+                              >
+                                Audio
+                              </b-form-radio>
+                              <b-form-radio v-show="showCommentTypeOption('video')" name="comment-type"
+                                            value="video"
+                              >
+                                Video
+                              </b-form-radio>
+                            </b-form-radio-group>
+                          </b-form-group>
+                          <div v-if="commentType === 'text'">
+                            <DiscussItSatisfiesRequirement v-if="+discussItSettingsForm.completion_criteria"
+                                                           :min-number-of-words="+minNumberOfWords"
+                                                           :comment-form-text="commentForm.text"
+                                                           :comment-type="'text'"
+                            />
+                            <ckeditor
+                              id="discuss_it_text"
+                              ref="discuss_it_text"
+                              v-model="commentForm.text"
+                              tabindex="0"
+                              required
+                              :config="discussItEditorConfig"
+                              :class="{ 'is-invalid': commentForm.errors.has('text')}"
+                              class="mb-2"
+                              @namespaceloaded="onCKEditorNamespaceLoaded"
+                              @ready="handleFixCKEditorWithPasteWarning"
+                              @keydown="commentForm.errors.clear('text')"
+                            />
+                          </div>
+                          <div v-if="commentType === 'audio'">
+                            <div v-if="!discussionCommentAudio">
+                              <DiscussItSatisfiesRequirement v-if="+discussItSettingsForm.completion_criteria"
+                                                             ref="discussItSatisfiesRequirement"
+                                                             :key="`discussItSatisfiesRequirement-${discussItSatisfiesRequirementKey}`"
+                                                             :milliseconds-time-until-requirement-satisfied="millisecondsTimeUntilRequirementSatisfied"
+                                                             :human-readable-time-until-requirement-satisfied="humanReadableTimeUntilRequirementSatisfied"
+                                                             :comment-type="'audio'"
+                                                             :show-satisfies-requirement-timer="showSatisfiesRequirementTimer"
+                                                             @setRequirementSatisfied="setRequirementSatisfied"
+                              />
+                              <DiscussItCommentAndSubmitWorkUpload :key="'new-audio'"
+                                                                   :comment-type="'audio'"
+                                                                   :assignment-id="assignmentId"
+                                                                   :question-id="questionId"
+                                                                   @saveUploadedAudioVideoComment="saveUploadedAudioVideoComment"
+                              />
+                              <div v-if="isPhone()">
+                                <NativeAudioVideoRecorder :key="`new-comment-${commentType}`"
+                                                          :recording-type="'audio'"
+                                                          :assignment-id="+assignmentId"
+                                                          @saveComment="saveComment"
+                                                          @startVideoRecording="startVideoRecording"
+                                                          @stopVideoRecording="stopVideoRecording"
+                                                          @updateDiscussionCommentVideo="updateDiscussionCommentVideo"
+                                />
+                              </div>
+                              <div v-else class="discuss-it-recorder-scroll">
+                                <audio-recorder
+                                  id="discuss-it-recorder"
+                                  ref="recorder"
+                                  :upload-url="`/api/discussion-comments/assignment/${assignmentId}/question/${questionId}/audio`"
+                                  :attempts="1"
+                                  :time="3"
+                                  :show-download-button="false"
+                                  :after-recording="afterRecording"
+                                  :before-recording="beforeRecording"
+                                  :successful-upload="successfulRecordingUpload"
+                                  :failed-upload="failedRecordingUpload"
+                                  :mic-failed="micFailed"
+                                />
+                              </div>
+                            </div>
+                            <div v-if="discussionCommentAudio">
+                              <iframe v-resize="{ log: false }"
+                                      :src="`/discussion-comments/media-player/discussion-comment-id/${activeDiscussionCommentId}/is-phone/${+this.isPhone()}`"
+                                      width="100%"
+                                      frameborder="0"
+                                      allowfullscreen
+                              />
+                              <div class="pb-4">
+                                <b-button v-if="false"
+                                          class="float-right mr-2"
+                                          size="sm"
+                                          variant="danger"
+                                          @click="confirmDeleteComment('audio')"
+                                >
+                                  Delete
+                                </b-button>
+                              </div>
+                            </div>
+                          </div>
+                          <div v-show="commentType === 'video'">
+                            <DiscussItSatisfiesRequirement
+                              v-if="!discussionCommentVideo && Boolean(+discussItSettingsForm.completion_criteria)"
+                              ref="discussItSatisfiesRequirement"
+                              :key="`discussItSatisfiesRequirement-${discussItSatisfiesRequirementKey}`"
+                              :milliseconds-time-until-requirement-satisfied="millisecondsTimeUntilRequirementSatisfied"
+                              :human-readable-time-until-requirement-satisfied="humanReadableTimeUntilRequirementSatisfied"
+                              :comment-type="commentType"
+                              :show-satisfies-requirement-timer="showSatisfiesRequirementTimer"
+                              @setRequirementSatisfied="setRequirementSatisfied"
+                            />
+                            <DiscussItCommentAndSubmitWorkUpload :key="'new-video'"
+                                                                 :comment-type="'video'"
+                                                                 :assignment-id="assignmentId"
+                                                                 :question-id="questionId"
+                                                                 @saveUploadedAudioVideoComment="saveUploadedAudioVideoComment"
+                            />
+                            <NativeAudioVideoRecorder :key="`new-comment-${commentType}`"
+                                                      :recording-type="'video'"
+                                                      :assignment-id="+assignmentId"
+                                                      @saveComment="saveComment"
+                                                      @startVideoRecording="startVideoRecording"
+                                                      @stopVideoRecording="stopVideoRecording"
+                                                      @updateDiscussionCommentVideo="updateDiscussionCommentVideo"
+                            />
+                          </div>
+                          <div class="mt-2">
+                            <span v-show="commentType === 'audio' && stoppedAudioRecording">
+                              <span class="mr-2">
+                                <b-button
+                                  variant="primary"
+                                  size="sm"
+                                  @click="saveAudio"
+                                >
+                                  Save
+                                </b-button>
+                              </span>
+                              <b-button
+                                size="sm"
+                                variant="outline-danger"
+                                @click="reRecordAudio"
+                              >
+                                Delete and re-record
+                              </b-button>
+                            </span>
+                            <span v-show="commentType === 'text'">
+                              <b-button size="sm"
+                                        variant="primary"
+                                        @click="saveComment()"
+                              >
+                                Save
+                              </b-button>
+                            </span>
+                            <b-button
+                              size="sm"
+                              class="float-right"
+                              @click="closeComposePanel"
+                            >
+                              Cancel
+                            </b-button>
+                          </div>
+                        </div>
+                      </div>
                     </b-card-text>
                   </b-card-body>
                 </b-collapse>
@@ -1287,107 +1463,108 @@ export default {
     }
   },
   data: () => ({
-    pastedContent: true,
-    loaded: false,
-    responseModeMissingError: false,
-    showSubmitAtLeastXComments: false,
-    numberOfInitiatedDiscussionThreadsMessage: '',
-    numberOfRepliesMessage: '',
-    numberOfInitiateOrReplyInThreadsMessage: '',
-    group: 1,
-    groupOptions: [{ value: 1, text: 'Group 1' }],
-    languageOptions: [
-      { text: 'Choose a Language', value: null },
-      { text: 'English', value: 'en' },
-      { text: 'French', value: 'fr' },
-      { text: 'Spanish', value: 'es' },
-      { text: 'German', value: 'de' },
-      { text: 'Mandarin Chinese', value: 'zh' },
-      { text: 'Arabic', value: 'ar' },
-      { text: 'Italian', value: 'it' },
-      { text: 'Russian', value: 'ru' },
-      { text: 'Portuguese', value: 'pt' },
-      { text: 'Japanese', value: 'ja' },
-      { text: 'Hindi', value: 'hi' },
-      { text: 'Bengali', value: 'bn' },
-      { text: 'Lahnda (Punjabi)', value: 'pa' },
-      { value: '--------------', text: '--------------------', disabled: true },
-      { text: 'Multiple', value: 'multiple' }
-    ],
-    responseModeOptions: [
-      { item: 'text', name: 'Text' },
-      { item: 'audio', name: 'Audio' },
-      { item: 'video', name: 'Video' }],
-    listenOrViewCommentKey: 0,
-    currentFile: '',
-    fileRequirementSatisfied: false,
-    alreadyScoredWarning: '',
-    discussionCommentsExist: false,
-    millisecondsTimeUntilRequirementSatisfied: 0,
-    humanReadableTimeUntilRequirementSatisfied: '',
-    discussItEditorConfig: {
-      toolbar: [
-        { name: 'image', items: ['Image'] },
-        { name: 'math', items: ['Mathjax'] }
+      showComposePanel: false,
+      pastedContent: true,
+      loaded: false,
+      responseModeMissingError: false,
+      showSubmitAtLeastXComments: false,
+      numberOfInitiatedDiscussionThreadsMessage: '',
+      numberOfRepliesMessage: '',
+      numberOfInitiateOrReplyInThreadsMessage: '',
+      group: 1,
+      groupOptions: [{ value: 1, text: 'Group 1' }],
+      languageOptions: [
+        { text: 'Choose a Language', value: null },
+        { text: 'English', value: 'en' },
+        { text: 'French', value: 'fr' },
+        { text: 'Spanish', value: 'es' },
+        { text: 'German', value: 'de' },
+        { text: 'Mandarin Chinese', value: 'zh' },
+        { text: 'Arabic', value: 'ar' },
+        { text: 'Italian', value: 'it' },
+        { text: 'Russian', value: 'ru' },
+        { text: 'Portuguese', value: 'pt' },
+        { text: 'Japanese', value: 'ja' },
+        { text: 'Hindi', value: 'hi' },
+        { text: 'Bengali', value: 'bn' },
+        { text: 'Lahnda (Punjabi)', value: 'pa' },
+        { value: '--------------', text: '--------------------', disabled: true },
+        { text: 'Multiple', value: 'multiple' }
       ],
-      // Configure the Enhanced Image plugin to use classes instead of styles and to disable the
-      // resizer (because image size is controlled by widget styles or the image takes maximum
-      // 100% of the editor width).
-      image2_alignClasses: ['image-align-left', 'image-align-center', 'image-align-right'],
-      image2_altRequired: true,
-      removeButtons: '',
-      extraPlugins: 'mathjax,embed,dialog,contextmenu,liststyle,image2,autogrow',
-      mathJaxLib: 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-AMS_HTML',
-      embed_provider: '//ckeditor.iframe.ly/api/oembed?url={url}&callback={callback}',
-      filebrowserUploadUrl: '/api/ckeditor/upload',
-      filebrowserUploadMethod: 'form',
-      format_tags: 'p;h2;h3;pre',
-      allowedContent: true,
-      disableNativeSpellChecker: false
-    },
-    questionMediaUploads: [],
-    discussionCommentSubmissionResultsError: '',
-    openStates: [true],
-    openIndex: 0,
-    discussionCommentVideo: false,
-    discussItSatisfiesRequirementKey: 0,
-    showSatisfiesRequirementTimer: false,
-    minNumberOfWords: 0,
-    discussionCommentSubmissionResults: { min_number_of_discussion_threads: '' },
-    numberOfThreadsParticipatedInMessage: '',
-    numberOfCommentsSubmittedMessage: '',
-    completionRequirementsToolTipText: '',
-    hasCompletionRequirements: false,
-    currentDiscussionMedia: {},
-    reRecording: false,
-    confirmDeleteCommentText: '',
-    discussItSettingsForm: new Form({
-      response_modes: [],
-      language: null,
-      min_number_of_comments: '',
-      students_can_edit_comments: '',
-      students_can_delete_comments: ''
-    }),
-    activeDiscussionComment: {},
-    activeDiscussionCommentId: 0,
-    audioHeaders: {},
-    discussionCommentAudio: false,
-    stoppedAudioRecording: false,
-    showPDF: true,
-    activeUserId: 0,
-    discussionsByUserId: [],
-    activeDiscussion: {},
-    allFormErrors: [],
-    commentForm: new Form({
-      text: '',
-      commentType: 'text'
-    }),
-    commentType: 'text',
-    discussions: [],
-    currentMediaUploadOrder: 1,
-    numPages: 0,
-    completionRequirements: []
-  }
+      responseModeOptions: [
+        { item: 'text', name: 'Text' },
+        { item: 'audio', name: 'Audio' },
+        { item: 'video', name: 'Video' }],
+      listenOrViewCommentKey: 0,
+      currentFile: '',
+      fileRequirementSatisfied: false,
+      alreadyScoredWarning: '',
+      discussionCommentsExist: false,
+      millisecondsTimeUntilRequirementSatisfied: 0,
+      humanReadableTimeUntilRequirementSatisfied: '',
+      discussItEditorConfig: {
+        toolbar: [
+          { name: 'image', items: ['Image'] },
+          { name: 'math', items: ['Mathjax'] }
+        ],
+        // Configure the Enhanced Image plugin to use classes instead of styles and to disable the
+        // resizer (because image size is controlled by widget styles or the image takes maximum
+        // 100% of the editor width).
+        image2_alignClasses: ['image-align-left', 'image-align-center', 'image-align-right'],
+        image2_altRequired: true,
+        removeButtons: '',
+        extraPlugins: 'mathjax,embed,dialog,contextmenu,liststyle,image2,autogrow',
+        mathJaxLib: 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=TeX-AMS_HTML',
+        embed_provider: '//ckeditor.iframe.ly/api/oembed?url={url}&callback={callback}',
+        filebrowserUploadUrl: '/api/ckeditor/upload',
+        filebrowserUploadMethod: 'form',
+        format_tags: 'p;h2;h3;pre',
+        allowedContent: true,
+        disableNativeSpellChecker: false
+      },
+      questionMediaUploads: [],
+      discussionCommentSubmissionResultsError: '',
+      openStates: [true],
+      openIndex: 0,
+      discussionCommentVideo: false,
+      discussItSatisfiesRequirementKey: 0,
+      showSatisfiesRequirementTimer: false,
+      minNumberOfWords: 0,
+      discussionCommentSubmissionResults: { min_number_of_discussion_threads: '' },
+      numberOfThreadsParticipatedInMessage: '',
+      numberOfCommentsSubmittedMessage: '',
+      completionRequirementsToolTipText: '',
+      hasCompletionRequirements: false,
+      currentDiscussionMedia: {},
+      reRecording: false,
+      confirmDeleteCommentText: '',
+      discussItSettingsForm: new Form({
+        response_modes: [],
+        language: null,
+        min_number_of_comments: '',
+        students_can_edit_comments: '',
+        students_can_delete_comments: ''
+      }),
+      activeDiscussionComment: {},
+      activeDiscussionCommentId: 0,
+      audioHeaders: {},
+      discussionCommentAudio: false,
+      stoppedAudioRecording: false,
+      showPDF: true,
+      activeUserId: 0,
+      discussionsByUserId: [],
+      activeDiscussion: {},
+      allFormErrors: [],
+      commentForm: new Form({
+        text: '',
+        commentType: 'text'
+      }),
+      commentType: 'text',
+      discussions: [],
+      currentMediaUploadOrder: 1,
+      numPages: 0,
+      completionRequirements: []
+    }
   ),
   computed: {
     ...mapGetters({
@@ -1456,9 +1633,12 @@ export default {
     },
     startAgain () {
       this.$bvModal.hide('modal-confirm-paste-into-ckeditor')
-      this.$bvModal.hide('modal-new-comment')
+      this.closeComposePanel()
       this.$bvModal.hide('update-text-comment')
       this.pastedContent = false
+    },
+    closeComposePanel () {
+      this.showComposePanel = false
     },
     async updateGroup (group) {
       this.group = group
@@ -1833,11 +2013,22 @@ export default {
         })
       }
     },
+    openComposePanel () {
+      this.showComposePanel = true
+      this.currentFile = ''
+      this.$nextTick(() => {
+        updateModalToggleIndex('discuss-it-compose-panel')
+        const panel = document.getElementById('discuss-it-compose-panel')
+        if (panel) {
+          panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        }
+      })
+    },
     initCommentOrDiscussion (discussion = {}) {
       this.responseModeMissingError = false
       if (!this.discussItSettingsForm.response_modes.length) {
         this.responseModeMissingError = true
-        this.$bvModal.show('modal-new-comment')
+        this.openComposePanel()
         return
       }
       if (this.discussItSettingsForm.response_modes.includes('text')) {
@@ -1859,7 +2050,7 @@ export default {
       this.fileRequirementSatisfied = false
 
       this.activeDiscussion = discussion.id ? discussion : {}
-      this.$bvModal.show('modal-new-comment')
+      this.openComposePanel()
     },
     startDiscussion () {
       this.initCommentOrDiscussion()
@@ -1906,7 +2097,7 @@ export default {
 
       try {
         await this.getDiscussionsByMediaUploadId(false)
-        this.$bvModal.hide('modal-new-comment')
+        this.closeComposePanel()
         this.$bvModal.hide('modal-update-text-comment')
         this.$bvModal.hide('modal-listen-or-view-comment')
         const { data } = await this.commentForm[action](url)
@@ -1951,3 +2142,37 @@ export default {
   }
 }
 </script>
+<style scoped>
+.discuss-it-sticky-col {
+  /* Keeps the discussion/compose column in view while the person scrolls
+     through a long attachment on the left. It stays pinned near the top
+     of the viewport as the page scrolls, and lets go once the bottom of
+     the row (i.e. the end of the attachment column) reaches that point.
+     max-height + overflow-y give it its own scrollbar in the rare case
+     where the column's own content is taller than the viewport. */
+  position: sticky;
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+
+.discuss-it-compose-panel {
+  background-color: #fff;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.discuss-it-recorder-scroll {
+  /* vue-audio-recorder is built at a fixed width (.ar is 420px, its
+     .ar-player child is 380px, etc.) with no responsive sizing at all.
+     `zoom` shrinks the whole widget - visuals *and* the layout space it
+     reserves - together, so nothing overflows or gets clipped. Fall back
+     to horizontal scroll for the rare pre-2024 browser that ignores zoom. */
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.discuss-it-recorder-scroll #discuss-it-recorder {
+  zoom: 0.7;
+}
+</style>
