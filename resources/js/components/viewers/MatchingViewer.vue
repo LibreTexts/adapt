@@ -27,7 +27,13 @@
                         :variant="item.chosenMatchIdentifier === null ? 'secondary' : 'info'"
                         @shown="onDropdownShown(item)"
             >
-              <div v-for="possibleMatch in nonNullPossibleMatches"
+              <div v-if="poolIsExclusive && item.chosenMatchIdentifier !== null"
+                   class="dropdown-match-item dropdown-match-item__clear"
+                   @click="clearChosenMatch(item)"
+              >
+                <b-icon-arrow-counterclockwise class="mr-1"/>Clear selection
+              </div>
+              <div v-for="possibleMatch in getAvailableMatches(item)"
                    :key="`possible-match-${possibleMatch.identifier}`"
                    class="dropdown-match-item"
               >
@@ -147,6 +153,9 @@ export default {
     },
     nonNullPossibleMatches () {
       return this.possibleMatches.filter(possibleMatch => possibleMatch.identifier !== null)
+    },
+    poolIsExclusive () {
+      return !!this.qtiJson.removeMatchedOptionsFromPool
     }
   },
   mounted () {
@@ -184,6 +193,25 @@ export default {
   },
   methods: {
     formatQuestionMediaPlayer,
+    getAvailableMatches (item) {
+      if (!this.poolIsExclusive) {
+        return this.nonNullPossibleMatches
+      }
+      const chosenIdentifiers = this.termsToMatch
+        .filter(termToMatch => termToMatch.chosenMatchIdentifier !== null)
+        .map(termToMatch => termToMatch.chosenMatchIdentifier)
+      return this.nonNullPossibleMatches.filter(possibleMatch => !chosenIdentifiers.includes(possibleMatch.identifier))
+    },
+    clearChosenMatch (item) {
+      item.errorMessage = ''
+      item.chosenMatchIdentifier = null
+      // Close the dropdown by clicking the toggle button
+      this.$nextTick(() => {
+        const toggle = document.querySelector(`#matching-answer-${item.identifier} .btn`)
+        if (toggle) toggle.click()
+      })
+      this.$forceUpdate()
+    },
     onDropdownShown (item) {
       if (!this.hasMediaPlayer) return
       this.$forceUpdate()
@@ -258,6 +286,19 @@ export default {
 }
 .dropdown-match-item:last-child {
   border-bottom: none;
+}
+
+/* "Clear selection" row shown when the pool is exclusive */
+.dropdown-match-item__clear {
+  cursor: pointer;
+  padding: 6px 0 6px 12px;
+  color: #0d6efd;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.dropdown-match-item__clear:hover {
+  background-color: #f8f9fa;
+  text-decoration: underline;
 }
 
 /* Text-only option */

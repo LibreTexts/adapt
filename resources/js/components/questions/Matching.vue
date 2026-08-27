@@ -1,5 +1,10 @@
 <template>
   <div>
+    <b-form-group class="mb-3">
+      <b-form-checkbox v-model="removeMatchedOptionsFromPool">
+        Remove options from the pool once chosen (students will be able to return a choice to the pool)
+      </b-form-checkbox>
+    </b-form-group>
     <ul class="pt-2 pl-0">
       <li v-for="(item, index) in termsToMatch" :key="`terms-to-match-${item.identifier}`"
           style="list-style: none;" class="pb-3"
@@ -156,9 +161,11 @@ export default {
     addingDistractor: false,
     matchingDistractors: [],
     termsToMatch: [],
-    possibleMatches: []
+    possibleMatches: [],
+    removeMatchedOptionsFromPool: false
   }),
   mounted () {
+    this.removeMatchedOptionsFromPool = !!this.qtiJson.removeMatchedOptionsFromPool
     let answerIdentifiers = []
     this.termsToMatch = this.qtiJson.termsToMatch
     for (let i = 0; i < this.termsToMatch.length; i++) {

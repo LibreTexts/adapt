@@ -4574,6 +4574,7 @@ export default {
             this.questionForm.qti_prompt = this.qtiJson['prompt']
             this.qtiJson.termsToMatch = []
             this.qtiJson.possibleMatches = []
+            this.qtiJson.removeMatchedOptionsFromPool = this.$refs.matching.removeMatchedOptionsFromPool
             let usedTermsToMatch = []
             console.log(this.termsToMatch)
             for (let i = 0; i < this.$refs.matching.termsToMatch.length; i++) {
@@ -6198,6 +6199,7 @@ export default {
               console.log(this.qtiJson.termsToMatch)
               this.qtiJson.possibleMatches = this.$refs.matching.possibleMatches
               console.log(this.qtiJson.possibleMatches)
+              this.qtiJson.removeMatchedOptionsFromPool = this.$refs.matching.removeMatchedOptionsFromPool
               if (this.$refs.matching.possibleMatches) {
                 console.log(this.$refs.matching.possibleMatches)
                 for (let i = 0; i < this.$refs.matching.matchingDistractors.length; i++) {
