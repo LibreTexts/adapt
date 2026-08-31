@@ -680,17 +680,23 @@ class Question extends Model
                 }
                 break;
             case('accounting_journal_entry'):
+                $includeTAccounts = !empty($qti_array['includeTAccounts']);
+                $tAccountsSolution = $includeTAccounts ? ($qti_array['tAccounts'] ?? []) : [];
+
                 if ($student_response && $show_solution) {
                     $submission = new Submission();
                     $gradingResult = $submission->computeScoreForAccountingJournalEntry(
-                        $qti_array['entries'] ?? [], json_decode($student_response, true)
+                        $qti_array['entries'] ?? [], json_decode($student_response, true), $tAccountsSolution
                     );
-                    $qti_array['studentResponse'] = $gradingResult['results'];
+                    $qti_array['studentResponse'] = [
+                        'entries' => $gradingResult['results'],
+                        'tAccounts' => $gradingResult['tAccountResults']
+                    ];
                     $qti_array['score'] = $gradingResult['proportionCorrect'];
                 } elseif ($student_response) {
                     $qti_array['studentResponse'] = json_decode($student_response, true);
                 } elseif ($json_type === 'answer_json' && isset($qti_array['entries'])) {
-                    $qti_array['studentResponse'] = array_map(function ($i, $entry) {
+                    $entriesResponse = array_map(function ($i, $entry) {
                         return [
                             'selectedEntryIndex' => $i,
                             'rows' => array_map(fn($row) => [
@@ -700,11 +706,47 @@ class Question extends Model
                             ], $entry['solutionRows'] ?? [])
                         ];
                     }, array_keys($qti_array['entries']), $qti_array['entries']);
+
+                    $tAccountsResponse = [];
+                    if ($includeTAccounts) {
+                        $tAccountsResponse = array_map(function ($account) {
+                            return [
+                                'rows' => array_map(fn($posting) => [
+                                    'debitLabel' => $posting['debitLabel'] ?? '',
+                                    'debit' => $posting['debit'] ?? '',
+                                    'credit' => $posting['credit'] ?? '',
+                                    'creditLabel' => $posting['creditLabel'] ?? '',
+                                ], $account['postings'] ?? []),
+                                'balance' => !empty($account['balance']) ? [
+                                    'debitLabel' => $account['balance']['debitLabel'] ?? '',
+                                    'debit' => $account['balance']['debit'] ?? '',
+                                    'creditLabel' => $account['balance']['creditLabel'] ?? '',
+                                    'credit' => $account['balance']['credit'] ?? '',
+                                ] : null,
+                                'beginningBalance' => !empty($account['beginningBalance']) ? [
+                                    'debit' => $account['beginningBalance']['debit'] ?? '',
+                                    'credit' => $account['beginningBalance']['credit'] ?? '',
+                                ] : null
+                            ];
+                        }, $tAccountsSolution);
+                    }
+
+                    $qti_array['studentResponse'] = [
+                        'entries' => $entriesResponse,
+                        'tAccounts' => $tAccountsResponse
+                    ];
                 }
 
                 if (request()->user()->role === 3 && isset($qti_array['entries'])) {
                     foreach ($qti_array['entries'] as &$entry) {
                         unset($entry['solutionRows']);
+                    }
+                }
+                if (request()->user()->role === 3 && isset($qti_array['tAccounts'])) {
+                    foreach ($qti_array['tAccounts'] as &$tAccount) {
+                        unset($tAccount['postings']);
+                        unset($tAccount['balance']);
+                        unset($tAccount['beginningBalance']);
                     }
                 }
                 break;

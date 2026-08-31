@@ -11,7 +11,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
 
-class JournalEntryTest extends TestCase
+class AccountingJournalEntryTest extends TestCase
 {
     public function setup(): void
     {
@@ -280,6 +280,7 @@ class JournalEntryTest extends TestCase
         $errorData = json_decode($errors[0], true);
         $this->assertEquals('Amount cannot be negative.', $errorData['specific'][0]['solutionRows'][0]['amount']);
     }
+
     /** @test */
     public function entry_must_balance()
     {

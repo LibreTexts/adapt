@@ -136,8 +136,8 @@ class HasValidAccountingJournalEntries implements Rule
                             $rowFieldErrors['amount'] = 'Amount must be a valid number.';
                         }
                         $hasErrors = true;
-                    } elseif ($parsedAmount <= 0) {
-                        $rowFieldErrors['amount'] = 'Amount must be greater than 0.';
+                    } elseif ($parsedAmount < 0) {
+                        $rowFieldErrors['amount'] = 'Amount cannot be negative.';
                         $hasErrors = true;
                     } else {
                         // Calculate totals
@@ -178,6 +178,170 @@ class HasValidAccountingJournalEntries implements Rule
         // Clean up empty specific errors
         if (empty($this->errors['specific'])) {
             unset($this->errors['specific']);
+        }
+
+        // Validate T-Accounts (optional add-on)
+        if (!empty($value['includeTAccounts'])) {
+            if (!isset($value['tAccounts']) || !is_array($value['tAccounts']) || count($value['tAccounts']) === 0) {
+                $this->errors['tAccountsGeneral'] = 'At least one T-Account is required when T-Accounts are enabled.';
+                $hasErrors = true;
+            } else {
+                $validAccountTitles = Accounting::validAccountingJournalEntries();
+                $tAccountErrors = [];
+
+                foreach ($value['tAccounts'] as $accountIndex => $tAccount) {
+                    $accountErrors = [];
+
+                    // Account title
+                    if (empty($tAccount['accountTitle']) || trim($tAccount['accountTitle']) === '') {
+                        $accountErrors['accountTitle'] = 'Account title is required.';
+                        $hasErrors = true;
+                    } elseif (!in_array($tAccount['accountTitle'], $validAccountTitles)) {
+                        $accountErrors['accountTitle'] = 'Account title must be from the valid list of accounts.';
+                        $hasErrors = true;
+                    }
+
+                    // Postings (at least 1, no max). Each row is a real full row - the
+                    // instructor fills in a debit amount, a credit amount, or both -
+                    // a row is just a shared grid line, so both sides may legitimately
+                    // hold independent transactions. Each side is either fully used
+                    // (label + amount both present) or fully unused (both blank) -
+                    // no partial state (a label with no amount, or an amount with no
+                    // label) is allowed on either side.
+                    if (!isset($tAccount['postings']) || !is_array($tAccount['postings']) || count($tAccount['postings']) < 1) {
+                        $accountErrors['postings'] = ['general' => 'At least one posting is required.'];
+                        $hasErrors = true;
+                    } else {
+                        $postingErrors = [];
+                        foreach ($tAccount['postings'] as $postingIndex => $posting) {
+                            $postingFieldErrors = [];
+
+                            $hasDebit = !empty($posting['debit']) || (isset($posting['debit']) && $posting['debit'] !== '' && $posting['debit'] !== null);
+                            $hasCredit = !empty($posting['credit']) || (isset($posting['credit']) && $posting['credit'] !== '' && $posting['credit'] !== null);
+                            $hasDebitLabel = !(empty($posting['debitLabel']) || trim($posting['debitLabel']) === '');
+                            $hasCreditLabel = !(empty($posting['creditLabel']) || trim($posting['creditLabel']) === '');
+
+                            if ($hasDebit && !$hasDebitLabel) {
+                                $postingFieldErrors['debitLabel'] = 'Debit label (date/number) is required.';
+                                $hasErrors = true;
+                            }
+                            if ($hasDebitLabel && !$hasDebit) {
+                                $postingFieldErrors['debit'] = 'Debit amount is required since a debit label was entered.';
+                                $hasErrors = true;
+                            }
+                            if ($hasCredit && !$hasCreditLabel) {
+                                $postingFieldErrors['creditLabel'] = 'Credit label (date/number) is required.';
+                                $hasErrors = true;
+                            }
+                            if ($hasCreditLabel && !$hasCredit) {
+                                $postingFieldErrors['credit'] = 'Credit amount is required since a credit label was entered.';
+                                $hasErrors = true;
+                            }
+
+                            if (!$hasDebit && !$hasCredit) {
+                                $postingFieldErrors['amount'] = 'Enter an amount on either the debit or credit side.';
+                                $hasErrors = true;
+                            } else {
+                                if ($hasDebit) {
+                                    $parsedDebit = $this->parseAmount($posting['debit'] ?? '');
+                                    if ($parsedDebit === null) {
+                                        $postingFieldErrors['debit'] = 'Amount must be a valid number.';
+                                        $hasErrors = true;
+                                    } elseif ($parsedDebit < 0) {
+                                        $postingFieldErrors['debit'] = 'Amount cannot be negative.';
+                                        $hasErrors = true;
+                                    }
+                                }
+                                if ($hasCredit) {
+                                    $parsedCredit = $this->parseAmount($posting['credit'] ?? '');
+                                    if ($parsedCredit === null) {
+                                        $postingFieldErrors['credit'] = 'Amount must be a valid number.';
+                                        $hasErrors = true;
+                                    } elseif ($parsedCredit < 0) {
+                                        $postingFieldErrors['credit'] = 'Amount cannot be negative.';
+                                        $hasErrors = true;
+                                    }
+                                }
+                            }
+
+                            if (!empty($postingFieldErrors)) {
+                                $postingErrors[$postingIndex] = $postingFieldErrors;
+                            }
+                        }
+                        if (!empty($postingErrors)) {
+                            $accountErrors['postings'] = $postingErrors;
+                        }
+                    }
+
+                    // Balance (optional, at most one row, exactly one side filled in,
+                    // and that side's label is required - same as a normal posting).
+                    $balance = $tAccount['balance'] ?? null;
+                    if (!empty($balance)) {
+                        $hasDebit = isset($balance['debit']) && $balance['debit'] !== '' && $balance['debit'] !== null;
+                        $hasCredit = isset($balance['credit']) && $balance['credit'] !== '' && $balance['credit'] !== null;
+
+                        if (!$hasDebit && !$hasCredit) {
+                            $accountErrors['balance'] = ['amount' => 'Enter the balance on either the debit or credit side.'];
+                            $hasErrors = true;
+                        } elseif ($hasDebit && $hasCredit) {
+                            $accountErrors['balance'] = ['amount' => 'Balance cannot be on both the debit and credit side.'];
+                            $hasErrors = true;
+                        } else {
+                            $side = $hasDebit ? 'debit' : 'credit';
+                            $label = $balance[$side . 'Label'] ?? '';
+                            if (empty($label) || trim($label) === '') {
+                                $accountErrors['balance'] = ['label' => 'Label (date/number) is required.'];
+                                $hasErrors = true;
+                            }
+
+                            $amountValue = $balance[$side];
+                            $parsedAmount = $this->parseAmount($amountValue);
+                            if ($parsedAmount === null) {
+                                $accountErrors['balance']['amount'] = 'Amount is required and must be a valid number.';
+                                $hasErrors = true;
+                            } elseif ($parsedAmount < 0) {
+                                $accountErrors['balance']['amount'] = 'Amount cannot be negative.';
+                                $hasErrors = true;
+                            }
+                        }
+                    }
+
+                    // Beginning Balance (optional, at most one row, exactly one side filled in) -
+                    // same shape/rules as the ending Balance, just positioned first and with no
+                    // editable label - it's always tagged simply "Beginning Balance".
+                    $beginningBalance = $tAccount['beginningBalance'] ?? null;
+                    if (!empty($beginningBalance)) {
+                        $hasDebit = isset($beginningBalance['debit']) && $beginningBalance['debit'] !== '' && $beginningBalance['debit'] !== null;
+                        $hasCredit = isset($beginningBalance['credit']) && $beginningBalance['credit'] !== '' && $beginningBalance['credit'] !== null;
+
+                        if (!$hasDebit && !$hasCredit) {
+                            $accountErrors['beginningBalance'] = ['amount' => 'Enter the beginning balance on either the debit or credit side.'];
+                            $hasErrors = true;
+                        } elseif ($hasDebit && $hasCredit) {
+                            $accountErrors['beginningBalance'] = ['amount' => 'Beginning balance cannot be on both the debit and credit side.'];
+                            $hasErrors = true;
+                        } else {
+                            $amountValue = $hasDebit ? $beginningBalance['debit'] : $beginningBalance['credit'];
+                            $parsedAmount = $this->parseAmount($amountValue);
+                            if ($parsedAmount === null) {
+                                $accountErrors['beginningBalance'] = ['amount' => 'Amount is required and must be a valid number.'];
+                                $hasErrors = true;
+                            } elseif ($parsedAmount < 0) {
+                                $accountErrors['beginningBalance'] = ['amount' => 'Amount cannot be negative.'];
+                                $hasErrors = true;
+                            }
+                        }
+                    }
+
+                    if (!empty($accountErrors)) {
+                        $tAccountErrors[$accountIndex] = $accountErrors;
+                    }
+                }
+
+                if (!empty($tAccountErrors)) {
+                    $this->errors['tAccounts'] = $tAccountErrors;
+                }
+            }
         }
 
         return !$hasErrors;

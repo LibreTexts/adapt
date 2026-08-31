@@ -626,7 +626,7 @@
       :id="modalId"
       title="Preview Question"
       ok-title="OK"
-      size="lg"
+      :size="previewModalSize"
       ok-only
     >
       <div v-if="questionForm.technology === 'qti'">
@@ -1111,7 +1111,9 @@
                 </b-button>
               </div>
             </b-form-group>
-            <div v-if="frameworkItemSyncQuestion.descriptors.length +frameworkItemSyncQuestion.levels.length" class="mb-4">
+            <div v-if="frameworkItemSyncQuestion.descriptors.length +frameworkItemSyncQuestion.levels.length"
+                 class="mb-4"
+            >
             <span v-if="frameworkItemSyncQuestion.descriptors.length">
               <span v-for="(descriptor, descriptorsIndex) in frameworkItemSyncQuestion.descriptors"
                     :key="`framework-item-sync-questions-descriptors-${descriptorsIndex}`"
@@ -3551,7 +3553,10 @@ export default {
       user: 'auth/user'
     }),
     isLocalMe: () => window.config.isAdmin && window.location.hostname === 'local.adapt',
-    isAdmin: () => window.config.isAdmin
+    isAdmin: () => window.config.isAdmin,
+    previewModalSize () {
+      return this.qtiQuestionType === 'accounting_journal_entry' ? 'xl' : 'lg'
+    }
   },
   created () {
     this.getLearningOutcomes = getLearningOutcomes
@@ -3658,7 +3663,7 @@ export default {
     if (!this.isEdit) {
       this.$nextTick(() => {
         // this.setToQuestionType('three_d_model_multiple_choice')
-        // this.setToQuestionType('accounting_journal_entry')
+        //this.setToQuestionType('accounting_journal_entry')
         // this.setToQuestionType('accounting_report')
         // this.setToQuestionType('flashcard')
         //this.setToQuestionType('accounting_multi_part_computation')

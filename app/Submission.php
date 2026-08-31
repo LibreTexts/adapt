@@ -447,7 +447,10 @@ class Submission extends Model
                     case('accounting_journal_entry'):
                         $studentSubmission = json_decode($submission->student_response, 1);
                         $solution = $submission->question->entries;
-                        $proportion_correct_info = $this->computeScoreForAccountingJournalEntry($solution, $studentSubmission);
+                        $tAccountsSolution = $submission->question->includeTAccounts
+                            ? ($submission->question->tAccounts ?? [])
+                            : [];
+                        $proportion_correct_info = $this->computeScoreForAccountingJournalEntry($solution, $studentSubmission, $tAccountsSolution);
                         $proportion_correct = $proportion_correct_info['proportionCorrect'];
                         break;
                     case('accounting_multi_part_computation'):
@@ -3006,13 +3009,22 @@ class Submission extends Model
         $submission->save();
     }
 
-    public function computeScoreForAccountingJournalEntry($solution, $studentSubmission): array
+    public function computeScoreForAccountingJournalEntry($solution, $studentSubmission, $tAccountsSolution = []): array
     {
         $results = [];
         $totalFields = 0;
         $correctFields = 0;
 
-        foreach ($studentSubmission as $entryIndex => $studentEntry) {
+        // Student submission may be the legacy bare-array-of-entries shape, or the
+        // current { entries: [...], tAccounts: [...] } shape once T-Accounts exist.
+        $studentEntries = $studentSubmission;
+        $studentTAccounts = [];
+        if (is_array($studentSubmission) && array_key_exists('entries', $studentSubmission)) {
+            $studentEntries = $studentSubmission['entries'] ?? [];
+            $studentTAccounts = $studentSubmission['tAccounts'] ?? [];
+        }
+
+        foreach ($studentEntries as $entryIndex => $studentEntry) {
             $entryResult = [
                 'selectedEntryIndex' => $studentEntry['selectedEntryIndex'] ?? null,
                 'selectedEntryCorrect' => false,
@@ -3139,12 +3151,285 @@ class Submission extends Model
             $results[$entryIndex] = $entryResult;
         }
 
+        // T-Accounts (optional add-on) - blended into the same overall score.
+        $tAccountResults = [];
+        if (!empty($tAccountsSolution)) {
+            $tAccountGrading = $this->computeScoreForTAccounts($tAccountsSolution, $studentTAccounts);
+            $tAccountResults = $tAccountGrading['results'];
+            $totalFields += $tAccountGrading['totalFields'];
+            $correctFields += $tAccountGrading['correctFields'];
+        }
+
         $proportionCorrect = $totalFields > 0 ? round($correctFields / $totalFields, 4) : 0;
 
         return [
             'proportionCorrect' => $proportionCorrect,
             'results' => $results,
+            'tAccountResults' => $tAccountResults,
             'allCorrect' => $correctFields === $totalFields
+        ];
+    }
+
+    /**
+     * Grade T-Accounts. The debit column and credit column are graded
+     * independently of each other (a row is just a shared grid line - it may
+     * legitimately hold both a debit transaction and a credit transaction).
+     * Within each side, order matters only by label (date/number): postings
+     * that share an identical label may be posted in either order relative to
+     * each other, but the overall label sequence must be correct. Balance rows
+     * always sit after every posting, are not subject to reordering, and are
+     * graded on side + amount only (their label is not compared).
+     *
+     * @param array $tAccountsSolution
+     * @param array $studentTAccounts
+     * @return array
+     */
+
+    /**
+     * Grades a single-row balance. The ending Balance has a real editable label
+     * ($requireLabel = true, checked alongside side + amount); the Beginning
+     * Balance has no editable label - it's always tagged simply "Beginning
+     * Balance" - so it's graded on side + amount only ($requireLabel = false).
+     * Returns null if the solution doesn't have one.
+     */
+    private function gradeSimpleBalance($solutionBalance, $studentBalance, bool $requireLabel = true): ?array
+    {
+        $solutionBalance = is_array($solutionBalance) ? (object)$solutionBalance : $solutionBalance;
+        if (empty($solutionBalance)) {
+            return null;
+        }
+
+        $studentDebit = $studentBalance['debit'] ?? '';
+        $studentCredit = $studentBalance['credit'] ?? '';
+        $studentDebitLabel = trim($studentBalance['debitLabel'] ?? '');
+        $studentCreditLabel = trim($studentBalance['creditLabel'] ?? '');
+        $studentSide = $studentDebit !== '' ? 'debit' : ($studentCredit !== '' ? 'credit' : null);
+        $studentAmount = $studentSide === 'debit' ? $studentDebit : $studentCredit;
+        $studentLabel = $studentSide === 'debit' ? $studentDebitLabel : $studentCreditLabel;
+
+        $solDebit = $solutionBalance->debit ?? '';
+        $solCredit = $solutionBalance->credit ?? '';
+        $solSide = ($solDebit !== '' && $solDebit !== null) ? 'debit' : (($solCredit !== '' && $solCredit !== null) ? 'credit' : null);
+        $solAmount = $this->parseAmount($solSide === 'debit' ? $solDebit : $solCredit);
+        $solLabel = $solSide === 'debit' ? trim($solutionBalance->debitLabel ?? '') : trim($solutionBalance->creditLabel ?? '');
+
+        $sideCorrect = $studentSide !== null && $studentSide === $solSide;
+        $labelCorrect = $requireLabel ? ($sideCorrect && $studentLabel === $solLabel) : null;
+        $amountCorrect = $studentAmount !== '' && abs($this->parseAmount($studentAmount) - $solAmount) < 0.01;
+
+        return [
+            'debitLabel' => $studentDebitLabel,
+            'debit' => $studentDebit,
+            'creditLabel' => $studentCreditLabel,
+            'credit' => $studentCredit,
+            'debitLabelCorrect' => $requireLabel && $studentSide === 'debit' ? $labelCorrect : null,
+            'debitCorrect' => $studentSide === 'debit' ? $amountCorrect : null,
+            'creditLabelCorrect' => $requireLabel && $studentSide === 'credit' ? $labelCorrect : null,
+            'creditCorrect' => $studentSide === 'credit' ? $amountCorrect : null,
+            'sideCorrect' => $sideCorrect,
+            'labelCorrect' => $labelCorrect,
+            'amountCorrect' => $amountCorrect,
+            'isCorrect' => $requireLabel
+                ? ($sideCorrect && $labelCorrect && $amountCorrect)
+                : ($sideCorrect && $amountCorrect)
+        ];
+    }
+
+    /**
+     * Grades one side (debit or credit) of a T-Account's postings, independent
+     * of the other side - a row is just a shared grid line, so its debit half
+     * and credit half are graded as if they were separate columns. Rows within
+     * a "same label" block may be answered in any order relative to each other,
+     * but the block sequence itself must be correct (matching the label order
+     * of that side's postings in the solution).
+     *
+     * @return array Row-index => ['labelCorrect' => bool, 'amountCorrect' => bool, 'isCorrect' => bool],
+     *               only for row indices the solution actually uses on this side.
+     */
+    private function gradeTAccountSide($solutionPostings, $studentRows, $side): array
+    {
+        $labelField = $side . 'Label';
+
+        // Row indices (original order) where the solution actually uses this side.
+        $relevantIndices = [];
+        foreach ($solutionPostings as $i => $posting) {
+            $posting = is_array($posting) ? (object)$posting : $posting;
+            $amount = $posting->{$side} ?? '';
+            if ($amount !== '' && $amount !== null) {
+                $relevantIndices[] = $i;
+            }
+        }
+
+        // Group into blocks of consecutive identical labels within this side's
+        // own sequence - same-label rows may swap order with each other.
+        $blocks = [];
+        $currentBlock = [];
+        $currentLabel = null;
+        foreach ($relevantIndices as $i) {
+            $posting = is_array($solutionPostings[$i]) ? (object)$solutionPostings[$i] : $solutionPostings[$i];
+            $label = trim($posting->{$labelField} ?? '');
+            if ($currentLabel !== null && $label !== $currentLabel) {
+                $blocks[] = $currentBlock;
+                $currentBlock = [];
+            }
+            $currentBlock[] = $i;
+            $currentLabel = $label;
+        }
+        if (!empty($currentBlock)) {
+            $blocks[] = $currentBlock;
+        }
+
+        $rowResults = [];
+        $unmatched = [];
+
+        foreach ($blocks as $blockIndices) {
+            $available = $blockIndices;
+            $blockPosting = is_array($solutionPostings[$blockIndices[0]]) ? (object)$solutionPostings[$blockIndices[0]] : $solutionPostings[$blockIndices[0]];
+            $blockLabel = trim($blockPosting->{$labelField} ?? '');
+
+            foreach ($blockIndices as $rowIndex) {
+                $studentRow = $studentRows[$rowIndex] ?? [];
+                $studentAmount = $studentRow[$side] ?? '';
+                $studentLabel = trim($studentRow[$labelField] ?? '');
+
+                $matchedSolutionIndex = null;
+                foreach ($available as $solIndex) {
+                    $solPosting = is_array($solutionPostings[$solIndex]) ? (object)$solutionPostings[$solIndex] : $solutionPostings[$solIndex];
+                    $solAmount = $this->parseAmount($solPosting->{$side} ?? '');
+                    if ($studentLabel === $blockLabel && $studentAmount !== ''
+                        && abs($this->parseAmount($studentAmount) - $solAmount) < 0.01) {
+                        $matchedSolutionIndex = $solIndex;
+                        break;
+                    }
+                }
+
+                if ($matchedSolutionIndex !== null) {
+                    $available = array_values(array_diff($available, [$matchedSolutionIndex]));
+                    $rowResults[$rowIndex] = ['labelCorrect' => true, 'amountCorrect' => true, 'isCorrect' => true];
+                } else {
+                    $unmatched[] = $rowIndex;
+                }
+            }
+        }
+
+        foreach ($unmatched as $rowIndex) {
+            $studentRow = $studentRows[$rowIndex] ?? [];
+            $studentAmount = $studentRow[$side] ?? '';
+            $studentLabel = trim($studentRow[$labelField] ?? '');
+
+            $solPosting = isset($solutionPostings[$rowIndex])
+                ? (is_array($solutionPostings[$rowIndex]) ? (object)$solutionPostings[$rowIndex] : $solutionPostings[$rowIndex])
+                : null;
+            $solLabel = $solPosting ? trim($solPosting->{$labelField} ?? '') : '';
+            $solAmount = $solPosting ? $this->parseAmount($solPosting->{$side} ?? '') : null;
+
+            $labelCorrect = $studentLabel === $solLabel;
+            $amountCorrect = $studentAmount !== '' && $solAmount !== null
+                && abs($this->parseAmount($studentAmount) - $solAmount) < 0.01;
+
+            $rowResults[$rowIndex] = ['labelCorrect' => $labelCorrect, 'amountCorrect' => $amountCorrect, 'isCorrect' => false];
+        }
+
+        // Any row where the solution doesn't use this side at all, but the
+        // student entered something (label and/or amount) here anyway, is a
+        // genuine wrong answer for whichever sub-field is non-blank - the
+        // "correct" value for an unused box is blank, so each sub-field is
+        // still graded independently: a stray label doesn't make a correctly
+        // -left-blank amount wrong too. Leaving both genuinely blank (matching
+        // the solution's non-use of this side/row) stays ungraded entirely.
+        foreach ($studentRows as $rowIndex => $studentRow) {
+            if (in_array($rowIndex, $relevantIndices)) continue; // already graded above
+            $studentAmount = $studentRow[$side] ?? '';
+            $studentLabel = trim($studentRow[$labelField] ?? '');
+            if ($studentAmount === '' && $studentLabel === '') continue; // genuinely blank - fine
+
+            $labelCorrect = $studentLabel === '';
+            $amountCorrect = $studentAmount === '';
+
+            $rowResults[$rowIndex] = ['labelCorrect' => $labelCorrect, 'amountCorrect' => $amountCorrect, 'isCorrect' => $labelCorrect && $amountCorrect];
+        }
+
+        return $rowResults;
+    }
+
+    private function computeScoreForTAccounts($tAccountsSolution, $studentTAccounts): array
+    {
+        $results = [];
+        $totalFields = 0;
+        $correctFields = 0;
+
+        foreach ($tAccountsSolution as $accountIndex => $solutionAccount) {
+            if (is_array($solutionAccount)) {
+                $solutionAccount = (object)$solutionAccount;
+            }
+
+            $solutionPostings = $solutionAccount->postings ?? [];
+            $studentAccount = $studentTAccounts[$accountIndex] ?? ['rows' => [], 'balance' => null];
+            $studentRows = $studentAccount['rows'] ?? [];
+
+            $debitResults = $this->gradeTAccountSide($solutionPostings, $studentRows, 'debit');
+            $creditResults = $this->gradeTAccountSide($solutionPostings, $studentRows, 'credit');
+
+            $rowResults = [];
+            foreach ($solutionPostings as $rowIndex => $posting) {
+                $studentRow = $studentRows[$rowIndex] ?? ['debitLabel' => '', 'debit' => '', 'credit' => '', 'creditLabel' => ''];
+                $debitResult = $debitResults[$rowIndex] ?? null;
+                $creditResult = $creditResults[$rowIndex] ?? null;
+
+                if ($debitResult) {
+                    $totalFields += 2; // label, amount
+                    if ($debitResult['labelCorrect']) $correctFields++;
+                    if ($debitResult['amountCorrect']) $correctFields++;
+                }
+                if ($creditResult) {
+                    $totalFields += 2; // label, amount
+                    if ($creditResult['labelCorrect']) $correctFields++;
+                    if ($creditResult['amountCorrect']) $correctFields++;
+                }
+
+                $rowResults[$rowIndex] = [
+                    'debitLabel' => $studentRow['debitLabel'] ?? '',
+                    'debit' => $studentRow['debit'] ?? '',
+                    'credit' => $studentRow['credit'] ?? '',
+                    'creditLabel' => $studentRow['creditLabel'] ?? '',
+                    'debitLabelCorrect' => $debitResult['labelCorrect'] ?? null,
+                    'debitCorrect' => $debitResult['amountCorrect'] ?? null,
+                    'creditLabelCorrect' => $creditResult['labelCorrect'] ?? null,
+                    'creditCorrect' => $creditResult['amountCorrect'] ?? null,
+                    'isCorrect' => ($debitResult['isCorrect'] ?? true) && ($creditResult['isCorrect'] ?? true)
+                ];
+            }
+
+            // Balance: at most one, always after postings, never reordered, side + label + amount.
+            $balanceResult = $this->gradeSimpleBalance($solutionAccount->balance ?? null, $studentAccount['balance'] ?? null, true);
+            if ($balanceResult) {
+                $totalFields += 3; // side, label, amount
+                if ($balanceResult['sideCorrect']) $correctFields++;
+                if ($balanceResult['labelCorrect']) $correctFields++;
+                if ($balanceResult['amountCorrect']) $correctFields++;
+            }
+
+            // Beginning Balance: at most one, always first, never reordered, side + amount
+            // only - it has no editable label, always tagged simply "Beginning Balance".
+            $beginningBalanceResult = $this->gradeSimpleBalance($solutionAccount->beginningBalance ?? null, $studentAccount['beginningBalance'] ?? null, false);
+            if ($beginningBalanceResult) {
+                $totalFields += 2; // side, amount
+                if ($beginningBalanceResult['sideCorrect']) $correctFields++;
+                if ($beginningBalanceResult['amountCorrect']) $correctFields++;
+            }
+
+            $results[$accountIndex] = [
+                'accountTitle' => $solutionAccount->accountTitle ?? '',
+                'rows' => $rowResults,
+                'balance' => $balanceResult,
+                'beginningBalance' => $beginningBalanceResult
+            ];
+        }
+
+        return [
+            'results' => $results,
+            'totalFields' => $totalFields,
+            'correctFields' => $correctFields
         ];
     }
 

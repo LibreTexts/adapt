@@ -106,7 +106,9 @@
                'bow_tie'].includes(questionType)"
       >
         <div style="font-family: Sans-Serif,serif;" :style="presentationMode ? 'font-size:20px' : 'font-size:16px'">
-          <span v-html="prompt"/>
+          <span
+            v-html="['accounting_report','accounting_multi_part_computation'].includes(questionType) ? escapeDollar(prompt) : prompt"
+          />
         </div>
         <AccountingMultiPartComputationViewer
           v-if="questionType === 'accounting_multi_part_computation'"
@@ -344,6 +346,7 @@ import AccountingJournalEntryViewer from './viewers/AccountingJournalEntryViewer
 import AccountingReportViewer from './viewers/AccountingReportViewer.vue'
 import FlashcardViewer from './viewers/FlashcardViewer.vue'
 import AccountingMultiPartComputationViewer from './viewers/AccountingMultiPartComputationViewer.vue'
+import { escapeDollar } from '../helpers/MathJax'
 
 export default {
   name: 'QtiJsonQuestionViewer',
@@ -605,6 +608,7 @@ export default {
     console.error('flashcard cards:', this.allFlashcards, JSON.parse(this.qtiJson))
   },
   methods: {
+    escapeDollar,
     formatQuestionMediaPlayer,
     waitFor3DModel () {
       return new Promise((resolve) => {
@@ -738,7 +742,13 @@ export default {
           response = JSON.stringify(this.$refs.accountingReportViewer.studentResponses)
           break
         case ('accounting_journal_entry'):
-          response = JSON.stringify(this.$refs.accountingJournalEntryViewer.studentEntries)
+          const journalEntryResponse = this.$refs.accountingJournalEntryViewer.getStudentResponse()
+          if (!journalEntryResponse) {
+            invalidResponse = true
+            submissionErrorMessage = 'Please complete all fields before submitting.'
+            break
+          }
+          response = JSON.stringify(journalEntryResponse)
           break
         case ('accounting_multi_part_computation'):
           response = JSON.stringify(this.$refs.accountingMultiPartComputationViewer.getStudentResponse())
