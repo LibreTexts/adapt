@@ -109,9 +109,9 @@
     >
       <p>
         To enter this course, you'll need to log in with your instructor account and then visit the {{ title }} from the
-        Dashboard.
-        If you don't already have one, then you can contact us for an instructor account.
-      </p>
+        Dashboard.</p>
+       <p>If you don’t have a LibreTexts Instructor Account apply at <a href="https://register.libretexts.org" target="_blank" rel="noopener noreferrer">https://register.libretexts.org</a>. We do require an institutional email address for security reasons and a URL to a page showing that you are an instructor.
+         All LibreTexts Instructor Accounts provide access to the ADAPT homework system as well as our textbook platform. </p>
       <template #modal-footer>
         <b-button
           size="sm"
@@ -119,14 +119,6 @@
           @click="user ? logout(): beginLogin"
         >
           Log In
-        </b-button>
-        <b-button
-          variant="primary"
-          size="sm"
-          class="float-right"
-          @click="$bvModal.hide('modal-enter-course');$refs.email.openSendEmailModal()"
-        >
-          Contact Us For Instructor Account
         </b-button>
       </template>
     </b-modal>
