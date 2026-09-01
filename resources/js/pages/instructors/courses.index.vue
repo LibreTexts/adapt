@@ -242,6 +242,8 @@
           v-model="courseToImport"
           class="mb-2"
           :options="formattedImportableCourses"
+          label="formatted_course"
+          :reduce="option => option.course_id"
           placeholder="Enter a course or instructor name"
           @input="getImportCourseWarnings($event)"
         />
@@ -798,7 +800,7 @@ export default {
     showImportAsBeta: false,
     formattedImportableCourses: [],
     importableCourses: [],
-    courseToImport: '',
+    courseToImport: null,
     showCourseShownTooltip: {
       fallbackPlacement: ['right'],
       placement: 'right',
@@ -1092,10 +1094,9 @@ export default {
         this.$noty.error(error.message)
       }
     },
-    async getImportCourseWarnings (courseToImport) {
+    async getImportCourseWarnings (courseId) {
       this.importAsBeta = 0
       this.showFormativeMessage = false
-      let courseId = this.getIdOfCourseToImport(courseToImport)
       if (!courseId) {
         return false
       }
@@ -1149,37 +1150,26 @@ export default {
           return false
         }
         this.importableCourses = data.importable_courses
-        this.formattedImportableCourses = []
-        for (let i = 0; i < data.importable_courses.length; i++) {
-          this.formattedImportableCourses.push(data.importable_courses[i].formatted_course)
-        }
-        this.courseToImport = ''
+        this.formattedImportableCourses = data.importable_courses.map(course => ({
+          course_id: course.course_id,
+          formatted_course: course.formatted_course
+        }))
+        this.courseToImport = null
         this.$bvModal.show('modal-import-course')
       } catch (error) {
         this.$noty.error(error.message)
       }
     },
-    getIdOfCourseToImport (courseToImport) {
-      for (let i = 0; i < this.importableCourses.length; i++) {
-        if (this.importableCourses[i]['formatted_course'] === courseToImport) {
-          return this.importableCourses[i]['course_id']
-        }
-      }
-      return 0
-    },
-    addIdToCourseToImport (courseToImport) {
-      for (let i = 0; i < this.importableCourses.length; i++) {
-        if (this.importableCourses[i]['formatted_course'] === courseToImport) {
-          return { id: this.importableCourses[i]['course_id'] }
-        }
-      }
+    getFormattedCourseName (courseId) {
+      const found = this.importableCourses.find(course => course.course_id === courseId)
+      return found ? found.formatted_course : ''
     },
     async handleImportCourse () {
       if (!this.checkedForDiscussItOrClickerOrOpenEndedInRealTimeQuestions) {
         this.resetDiscussItSettingsToDefault = '0'
         this.resetClickerSettingsToDefault = '0'
         this.removeOpenEndedQuestionsFromRealTimeAssignments = '0'
-        await this.checkForDiscussItClickerOrOpenEndedQuestionsInRealTimeAssignment(this.addIdToCourseToImport(this.courseToImport), 'import')
+        await this.checkForDiscussItClickerOrOpenEndedQuestionsInRealTimeAssignment({ id: this.courseToImport }, 'import')
         return
       }
       this.centrifuge = await initCentrifuge()
@@ -1190,17 +1180,15 @@ export default {
       }).subscribe()
       this.importingCourse = true
       try {
-        let IdOfCourseToImport = this.getIdOfCourseToImport(this.courseToImport)
-        console.error(IdOfCourseToImport)
+        const IdOfCourseToImport = this.courseToImport
         this.courseToImportForm.action = 'import'
-        this.importedCourse = { name: this.courseToImport, id: IdOfCourseToImport }
-        console.error(this.importedCourse)
+        this.importedCourse = { name: this.getFormattedCourseName(IdOfCourseToImport), id: IdOfCourseToImport }
         this.courseToImportForm.reset_discuss_it_settings_to_default = +this.resetDiscussItSettingsToDefault === 1
         this.courseToImportForm.reset_clicker_settings_to_default = +this.resetClickerSettingsToDefault === 1
         this.courseToImportForm.remove_open_ended_questions_from_real_time_assignments = +this.removeOpenEndedQuestionsFromRealTimeAssignments === 1
 
         const { data } = await this.courseToImportForm.post(`/api/courses/import/${IdOfCourseToImport}`)
-        this.courseToImport = ''
+        this.courseToImport = null
         if (data.type === 'error') {
           this.$noty.error(data.message)
           this.importingCourse = false
@@ -1214,7 +1202,7 @@ export default {
           this.importingCourse = false
         }
       }
-      this.courseToImport = ''
+      this.courseToImport = null
     },
     showCourseWarning (course) {
       this.course = course

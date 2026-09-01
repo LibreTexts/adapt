@@ -1439,7 +1439,7 @@ class CourseController extends Controller
                 if (!in_array($course->id, $formatted_course_ids)) {
                     $formatted_course = "$course->name $term --- $course->instructor";
                     if (in_array($formatted_course, $formatted_course_names)) {
-                        $formatted_course = "$course->name $term --- $course->instructor";
+                        $formatted_course = "$formatted_course (#$course->id)";
                     }
                     $formatted_importable_courses[] = [
                         'course_id' => $course->id,
