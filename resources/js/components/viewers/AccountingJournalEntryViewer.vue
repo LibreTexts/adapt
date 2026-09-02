@@ -107,8 +107,7 @@
       <hr class="section-divider">
       <h5 class="mb-3">Post to the T-Accounts:</h5>
 
-      <div v-for="(account, accountIndex) in qtiJson.tAccounts"
-           v-if="studentTAccounts[accountIndex]"
+      <div v-for="{ account, originalIndex: accountIndex } in sortedTAccountsView"
            :key="`taccount-${accountIndex}`"
            class="t-account-block"
       >
@@ -124,8 +123,17 @@
           </thead>
           <tbody>
           <tr v-if="studentTAccounts[accountIndex].beginningBalance" class="balance-row">
-            <td class="text-muted"><em>Beginning Balance</em></td>
-            <td>
+            <td v-if="beginningBalanceSide(accountIndex) !== 'credit'">
+              <b-form-select
+                v-model="studentTAccounts[accountIndex].beginningBalance.debitLabel"
+                :options="tAccountLabelOptions"
+                size="sm"
+                :class="[getTAccountBeginningBalanceFieldClass(accountIndex, 'debitLabel'), {'is-incomplete': isTAccountBeginningBalanceIncomplete(accountIndex, 'debitLabel')}]"
+                @change="onBeginningBalanceLabelChanged(accountIndex, 'debit')"
+              />
+            </td>
+            <td v-else/>
+            <td v-if="beginningBalanceSide(accountIndex) !== 'credit'">
               <b-form-input
                 v-model="studentTAccounts[accountIndex].beginningBalance.debit"
                 type="text"
@@ -136,8 +144,18 @@
                 @input="hasStartedEditing = true"
               />
             </td>
-            <td class="text-muted"><em>Beginning Balance</em></td>
-            <td>
+            <td v-else/>
+            <td v-if="beginningBalanceSide(accountIndex) !== 'debit'">
+              <b-form-select
+                v-model="studentTAccounts[accountIndex].beginningBalance.creditLabel"
+                :options="tAccountLabelOptions"
+                size="sm"
+                :class="[getTAccountBeginningBalanceFieldClass(accountIndex, 'creditLabel'), {'is-incomplete': isTAccountBeginningBalanceIncomplete(accountIndex, 'creditLabel')}]"
+                @change="onBeginningBalanceLabelChanged(accountIndex, 'credit')"
+              />
+            </td>
+            <td v-else/>
+            <td v-if="beginningBalanceSide(accountIndex) !== 'debit'">
               <b-form-input
                 v-model="studentTAccounts[accountIndex].beginningBalance.credit"
                 type="text"
@@ -148,6 +166,7 @@
                 @input="hasStartedEditing = true"
               />
             </td>
+            <td v-else/>
           </tr>
           <tr v-for="(row, rowIndex) in studentTAccounts[accountIndex].rows"
               :key="`taccount-${accountIndex}-row-${rowIndex}`"
@@ -248,7 +267,7 @@
          class="t-account-debug-panel mt-4"
     >
       <h6 class="text-muted">Debug: Student Answer vs. Correct Answer (T-Accounts)</h6>
-      <table v-for="(account, accountIndex) in qtiJson.tAccounts"
+      <table v-for="{ account, originalIndex: accountIndex } in sortedTAccountsView"
              :key="`debug-taccount-${accountIndex}`"
              class="table table-sm table-bordered debug-table mb-3"
       >
@@ -339,6 +358,20 @@ export default {
       }
       return response && response.tAccounts ? response.tAccounts : null
     },
+    // Alphabetical DISPLAY order for the T-Account blocks - not "order first
+    // used in entries," so the list itself doesn't cue students as to which
+    // account comes up next in the journal entries they still have to
+    // complete. Display-only: qtiJson.tAccounts and studentTAccounts stay in
+    // their original storage order, since grading pairs them by array index;
+    // this only changes what order they're rendered in.
+    sortedTAccountsView () {
+      return (this.qtiJson.tAccounts || [])
+        .map((account, originalIndex) => ({ account, originalIndex }))
+        .filter(({ originalIndex }) => !!this.studentTAccounts[originalIndex])
+        .sort((a, b) =>
+          (a.account.accountTitle || '').localeCompare(b.account.accountTitle || '', undefined, { sensitivity: 'base' })
+        )
+    },
     tAccountLabelSuggestions () {
       const labels = new Set()
       if (this.qtiJson.entries) {
@@ -352,15 +385,16 @@ export default {
             if (posting.debitLabel) labels.add(posting.debitLabel.trim())
             if (posting.creditLabel) labels.add(posting.creditLabel.trim())
           })
-          // The Balance row has its own editable label too (Beginning Balance
-          // doesn't - it's always a fixed "Beginning Balance" tag) - without
-          // this, a label used only on a Balance row wouldn't match any
-          // <option>, and a native <select> can't display a value that isn't
-          // one of its options, so it would render blank despite being correct.
+          // The Balance and Beginning Balance rows each have their own
+          // editable label too - without this, a label used only on one of
+          // those rows wouldn't match any <option>, and a native <select>
+          // can't display a value that isn't one of its options, so it would
+          // render blank despite being correct.
           if (account.balance) {
             if (account.balance.debitLabel) labels.add(account.balance.debitLabel.trim())
             if (account.balance.creditLabel) labels.add(account.balance.creditLabel.trim())
           }
+          if (account.beginningBalance) labels.add('Beginning Balance')
         })
       }
       return Array.from(labels).filter(Boolean)
@@ -383,7 +417,10 @@ export default {
       return false
     },
     isComplete () {
-      return !this.showValidationWarning && (!this.qtiJson.includeTAccounts || !this.tAccountsIncomplete)
+      // T-Accounts are an optional add-on to the question, not a submission
+      // requirement - tAccountsIncomplete still drives the "needs attention"
+      // styling on individual T-Account boxes, but it must never block submit.
+      return !this.showValidationWarning
     },
     tAccountsIncomplete () {
       if (!this.qtiJson.includeTAccounts) return false
@@ -402,8 +439,12 @@ export default {
           if (hasDebit && (!account.balance.debitLabel || account.balance.debitLabel.trim() === '')) return true
           if (hasCredit && (!account.balance.creditLabel || account.balance.creditLabel.trim() === '')) return true
         }
-        if (account.beginningBalance && (!account.beginningBalance.debit || account.beginningBalance.debit === '') && (!account.beginningBalance.credit || account.beginningBalance.credit === '')) {
-          return true
+        if (account.beginningBalance) {
+          const hasDebit = account.beginningBalance.debit !== '' && account.beginningBalance.debit !== null
+          const hasCredit = account.beginningBalance.credit !== '' && account.beginningBalance.credit !== null
+          if (!hasDebit && !hasCredit) return true
+          if (hasDebit && (!account.beginningBalance.debitLabel || account.beginningBalance.debitLabel.trim() === '')) return true
+          if (hasCredit && (!account.beginningBalance.creditLabel || account.beginningBalance.creditLabel.trim() === '')) return true
         }
       }
       return false
@@ -423,10 +464,17 @@ export default {
     // whenever the underlying question actually changes - otherwise they hold
     // stale data from the previous question (e.g. a different tAccounts
     // length), which crashes any direct studentTAccounts[accountIndex] access.
+    // However, qtiJson can also get a new object reference for the SAME
+    // question (e.g. the parent re-rendering after a rejected/failed submit
+    // attempt) - rebuilding in that case would wipe the student's unsaved,
+    // in-progress typing, since only server-saved responses get reloaded.
+    // So only reset when the question identity actually changed.
     qtiJson: {
-      handler () {
-        this.initializeStudentEntries()
-        this.initializeStudentTAccounts()
+      handler (newVal, oldVal) {
+        if (!this.isSameQuestion(newVal, oldVal)) {
+          this.initializeStudentEntries()
+          this.initializeStudentTAccounts()
+        }
         this.loadStudentResponse()
         this.loadStudentTAccountResponse()
       },
@@ -439,6 +487,20 @@ export default {
   },
   methods: {
     escapeDollar,
+    // Compares question identity (not object reference) using the stable
+    // `identifier` fields set on each entry/tAccount when the question was
+    // authored. Two different qtiJson object references for the same
+    // question will have the same identifiers in the same order; a genuinely
+    // different question (e.g. the answer-preview modal moving on) will not.
+    isSameQuestion (newVal, oldVal) {
+      if (!oldVal || !newVal) return false
+      const sig = (val) => {
+        const entryIds = (val.entries || []).map(e => e.identifier).join(',')
+        const tAccountIds = (val.tAccounts || []).map(a => a.identifier).join(',')
+        return `${entryIds}|${tAccountIds}`
+      }
+      return sig(newVal) === sig(oldVal)
+    },
     // Builds a flat, readable "box by box" comparison of the student's answer
     // against the correct answer for one T-Account, for the debug panel.
     // Every graded box gets its own line with its own independent verdict -
@@ -450,8 +512,7 @@ export default {
       if (!account || !result) return []
       const rows = []
       const blank = (v) => (v === '' || v === null || v === undefined ? '(blank)' : v)
-      const studentSideOf = (obj) => (obj.debit !== '' ? 'debit' : (obj.credit !== '' ? 'credit' : '(blank)'))
-      const correctSideOf = (obj) => (obj.debit !== '' ? 'debit' : 'credit')
+      const hasValue = (v) => v !== '' && v !== null && v !== undefined
 
       ;(account.postings || []).forEach((posting, i) => {
         const studentRow = (result.rows && result.rows[i]) || {}
@@ -490,44 +551,46 @@ export default {
         }
       })
 
-      if (account.beginningBalance && result.beginningBalance) {
-        const correctSide = correctSideOf(account.beginningBalance)
+      // Shows a simple balance's four boxes (debit label/amount, credit
+      // label/amount), same style as a posting row, now that each box is
+      // graded fully independently - a stray label on the side the solution
+      // doesn't use is its own wrong answer, not tied to wherever the amount
+      // landed. forcedLabel covers Beginning Balance, whose correct label is
+      // always the same constant regardless of what's actually stored on the
+      // solution object (including older solutions saved before the label
+      // was a real field at all).
+      const pushSimpleBalanceDebugRows = (prefix, solution, gradedResult, forcedLabel = null) => {
+        if (!solution || !gradedResult) return
+        const solDebitLabel = hasValue(solution.debit) ? (forcedLabel || solution.debitLabel) : ''
+        const solCreditLabel = hasValue(solution.credit) ? (forcedLabel || solution.creditLabel) : ''
         rows.push({
-          box: 'Beginning Balance - Side',
-          student: studentSideOf(result.beginningBalance),
-          correct: correctSide,
-          isCorrect: result.beginningBalance.sideCorrect
+          box: `${prefix} - Debit Label`,
+          student: blank(gradedResult.debitLabel),
+          correct: blank(solDebitLabel),
+          isCorrect: gradedResult.debitLabelCorrect === undefined ? null : gradedResult.debitLabelCorrect
         })
         rows.push({
-          box: 'Beginning Balance - Amount',
-          student: blank(result.beginningBalance[correctSide]),
-          correct: blank(account.beginningBalance[correctSide]),
-          isCorrect: result.beginningBalance.amountCorrect
+          box: `${prefix} - Debit Amount`,
+          student: blank(gradedResult.debit),
+          correct: blank(solution.debit),
+          isCorrect: gradedResult.debitCorrect === undefined ? null : gradedResult.debitCorrect
+        })
+        rows.push({
+          box: `${prefix} - Credit Label`,
+          student: blank(gradedResult.creditLabel),
+          correct: blank(solCreditLabel),
+          isCorrect: gradedResult.creditLabelCorrect === undefined ? null : gradedResult.creditLabelCorrect
+        })
+        rows.push({
+          box: `${prefix} - Credit Amount`,
+          student: blank(gradedResult.credit),
+          correct: blank(solution.credit),
+          isCorrect: gradedResult.creditCorrect === undefined ? null : gradedResult.creditCorrect
         })
       }
 
-      if (account.balance && result.balance) {
-        const correctSide = correctSideOf(account.balance)
-        const labelField = correctSide + 'Label'
-        rows.push({
-          box: 'Balance - Side',
-          student: studentSideOf(result.balance),
-          correct: correctSide,
-          isCorrect: result.balance.sideCorrect
-        })
-        rows.push({
-          box: 'Balance - Label',
-          student: blank(result.balance[labelField]),
-          correct: blank(account.balance[labelField]),
-          isCorrect: result.balance.labelCorrect
-        })
-        rows.push({
-          box: 'Balance - Amount',
-          student: blank(result.balance[correctSide]),
-          correct: blank(account.balance[correctSide]),
-          isCorrect: result.balance.amountCorrect
-        })
-      }
+      pushSimpleBalanceDebugRows('Beginning Balance', account.beginningBalance, result.beginningBalance, 'Beginning Balance')
+      pushSimpleBalanceDebugRows('Balance', account.balance, result.balance)
 
       return rows
     },
@@ -589,7 +652,7 @@ export default {
           creditLabel: ''
         })),
         balance: account.balance ? { debitLabel: '', debit: '', creditLabel: '', credit: '' } : null,
-        beginningBalance: account.beginningBalance ? { debit: '', credit: '' } : null
+        beginningBalance: account.beginningBalance ? { debitLabel: '', debit: '', creditLabel: '', credit: '' } : null
       }))
     },
     loadStudentTAccountResponse () {
@@ -627,7 +690,9 @@ export default {
         }
         if (responseAccount.beginningBalance && this.studentTAccounts[accountIndex].beginningBalance) {
           this.studentTAccounts[accountIndex].beginningBalance = {
+            debitLabel: responseAccount.beginningBalance.debitLabel || '',
             debit: responseAccount.beginningBalance.debit || '',
+            creditLabel: responseAccount.beginningBalance.creditLabel || '',
             credit: responseAccount.beginningBalance.credit || ''
           }
         }
@@ -712,6 +777,32 @@ export default {
       }
       return false
     },
+    // Once the student has picked "Beginning Balance" on one side, the other
+    // side's dropdown+input are hidden entirely (a beginning balance can only
+    // live on one side) - this drives that. Returns null while neither side
+    // has been chosen yet, so both sides show as usual.
+    beginningBalanceSide (accountIndex) {
+      const bb = this.studentTAccounts[accountIndex] && this.studentTAccounts[accountIndex].beginningBalance
+      if (!bb) return null
+      if (bb.debitLabel === 'Beginning Balance') return 'debit'
+      if (bb.creditLabel === 'Beginning Balance') return 'credit'
+      return null
+    },
+    // When a side becomes "Beginning Balance", clear the other side's
+    // label/amount so nothing lingers in the submitted response once its
+    // inputs are hidden. Picking "Select..." again (clearing this side)
+    // simply reveals both sides again - the other side is already blank.
+    onBeginningBalanceLabelChanged (accountIndex, side) {
+      this.hasStartedEditing = true
+      const bb = this.studentTAccounts[accountIndex].beginningBalance
+      if (side === 'debit' && bb.debitLabel === 'Beginning Balance') {
+        bb.creditLabel = ''
+        bb.credit = ''
+      } else if (side === 'credit' && bb.creditLabel === 'Beginning Balance') {
+        bb.debitLabel = ''
+        bb.debit = ''
+      }
+    },
     getTAccountBeginningBalanceFieldClass (accountIndex, field) {
       if (this.hasStartedEditing) return ''
       const results = this.parsedTAccountGradingResults
@@ -728,7 +819,19 @@ export default {
       if (!beginningBalance) return false
       const hasDebit = beginningBalance.debit !== '' && beginningBalance.debit !== null
       const hasCredit = beginningBalance.credit !== '' && beginningBalance.credit !== null
-      return !hasDebit && !hasCredit
+
+      if (field === 'debit' || field === 'credit') {
+        return !hasDebit && !hasCredit
+      }
+      if (field === 'debitLabel') {
+        if (!hasDebit && !hasCredit) return true
+        return hasDebit && (!beginningBalance.debitLabel || beginningBalance.debitLabel.trim() === '')
+      }
+      if (field === 'creditLabel') {
+        if (!hasDebit && !hasCredit) return true
+        return hasCredit && (!beginningBalance.creditLabel || beginningBalance.creditLabel.trim() === '')
+      }
+      return false
     },
     loadStudentResponse () {
       let response = this.studentResponse || this.qtiJson.studentResponse
@@ -794,8 +897,10 @@ export default {
       return false
     },
     getStudentResponse () {
+      // T-Accounts are an optional add-on to the question, not a submission
+      // requirement (matches isComplete above) - only the Journal Entries
+      // table blocks submission.
       if (this.showValidationWarning) return null
-      if (this.qtiJson.includeTAccounts && this.tAccountsIncomplete) return null
       return {
         entries: this.studentEntries,
         tAccounts: this.studentTAccounts

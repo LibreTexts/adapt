@@ -724,7 +724,9 @@ class Question extends Model
                                     'credit' => $account['balance']['credit'] ?? '',
                                 ] : null,
                                 'beginningBalance' => !empty($account['beginningBalance']) ? [
+                                    'debitLabel' => $account['beginningBalance']['debitLabel'] ?? '',
                                     'debit' => $account['beginningBalance']['debit'] ?? '',
+                                    'creditLabel' => $account['beginningBalance']['creditLabel'] ?? '',
                                     'credit' => $account['beginningBalance']['credit'] ?? '',
                                 ] : null
                             ];
@@ -743,10 +745,38 @@ class Question extends Model
                     }
                 }
                 if (request()->user()->role === 3 && isset($qti_array['tAccounts'])) {
+                    // Blank out the solution values but keep the shape (posting count,
+                    // and whether a balance/beginningBalance row exists) intact - the
+                    // Viewer uses that shape to decide how many input boxes to render.
+                    // Fully unsetting these fields used to collapse every T-Account down
+                    // to zero rows for students, since the front end derives row counts
+                    // from postings.length and treats a missing balance/beginningBalance
+                    // as "there is no such row" rather than "the value is hidden".
                     foreach ($qti_array['tAccounts'] as &$tAccount) {
-                        unset($tAccount['postings']);
-                        unset($tAccount['balance']);
-                        unset($tAccount['beginningBalance']);
+                        $tAccount['postings'] = array_map(function () {
+                            return [
+                                'debitLabel' => '',
+                                'debit' => '',
+                                'creditLabel' => '',
+                                'credit' => ''
+                            ];
+                        }, $tAccount['postings'] ?? []);
+                        if (!empty($tAccount['balance'])) {
+                            $tAccount['balance'] = [
+                                'debitLabel' => '',
+                                'debit' => '',
+                                'creditLabel' => '',
+                                'credit' => ''
+                            ];
+                        }
+                        if (!empty($tAccount['beginningBalance'])) {
+                            $tAccount['beginningBalance'] = [
+                                'debitLabel' => '',
+                                'debit' => '',
+                                'creditLabel' => '',
+                                'credit' => ''
+                            ];
+                        }
                     }
                 }
                 break;
@@ -4101,4 +4131,3 @@ class Question extends Model
         return $diff <= round((float)($placeholder['absoluteTolerance'] ?? 0), 10);
     }
 }
-

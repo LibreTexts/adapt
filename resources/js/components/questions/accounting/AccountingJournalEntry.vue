@@ -287,56 +287,62 @@
     <div v-if="qtiJson.includeTAccounts" class="pb-3">
       <b-card header="default" header-html="<h2 class=&quot;h7&quot;>T-Accounts</h2>">
         <b-card-text>
-          <!-- Add back a removed account -->
-          <div v-if="removedAccountOptions.length" class="pb-3 d-flex align-items-center">
-            <label class="mb-0 mr-2"><strong>Add back an account:</strong></label>
+          <!-- Manually add a T-Account for any account title used in the journal
+               entries that doesn't already have one - whether it was never added
+               (e.g. the entries were edited after this list was last reviewed) or
+               was intentionally removed earlier. Every used account title gets a
+               T-Account automatically by default, so this is mainly for adding
+               one back, or for building a question where only some accounts
+               should have a T-Account (remove the rest, keep this to re-add). -->
+          <div v-if="availableAccountTitlesToAdd.length" class="pb-3 d-flex align-items-center">
+            <label class="mb-0 mr-2"><strong>Create T-Account for:</strong></label>
             <b-form-select
-              v-model="addBackSelection"
-              :options="removedAccountOptions"
+              v-model="addTAccountSelection"
+              :options="availableAccountTitlesToAdd"
               style="max-width: 320px"
-              @change="addBackAccount"
+              @change="addTAccountForTitle"
             />
           </div>
 
           <ErrorMessage
             v-if="tAccountsErrors && tAccountsErrors['tAccountsGeneral']"
-              class="pb-2"
-              :message="tAccountsErrors['tAccountsGeneral']"
-            />
+            class="pb-2"
+            :message="tAccountsErrors['tAccountsGeneral']"
+          />
 
-            <div v-for="(tAccount, accountIndex) in (qtiJson.tAccounts || [])"
-                 :key="`taccount-${tAccount.identifier}`"
-                 class="pb-4"
-            >
-              <b-card>
-                <template #header>
-                  <div class="d-flex justify-content-between align-items-center">
-                    <strong class="t-account-card-title">{{ tAccount.accountTitle || '(No account selected)' }}</strong>
-                    <b-button
-                      variant="outline-danger"
-                      size="sm"
-                      @click="removeTAccount(accountIndex)"
-                    >
-                      <b-icon-trash/>
-                      Remove Account
-                    </b-button>
-                  </div>
-                </template>
+          <div v-for="{ account: tAccount, originalIndex: accountIndex } in sortedTAccountsView"
+               :key="`taccount-${tAccount.identifier}`"
+               class="pb-4"
+          >
+            <b-card>
+              <template #header>
+                <div class="d-flex justify-content-between align-items-center">
+                  <strong class="t-account-card-title">{{ tAccount.accountTitle || '(No account selected)' }}</strong>
+                  <b-button
+                    variant="outline-danger"
+                    size="sm"
+                    @click="removeTAccount(accountIndex)"
+                  >
+                    <b-icon-trash/>
+                    Remove Account
+                  </b-button>
+                </div>
+              </template>
 
-                <ErrorMessage
-                  v-if="tAccountsErrors && tAccountsErrors[accountIndex] && tAccountsErrors[accountIndex]['accountTitle']"
-                  class="pb-2"
-                  :message="tAccountsErrors[accountIndex]['accountTitle']"
-                />
+              <ErrorMessage
+                v-if="tAccountsErrors && tAccountsErrors[accountIndex] && tAccountsErrors[accountIndex]['accountTitle']"
+                class="pb-2"
+                :message="tAccountsErrors[accountIndex]['accountTitle']"
+              />
 
-                <ErrorMessage
-                  v-for="message in accountFieldErrorMessages(accountIndex)"
-                  :key="message"
-                  class="pb-2"
-                  :message="message"
-                />
+              <ErrorMessage
+                v-for="message in accountFieldErrorMessages(accountIndex)"
+                :key="message"
+                class="pb-2"
+                :message="message"
+              />
 
-                <div class="pb-2">
+              <div class="pb-2">
                   <span
                     v-b-tooltip.hover="tAccount.beginningBalance ? 'This T-Account already has a beginning balance. Remove it first to change it.' : ''"
                     tabindex="0"
@@ -350,127 +356,130 @@
                       Add Beginning Balance
                     </b-button>
                   </span>
-                </div>
+              </div>
 
-                <!-- Postings Table - each row is a real full row (both sides editable);
-                     the instructor fills in whichever side applies and leaves the other blank. -->
-                <table class="table t-account-table t-account-builder-table">
-                  <thead>
-                  <tr>
-                    <th scope="col" style="width: 27%">Date/Label (Debit)</th>
-                    <th scope="col" style="width: 18%">Debit Amount</th>
-                    <th scope="col" style="width: 27%">Date/Label (Credit)</th>
-                    <th scope="col" style="width: 18%">Credit Amount</th>
-                    <th scope="col" style="width: 10%" class="text-center">Actions</th>
-                  </tr>
-                  </thead>
-                  <tbody>
-                  <!-- Beginning Balance (optional, at most one) - always first, manually
-                       entered (there's no way to derive a starting balance from postings). -->
-                  <tr v-if="tAccount.beginningBalance" class="balance-row">
-                    <td class="text-muted"><em>Beginning Balance</em></td>
-                    <td>
-                      <b-form-input v-model="tAccount.beginningBalance.debit" type="text" inputmode="decimal" placeholder="0.00" @input="handleInput()"/>
-                    </td>
-                    <td class="text-muted"><em>Beginning Balance</em></td>
-                    <td>
-                      <b-form-input v-model="tAccount.beginningBalance.credit" type="text" inputmode="decimal" placeholder="0.00" @input="handleInput()"/>
-                    </td>
-                    <td class="text-center action-cell">
-                      <b-button variant="outline-secondary" size="sm" @click="deleteBeginningBalance(accountIndex)">
-                        <b-icon-trash/>
-                      </b-button>
-                    </td>
-                  </tr>
-                  <tr v-for="(posting, postingIndex) in tAccount.postings"
-                      :key="`posting-${posting.identifier}`"
-                  >
-                    <td>
-                      <b-form-input
-                        v-model="posting.debitLabel"
-                        type="text"
-                        list="taccount-label-list"
-                        placeholder="e.g., 6/30 or 6/30 Adj."
-                        autocomplete="off"
-                        @input="handleInput()"
-                      />
-                    </td>
-                    <td>
-                      <b-form-input
-                        v-model="posting.debit"
-                        type="text"
-                        inputmode="decimal"
-                        placeholder="0.00"
-                        @input="handleInput()"
-                      />
-                    </td>
-                    <td>
-                      <b-form-input
-                        v-model="posting.creditLabel"
-                        type="text"
-                        list="taccount-label-list"
-                        placeholder="e.g., 6/30 or 6/30 Adj."
-                        autocomplete="off"
-                        @input="handleInput()"
-                      />
-                    </td>
-                    <td>
-                      <b-form-input
-                        v-model="posting.credit"
-                        type="text"
-                        inputmode="decimal"
-                        placeholder="0.00"
-                        @input="handleInput()"
-                      />
-                    </td>
-                    <td class="text-center action-cell">
-                      <b-button variant="outline-secondary" size="sm" @click="deletePosting(accountIndex, postingIndex)">
-                        <b-icon-trash/>
-                      </b-button>
-                    </td>
-                  </tr>
-                  <!-- Balance row (at most one) - both sides shown like a real row;
-                       amount stays auto-calculated live until manually edited, then it
-                       sticks; the label is always manually entered. -->
-                  <tr v-if="tAccount.balance" class="balance-row">
-                    <td>
-                      <b-form-input v-model="tAccount.balance.debitLabel" type="text" list="taccount-label-list" placeholder="e.g., 6/30 Bal." autocomplete="off" @input="handleInput()"/>
-                    </td>
-                    <td>
-                      <b-form-input v-model="tAccount.balance.debit" type="text" inputmode="decimal" @input="onBalanceAmountEdited(tAccount)"/>
-                    </td>
-                    <td>
-                      <b-form-input v-model="tAccount.balance.creditLabel" type="text" list="taccount-label-list" placeholder="e.g., 6/30 Bal." autocomplete="off" @input="handleInput()"/>
-                    </td>
-                    <td>
-                      <b-form-input v-model="tAccount.balance.credit" type="text" inputmode="decimal" @input="onBalanceAmountEdited(tAccount)"/>
-                    </td>
-                    <td class="text-center action-cell">
-                      <b-button variant="outline-secondary" size="sm" @click="deleteBalanceRow(accountIndex)">
-                        <b-icon-trash/>
-                      </b-button>
-                    </td>
-                  </tr>
-                  </tbody>
-                </table>
-                <datalist id="taccount-label-list">
-                  <option v-for="label in tAccountLabelSuggestions" :key="label" :value="label"/>
-                </datalist>
-
-                <div class="d-flex justify-content-between align-items-center">
-                  <div>
-                    <b-button size="sm" class="mr-2" @click="addPosting(accountIndex)">
-                      Add Row
+              <!-- Postings Table - each row is a real full row (both sides editable);
+                   the instructor fills in whichever side applies and leaves the other blank. -->
+              <table class="table t-account-table t-account-builder-table">
+                <thead>
+                <tr>
+                  <th scope="col" style="width: 27%">Date/Label (Debit)</th>
+                  <th scope="col" style="width: 18%">Debit Amount</th>
+                  <th scope="col" style="width: 27%">Date/Label (Credit)</th>
+                  <th scope="col" style="width: 18%">Credit Amount</th>
+                  <th scope="col" style="width: 10%" class="text-center">Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+                <!-- Beginning Balance (optional, at most one) - always first, manually
+                     entered (there's no way to derive a starting balance from postings).
+                     The "Beginning Balance" label is auto-derived from whichever side
+                     has an amount (not both, and not manually typed) - it only ever
+                     has one valid value, so there's nothing for the instructor to pick. -->
+                <tr v-if="tAccount.beginningBalance" class="balance-row">
+                  <td class="text-muted"><em>{{ tAccount.beginningBalance.debitLabel }}</em></td>
+                  <td>
+                    <b-form-input v-model="tAccount.beginningBalance.debit" type="text" inputmode="decimal" placeholder="0.00" @input="onBeginningBalanceAmountEdited(tAccount)"/>
+                  </td>
+                  <td class="text-muted"><em>{{ tAccount.beginningBalance.creditLabel }}</em></td>
+                  <td>
+                    <b-form-input v-model="tAccount.beginningBalance.credit" type="text" inputmode="decimal" placeholder="0.00" @input="onBeginningBalanceAmountEdited(tAccount)"/>
+                  </td>
+                  <td class="text-center action-cell">
+                    <b-button variant="outline-secondary" size="sm" @click="deleteBeginningBalance(accountIndex)">
+                      <b-icon-trash/>
                     </b-button>
-                    <span
-                      v-b-tooltip.hover="addBalanceTooltip(tAccount)"
-                      tabindex="0"
-                    >
+                  </td>
+                </tr>
+                <tr v-for="(posting, postingIndex) in tAccount.postings"
+                    :key="`posting-${posting.identifier}`"
+                >
+                  <td>
+                    <b-form-input
+                      v-model="posting.debitLabel"
+                      type="text"
+                      list="taccount-label-list"
+                      placeholder="e.g., 6/30 or 6/30 Adj."
+                      autocomplete="off"
+                      @input="handleInput(); markPostingsManuallyEdited(tAccount)"
+                    />
+                  </td>
+                  <td>
+                    <b-form-input
+                      v-model="posting.debit"
+                      type="text"
+                      inputmode="decimal"
+                      placeholder="0.00"
+                      @input="handleInput(); markPostingsManuallyEdited(tAccount)"
+                    />
+                  </td>
+                  <td>
+                    <b-form-input
+                      v-model="posting.creditLabel"
+                      type="text"
+                      list="taccount-label-list"
+                      placeholder="e.g., 6/30 or 6/30 Adj."
+                      autocomplete="off"
+                      @input="handleInput(); markPostingsManuallyEdited(tAccount)"
+                    />
+                  </td>
+                  <td>
+                    <b-form-input
+                      v-model="posting.credit"
+                      type="text"
+                      inputmode="decimal"
+                      placeholder="0.00"
+                      @input="handleInput(); markPostingsManuallyEdited(tAccount)"
+                    />
+                  </td>
+                  <td class="text-center action-cell">
+                    <b-button variant="outline-secondary" size="sm" @click="deletePosting(accountIndex, postingIndex)">
+                      <b-icon-trash/>
+                    </b-button>
+                  </td>
+                </tr>
+                <!-- Balance row (at most one) - both sides shown like a real row;
+                     amount stays auto-calculated live until manually edited, then it
+                     sticks; the label is always manually entered. -->
+                <tr v-if="tAccount.balance" class="balance-row">
+                  <td>
+                    <b-form-input v-model="tAccount.balance.debitLabel" type="text" list="taccount-label-list" placeholder="e.g., 6/30 Bal." autocomplete="off" @input="handleInput()"/>
+                  </td>
+                  <td>
+                    <b-form-input v-model="tAccount.balance.debit" type="text" inputmode="decimal" @input="onBalanceAmountEdited(tAccount)"/>
+                  </td>
+                  <td>
+                    <b-form-input v-model="tAccount.balance.creditLabel" type="text" list="taccount-label-list" placeholder="e.g., 6/30 Bal." autocomplete="off" @input="handleInput()"/>
+                  </td>
+                  <td>
+                    <b-form-input v-model="tAccount.balance.credit" type="text" inputmode="decimal" @input="onBalanceAmountEdited(tAccount)"/>
+                  </td>
+                  <td class="text-center action-cell">
+                    <b-button variant="outline-secondary" size="sm" @click="deleteBalanceRow(accountIndex)">
+                      <b-icon-trash/>
+                    </b-button>
+                  </td>
+                </tr>
+                </tbody>
+              </table>
+              <datalist id="taccount-label-list">
+                <option v-for="label in tAccountLabelSuggestions" :key="label" :value="label"/>
+              </datalist>
+
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <b-button size="sm" class="mr-2" @click="addPosting(accountIndex)">
+                    Add Row
+                  </b-button>
+                  <span
+                    v-b-tooltip.hover="addBalanceTooltip(tAccount)"
+                    tabindex="0"
+                  >
                       <b-button
                         size="sm"
                         variant="outline-primary"
                         class="mr-2"
-                        :disabled="!!tAccount.balance || filledPostingsCount(tAccount) < 2"
+                        :disabled="!!tAccount.balance || filledPostingsCount(tAccount) < 1"
                         @click="addBalanceRow(accountIndex, 'debit')"
                       >
                         Add Debit Balance
@@ -478,16 +487,16 @@
                       <b-button
                         size="sm"
                         variant="outline-primary"
-                        :disabled="!!tAccount.balance || filledPostingsCount(tAccount) < 2"
+                        :disabled="!!tAccount.balance || filledPostingsCount(tAccount) < 1"
                         @click="addBalanceRow(accountIndex, 'credit')"
                       >
                         Add Credit Balance
                       </b-button>
                     </span>
-                  </div>
                 </div>
-              </b-card>
-            </div>
+              </div>
+            </b-card>
+          </div>
         </b-card-text>
       </b-card>
     </div>
@@ -523,7 +532,7 @@ export default {
       collapsedStates: {},
       hasBeenCollapsed: {},
       accountTitles: [],
-      addBackSelection: null
+      addTAccountSelection: null
     }
   },
   computed: {
@@ -556,6 +565,23 @@ export default {
         return null
       }
     },
+    // Alphabetical DISPLAY order for the T-Account cards - not "order first
+    // used in entries," so the list itself doesn't cue students as to which
+    // account comes up next in the journal entries they still have to
+    // complete. This is deliberately display-only: it never reorders the
+    // actual qtiJson.tAccounts array, which grading pairs with a student's
+    // submitted response by array position. Sorting the real array would
+    // retroactively scramble that pairing for anything a student already
+    // submitted against the old order; sorting only how it's rendered here
+    // is safe to apply to every existing question immediately, with nothing
+    // to migrate.
+    sortedTAccountsView () {
+      return (this.qtiJson.tAccounts || [])
+        .map((account, originalIndex) => ({ account, originalIndex }))
+        .sort((a, b) =>
+          (a.account.accountTitle || '').localeCompare(b.account.accountTitle || '', undefined, { sensitivity: 'base' })
+        )
+    },
     uniqueEntryAccountTitles () {
       const titles = []
       ;(this.qtiJson.entries || []).forEach((entry) => {
@@ -566,10 +592,14 @@ export default {
       })
       return titles
     },
-    removedAccountOptions () {
-      const removed = this.qtiJson.removedTAccountTitles || []
-      const options = removed
-        .filter(title => this.uniqueEntryAccountTitles.includes(title))
+    // Any account title used in the journal entries that doesn't currently
+    // have a T-Account - covers both "was removed and can be re-added" and
+    // "entries changed and this title is newly used" (the watcher below
+    // normally auto-adds the latter, but this is the manual fallback/override).
+    availableAccountTitlesToAdd () {
+      const existingTitles = (this.qtiJson.tAccounts || []).map(a => a.accountTitle)
+      const options = this.uniqueEntryAccountTitles
+        .filter(title => !existingTitles.includes(title))
         .map(title => ({ value: title, text: title }))
       return options.length ? [{ value: null, text: 'Select an account...' }, ...options] : []
     },
@@ -618,6 +648,12 @@ export default {
     if (!this.qtiJson.removedTAccountTitles) this.$set(this.qtiJson, 'removedTAccountTitles', [])
     if (this.qtiJson.includeTAccounts === undefined) this.$set(this.qtiJson, 'includeTAccounts', false)
     if (this.qtiJson.optionalPrompt === undefined) this.$set(this.qtiJson, 'optionalPrompt', '')
+    // Backfill for questions saved before this snapshot existed, so opening
+    // an existing question doesn't immediately flag it as "entries revised"
+    // at next save - only edits made from here on will trip that warning.
+    if (this.qtiJson.tAccountsConfirmedEntriesSnapshot === undefined) {
+      this.$set(this.qtiJson, 'tAccountsConfirmedEntriesSnapshot', JSON.stringify(this.qtiJson.entries || []))
+    }
     this.$nextTick(() => {
       this.expandEntriesWithErrors()
       this.syncTAccountsFromEntries()
@@ -626,6 +662,11 @@ export default {
   methods: {
     onToggleTAccounts () {
       this.syncTAccountsFromEntries()
+      if (this.qtiJson.includeTAccounts) {
+        // Toggling on is itself a natural checkpoint - the instructor is
+        // looking at the entries right now, so treat this as "confirmed."
+        this.$set(this.qtiJson, 'tAccountsConfirmedEntriesSnapshot', JSON.stringify(this.qtiJson.entries || []))
+      }
       this.handleInput()
     },
     // Flattens the postings/balance/beginningBalance validation errors returned
@@ -741,46 +782,83 @@ export default {
       // Backfill beginningBalance for T-Accounts created before this field existed.
       this.qtiJson.tAccounts.forEach((account) => {
         if (account.beginningBalance === undefined) this.$set(account, 'beginningBalance', null)
-      })
-      this.healUntouchedPostings()
-      this.handleInput()
-    },
-    // Self-heals a T-Account's still-untouched default posting (nothing typed
-    // into either side yet) so it reflects the correct side/label as entries
-    // change - without ever overwriting anything the teacher has actually filled in.
-    healUntouchedPostings () {
-      this.qtiJson.tAccounts.forEach((account) => {
-        if (account.postings.length !== 1) return
-        const posting = account.postings[0]
-        const untouched = posting.debitLabel === '' && posting.debit === '' &&
-          posting.creditLabel === '' && posting.credit === ''
-        if (!untouched) return
-        const correctSide = this.firstSideForAccount(account.accountTitle)
-        if (correctSide === 'debit') {
-          posting.debitLabel = this.nextSuggestedLabel(account.accountTitle, 'debit', [])
-        } else {
-          posting.creditLabel = this.nextSuggestedLabel(account.accountTitle, 'credit', [])
+        // Backfill debitLabel/creditLabel for beginningBalance rows created
+        // before the label became a real (auto-derived) field.
+        if (account.beginningBalance && account.beginningBalance.debitLabel === undefined) {
+          this.onBeginningBalanceAmountEdited(account)
         }
       })
+      this.resyncAutoGeneratedPostings()
+      this.handleInput()
     },
-    // Determines which side (debit/credit) this account is first posted to, by
-    // scanning the journal entries in order for the first solutionRow referencing it.
-    firstSideForAccount (title) {
-      for (const entry of (this.qtiJson.entries || [])) {
-        const row = (entry.solutionRows || []).find(r => r.accountTitle === title && (r.type === 'debit' || r.type === 'credit'))
-        if (row) return row.type
+    // Keeps a T-Account's postings fully derived from the journal entries -
+    // one posting per debit/credit occurrence of that account, with both the
+    // label and the amount filled in - for as long as the instructor hasn't
+    // manually touched any posting on that account (postingsAutoGenerated).
+    // The moment they do, markPostingsManuallyEdited() turns this off for
+    // that account permanently, so their edits are never overwritten.
+    // Accounts saved before this feature existed have no flag at all; those
+    // are treated as already-manual (never retroactively regenerated), since
+    // silently replacing postings an instructor already typed real amounts
+    // into would be destructive.
+    resyncAutoGeneratedPostings () {
+      this.qtiJson.tAccounts.forEach((account) => {
+        if (account.postingsAutoGenerated === undefined) {
+          this.$set(account, 'postingsAutoGenerated', false)
+          return
+        }
+        if (!account.postingsAutoGenerated) return
+        account.postings = this.computeAutoPostings(account.accountTitle)
+      })
+    },
+    markPostingsManuallyEdited (account) {
+      if (account.postingsAutoGenerated) {
+        this.$set(account, 'postingsAutoGenerated', false)
       }
-      return 'debit'
+    },
+    // Builds the full auto-generated postings list for an account: every
+    // journal-entry solutionRow referencing this title becomes an occurrence
+    // on the debit or credit side per that row's own "type" - a debit entry
+    // always posts to the debit side of the account, a credit entry to the
+    // credit side, regardless of what kind of account it is (asset, expense,
+    // etc.) - so no separate "account type" classification is needed to know
+    // which column an amount belongs in. Debit and credit occurrences are
+    // independent sequences and are simply paired up row by row (a posting
+    // row's debit half and credit half don't have to be the same underlying
+    // transaction - they're graded independently either way).
+    computeAutoPostings (accountTitle) {
+      const debitOccurrences = []
+      const creditOccurrences = []
+      ;(this.qtiJson.entries || []).forEach((entry) => {
+        ;(entry.solutionRows || []).forEach((row) => {
+          if (row.accountTitle !== accountTitle) return
+          if (row.type !== 'debit' && row.type !== 'credit') return
+          const occurrence = { label: (entry.entryText || '').trim(), amount: row.amount || '' }
+          if (row.type === 'debit') debitOccurrences.push(occurrence)
+          else creditOccurrences.push(occurrence)
+        })
+      })
+      const rowCount = Math.max(debitOccurrences.length, creditOccurrences.length, 1)
+      const postings = []
+      for (let i = 0; i < rowCount; i++) {
+        const debitOcc = debitOccurrences[i]
+        const creditOcc = creditOccurrences[i]
+        postings.push({
+          identifier: uuidv4(),
+          debitLabel: debitOcc ? debitOcc.label : '',
+          debit: debitOcc ? debitOcc.amount : '',
+          creditLabel: creditOcc ? creditOcc.label : '',
+          credit: creditOcc ? creditOcc.amount : ''
+        })
+      }
+      return postings
     },
     newTAccount (title) {
-      const side = this.firstSideForAccount(title)
-      const posting = { identifier: uuidv4(), debitLabel: '', debit: '', creditLabel: '', credit: '' }
-      if (side === 'debit') posting.debitLabel = this.nextSuggestedLabel(title, 'debit', [])
-      else posting.creditLabel = this.nextSuggestedLabel(title, 'credit', [])
       return {
         identifier: uuidv4(),
         accountTitle: title,
-        postings: [posting],
+        postings: this.computeAutoPostings(title),
+        postingsAutoGenerated: true,
         beginningBalance: null,
         balance: null
       }
@@ -794,37 +872,23 @@ export default {
       this.qtiJson.tAccounts.splice(accountIndex, 1)
       this.handleInput()
     },
-    addBackAccount (title) {
+    addTAccountForTitle (title) {
       if (!title) return
       const idx = this.qtiJson.removedTAccountTitles.indexOf(title)
       if (idx !== -1) this.qtiJson.removedTAccountTitles.splice(idx, 1)
       if (!this.qtiJson.tAccounts.some(a => a.accountTitle === title)) {
         this.qtiJson.tAccounts.push(this.newTAccount(title))
       }
-      this.addBackSelection = null
+      this.addTAccountSelection = null
       this.handleInput()
-    },
-    // Suggests the next unassigned journal-entry date/label for this account+side so
-    // teachers aren't retyping dates that already exist on the entries (e.g., "6/30
-    // Bal." balances still get typed manually since they have no matching entry).
-    nextSuggestedLabel (accountTitle, side, existingPostings) {
-      const candidateLabels = []
-      ;(this.qtiJson.entries || []).forEach((entry) => {
-        const matchesRow = (entry.solutionRows || []).some(row =>
-          row.accountTitle === accountTitle && row.type === side
-        )
-        if (matchesRow && entry.entryText) candidateLabels.push(entry.entryText.trim())
-      })
-      const existingCount = (existingPostings || []).filter(p =>
-        side === 'debit' ? (p.debit !== '' || p.debitLabel !== '') : (p.credit !== '' || p.creditLabel !== '')
-      ).length
-      return candidateLabels[existingCount] || ''
     },
     // Adds a real full row - both sides are editable; the instructor fills in
     // whichever side applies to this posting and leaves the other blank.
     // Neither label is pre-filled: a label with no matching amount (or vice
     // versa) is invalid, so guessing a label the instructor might not use
-    // would just create an error they'd have to clear manually.
+    // would just create an error they'd have to clear manually. Manually
+    // adding a row means the instructor is now curating postings themselves,
+    // so auto-regeneration stops touching this account from here on.
     addPosting (accountIndex) {
       const account = this.qtiJson.tAccounts[accountIndex]
       account.postings.push({
@@ -834,6 +898,7 @@ export default {
         creditLabel: '',
         credit: ''
       })
+      this.markPostingsManuallyEdited(account)
       this.handleInput()
       this.$forceUpdate()
     },
@@ -844,10 +909,13 @@ export default {
         return
       }
       account.postings.splice(postingIndex, 1)
+      this.markPostingsManuallyEdited(account)
       this.handleInput()
     },
-    // Enabling condition for "Add Balance": more than one NUMBER entered - counts
-    // each filled amount individually (a single row with both a debit and credit
+    // Enabling condition for "Add Balance": at least one NUMBER entered (an
+    // account with a single posting can still validly have an ending balance
+    // equal to that number - it's just optional, never required). Counts each
+    // filled amount individually (a single row with both a debit and credit
     // number counts as 2), not just how many rows have any data. Includes the
     // Beginning Balance, since it genuinely factors into the ending balance.
     filledPostingsCount (tAccount) {
@@ -864,7 +932,7 @@ export default {
     },
     addBalanceTooltip (tAccount) {
       if (tAccount.balance) return 'This T-Account already has a balance. Remove it first to recalculate.'
-      if (this.filledPostingsCount(tAccount) < 2) return 'Enter at least 2 numbers before adding a balance.'
+      if (this.filledPostingsCount(tAccount) < 1) return 'Enter at least 1 number before adding a balance.'
       return ''
     },
     // The magnitude is the same regardless of which side the instructor chooses -
@@ -919,11 +987,23 @@ export default {
       const account = this.qtiJson.tAccounts[accountIndex]
       if (account.beginningBalance) return
       account.beginningBalance = {
+        debitLabel: '',
         debit: '',
+        creditLabel: '',
         credit: ''
       }
       this.handleInput()
       this.$forceUpdate()
+    },
+    // "Beginning Balance" is the only valid label a beginning balance can ever
+    // have, so it's derived automatically from whichever side has an amount
+    // rather than typed/picked by the instructor - and cleared on the side
+    // that's blank, so it's never shown on both sides at once.
+    onBeginningBalanceAmountEdited (tAccount) {
+      const bb = tAccount.beginningBalance
+      bb.debitLabel = bb.debit !== '' ? 'Beginning Balance' : ''
+      bb.creditLabel = bb.credit !== '' ? 'Beginning Balance' : ''
+      this.handleInput()
     },
     deleteBeginningBalance (accountIndex) {
       const account = this.qtiJson.tAccounts[accountIndex]

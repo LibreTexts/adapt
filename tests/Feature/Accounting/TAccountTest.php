@@ -332,8 +332,22 @@ class AccountingTAccountTest extends TestCase
     /** @test */
     public function beginning_balance_does_not_require_a_label()
     {
-        // Unlike the ending Balance, Beginning Balance has no editable label -
-        // it's always tagged simply "Beginning Balance".
+        // NOTE: this test's original premise ("Beginning Balance has no
+        // editable label, always tagged simply 'Beginning Balance'") is no
+        // longer accurate on the grading/student side - it's now a real
+        // label the student picks from a dropdown, same as the ending
+        // Balance, and IS graded (see
+        // beginning_balance_now_requires_the_label_to_be_selected below).
+        //
+        // This test itself still passes and needs no change: it covers
+        // question-creation validation (HasValidAccountingJournalEntries),
+        // which was checked and deliberately does NOT require a label on
+        // beginningBalance - unlike the ending Balance's validation block,
+        // which does. That's fine because grading forces the expected label
+        // to the constant "Beginning Balance" rather than reading it from
+        // the solution object at all, so correctness never depends on the
+        // solution having a label stored - this test's older, label-less
+        // payload shape grades exactly as correctly as a labeled one would.
         $qti_json = json_decode($this->qti_question_info['qti_json'], true);
         $qti_json['tAccounts'][0]['beginningBalance'] = [
             'debit' => '1900',
@@ -626,8 +640,12 @@ class AccountingTAccountTest extends TestCase
     }
 
     /** @test */
-    public function balance_grades_side_label_and_amount()
+    public function balance_grades_debit_and_credit_independently()
     {
+        // gradeSimpleBalance no longer derives one "side" from the amount and
+        // uses it for both label and amount - each of the four boxes
+        // (debitLabel, debit, creditLabel, credit) is graded on its own,
+        // same as a posting row.
         $submission = new Submission();
 
         $tAccountsSolution = [
@@ -641,7 +659,7 @@ class AccountingTAccountTest extends TestCase
             ]
         ];
 
-        // Correct side and amount, but wrong label.
+        // Correct side and amount, but wrong label text.
         $studentSubmission = [
             'entries' => [],
             'tAccounts' => [
@@ -658,15 +676,71 @@ class AccountingTAccountTest extends TestCase
         $result = $submission->computeScoreForAccountingJournalEntry([], $studentSubmission, $tAccountsSolution);
 
         $balance = $result['tAccountResults'][0]['balance'];
-        $this->assertTrue($balance['sideCorrect']);
-        $this->assertFalse($balance['labelCorrect']);
-        $this->assertTrue($balance['amountCorrect']);
+        $this->assertFalse($balance['debitLabelCorrect']); // wrong text, right side
+        $this->assertTrue($balance['debitCorrect']); // amount graded independently of the label
+        $this->assertTrue($balance['creditLabelCorrect']); // correctly left blank
+        $this->assertTrue($balance['creditCorrect']); // correctly left blank
         $this->assertFalse($balance['isCorrect']);
     }
 
     /** @test */
-    public function beginning_balance_grades_side_and_amount_only()
+    public function balance_amount_can_be_correct_even_when_its_label_is_on_the_wrong_side()
     {
+        // Regression test for the exact scenario walked through with the
+        // instructor: the solution's Ending Balance belongs on credit. The
+        // student puts the correct amount on credit, but mistakenly types
+        // the "Ending Balance" label on debit instead. The credit amount
+        // must still be marked correct on its own merit - it isn't tied to
+        // wherever the label happened to land.
+        $submission = new Submission();
+
+        $tAccountsSolution = [
+            (object)[
+                'accountTitle' => 'Cash',
+                'postings' => [
+                    (object)['debitLabel' => 'Jan 1', 'debit' => '5000', 'creditLabel' => '', 'credit' => '']
+                ],
+                'balance' => (object)['debitLabel' => '', 'debit' => '', 'creditLabel' => 'Ending Balance', 'credit' => '5000'],
+                'beginningBalance' => null
+            ]
+        ];
+
+        $studentSubmission = [
+            'entries' => [],
+            'tAccounts' => [
+                [
+                    'rows' => [
+                        ['debitLabel' => 'Jan 1', 'debit' => '5000', 'creditLabel' => '', 'credit' => '']
+                    ],
+                    // Amount correctly on credit; label mistakenly on debit.
+                    'balance' => ['debitLabel' => 'Ending Balance', 'debit' => '', 'creditLabel' => '', 'credit' => '5000'],
+                    'beginningBalance' => null
+                ]
+            ]
+        ];
+
+        $result = $submission->computeScoreForAccountingJournalEntry([], $studentSubmission, $tAccountsSolution);
+
+        $balance = $result['tAccountResults'][0]['balance'];
+        $this->assertTrue($balance['creditCorrect']); // right amount, right side
+        $this->assertFalse($balance['creditLabelCorrect']); // the label that belongs here is missing
+        $this->assertFalse($balance['debitLabelCorrect']); // stray label, wrong side
+        $this->assertTrue($balance['debitCorrect']); // correctly left blank
+        $this->assertFalse($balance['isCorrect']);
+    }
+
+    /** @test */
+    public function beginning_balance_grades_debit_and_credit_independently()
+    {
+        // Beginning Balance now has a real editable label (a dropdown the
+        // student picks, same interaction as the ending Balance), instead of
+        // the old fixed "always tagged Beginning Balance, label never
+        // graded" behavior. It's graded the same 4-independent-boxes way as
+        // Balance. The expected label is forced to the constant "Beginning
+        // Balance" regardless of what's stored on the solution object, so
+        // this passes even though the fixture's solution never sets a
+        // debitLabel/creditLabel field at all (matching older solution data
+        // saved before the label existed).
         $submission = new Submission();
 
         $tAccountsSolution = [
@@ -688,7 +762,7 @@ class AccountingTAccountTest extends TestCase
                         ['debitLabel' => 'Jan 15', 'debit' => '500', 'creditLabel' => '', 'credit' => '']
                     ],
                     'balance' => null,
-                    'beginningBalance' => ['debit' => '1900', 'credit' => '']
+                    'beginningBalance' => ['debitLabel' => 'Beginning Balance', 'debit' => '1900', 'creditLabel' => '', 'credit' => '']
                 ]
             ]
         ];
@@ -696,10 +770,53 @@ class AccountingTAccountTest extends TestCase
         $result = $submission->computeScoreForAccountingJournalEntry([], $studentSubmission, $tAccountsSolution);
 
         $beginningBalance = $result['tAccountResults'][0]['beginningBalance'];
-        $this->assertTrue($beginningBalance['sideCorrect']);
-        $this->assertNull($beginningBalance['labelCorrect']); // not graded - no editable label
-        $this->assertTrue($beginningBalance['amountCorrect']);
+        $this->assertTrue($beginningBalance['debitLabelCorrect']);
+        $this->assertTrue($beginningBalance['debitCorrect']);
+        $this->assertTrue($beginningBalance['creditLabelCorrect']); // correctly left blank
+        $this->assertTrue($beginningBalance['creditCorrect']); // correctly left blank
         $this->assertTrue($beginningBalance['isCorrect']);
+    }
+
+    /** @test */
+    public function beginning_balance_now_requires_the_label_to_be_selected()
+    {
+        // Regression test: Beginning Balance used to be graded on side +
+        // amount only, with the label never checked at all. It's now a real
+        // dropdown the student must pick "Beginning Balance" from, so
+        // leaving it blank must cost credit even when the amount is right.
+        $submission = new Submission();
+
+        $tAccountsSolution = [
+            (object)[
+                'accountTitle' => 'Cash',
+                'postings' => [
+                    (object)['debitLabel' => 'Jan 15', 'debit' => '500', 'creditLabel' => '', 'credit' => '']
+                ],
+                'balance' => null,
+                'beginningBalance' => (object)['debit' => '1900', 'credit' => '']
+            ]
+        ];
+
+        // Amount correct, but the label dropdown was never touched.
+        $studentSubmission = [
+            'entries' => [],
+            'tAccounts' => [
+                [
+                    'rows' => [
+                        ['debitLabel' => 'Jan 15', 'debit' => '500', 'creditLabel' => '', 'credit' => '']
+                    ],
+                    'balance' => null,
+                    'beginningBalance' => ['debitLabel' => '', 'debit' => '1900', 'creditLabel' => '', 'credit' => '']
+                ]
+            ]
+        ];
+
+        $result = $submission->computeScoreForAccountingJournalEntry([], $studentSubmission, $tAccountsSolution);
+
+        $beginningBalance = $result['tAccountResults'][0]['beginningBalance'];
+        $this->assertFalse($beginningBalance['debitLabelCorrect']);
+        $this->assertTrue($beginningBalance['debitCorrect']);
+        $this->assertFalse($beginningBalance['isCorrect']);
     }
 
     /** @test */

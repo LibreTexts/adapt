@@ -3186,13 +3186,27 @@ class Submission extends Model
      */
 
     /**
-     * Grades a single-row balance. The ending Balance has a real editable label
-     * ($requireLabel = true, checked alongside side + amount); the Beginning
-     * Balance has no editable label - it's always tagged simply "Beginning
-     * Balance" - so it's graded on side + amount only ($requireLabel = false).
+     * Grades a single-row balance. Both the ending Balance and the Beginning
+     * Balance now have a real editable label ($requireLabel = true, checked
+     * alongside amount). Beginning Balance only ever has one valid label
+     * value ("Beginning Balance"), so $forcedLabel lets the caller supply
+     * that expected value directly instead of reading it from the solution's
+     * stored label - this also means older solution data that predates the
+     * editable label still grades correctly with no migration.
+     *
+     * The debit side and credit side are graded completely independently of
+     * each other - same philosophy as gradeTAccountSide() for postings. A
+     * student can split their answer across sides (e.g. picking the right
+     * label on the wrong side while still typing the right amount on the
+     * right side); each of the four boxes (debitLabel, debit, creditLabel,
+     * credit) gets judged on its own rather than the label's correctness
+     * being tied to wherever the amount happened to land. For whichever side
+     * the solution doesn't use, the correct answer for that side is simply
+     * "leave it blank" - a stray value there is wrong, a blank matches.
+     *
      * Returns null if the solution doesn't have one.
      */
-    private function gradeSimpleBalance($solutionBalance, $studentBalance, bool $requireLabel = true): ?array
+    private function gradeSimpleBalance($solutionBalance, $studentBalance, bool $requireLabel = true, ?string $forcedLabel = null): ?array
     {
         $solutionBalance = is_array($solutionBalance) ? (object)$solutionBalance : $solutionBalance;
         if (empty($solutionBalance)) {
@@ -3203,35 +3217,45 @@ class Submission extends Model
         $studentCredit = $studentBalance['credit'] ?? '';
         $studentDebitLabel = trim($studentBalance['debitLabel'] ?? '');
         $studentCreditLabel = trim($studentBalance['creditLabel'] ?? '');
-        $studentSide = $studentDebit !== '' ? 'debit' : ($studentCredit !== '' ? 'credit' : null);
-        $studentAmount = $studentSide === 'debit' ? $studentDebit : $studentCredit;
-        $studentLabel = $studentSide === 'debit' ? $studentDebitLabel : $studentCreditLabel;
 
         $solDebit = $solutionBalance->debit ?? '';
         $solCredit = $solutionBalance->credit ?? '';
         $solSide = ($solDebit !== '' && $solDebit !== null) ? 'debit' : (($solCredit !== '' && $solCredit !== null) ? 'credit' : null);
-        $solAmount = $this->parseAmount($solSide === 'debit' ? $solDebit : $solCredit);
-        $solLabel = $solSide === 'debit' ? trim($solutionBalance->debitLabel ?? '') : trim($solutionBalance->creditLabel ?? '');
+        $solDebitAmount = $solSide === 'debit' ? $this->parseAmount($solDebit) : null;
+        $solCreditAmount = $solSide === 'credit' ? $this->parseAmount($solCredit) : null;
+        $solDebitLabel = $solSide === 'debit' ? ($forcedLabel ?? trim($solutionBalance->debitLabel ?? '')) : '';
+        $solCreditLabel = $solSide === 'credit' ? ($forcedLabel ?? trim($solutionBalance->creditLabel ?? '')) : '';
 
+        // Amount correctness on a side the solution doesn't use just means
+        // "did the student correctly leave it blank" - matches how postings
+        // treat an unused side/row.
+        $debitCorrect = $solDebitAmount !== null
+            ? ($studentDebit !== '' && abs($this->parseAmount($studentDebit) - $solDebitAmount) < 0.01)
+            : $studentDebit === '';
+        $creditCorrect = $solCreditAmount !== null
+            ? ($studentCredit !== '' && abs($this->parseAmount($studentCredit) - $solCreditAmount) < 0.01)
+            : $studentCredit === '';
+        $debitLabelCorrect = $requireLabel ? ($studentDebitLabel === $solDebitLabel) : null;
+        $creditLabelCorrect = $requireLabel ? ($studentCreditLabel === $solCreditLabel) : null;
+
+        // Kept as a simple summary signal (did they put an amount on the side
+        // the solution actually uses) - no longer drives label correctness.
+        $studentSide = $studentDebit !== '' ? 'debit' : ($studentCredit !== '' ? 'credit' : null);
         $sideCorrect = $studentSide !== null && $studentSide === $solSide;
-        $labelCorrect = $requireLabel ? ($sideCorrect && $studentLabel === $solLabel) : null;
-        $amountCorrect = $studentAmount !== '' && abs($this->parseAmount($studentAmount) - $solAmount) < 0.01;
 
         return [
             'debitLabel' => $studentDebitLabel,
             'debit' => $studentDebit,
             'creditLabel' => $studentCreditLabel,
             'credit' => $studentCredit,
-            'debitLabelCorrect' => $requireLabel && $studentSide === 'debit' ? $labelCorrect : null,
-            'debitCorrect' => $studentSide === 'debit' ? $amountCorrect : null,
-            'creditLabelCorrect' => $requireLabel && $studentSide === 'credit' ? $labelCorrect : null,
-            'creditCorrect' => $studentSide === 'credit' ? $amountCorrect : null,
+            'debitLabelCorrect' => $debitLabelCorrect,
+            'debitCorrect' => $debitCorrect,
+            'creditLabelCorrect' => $creditLabelCorrect,
+            'creditCorrect' => $creditCorrect,
             'sideCorrect' => $sideCorrect,
-            'labelCorrect' => $labelCorrect,
-            'amountCorrect' => $amountCorrect,
             'isCorrect' => $requireLabel
-                ? ($sideCorrect && $labelCorrect && $amountCorrect)
-                : ($sideCorrect && $amountCorrect)
+                ? ($debitLabelCorrect && $debitCorrect && $creditLabelCorrect && $creditCorrect)
+                : ($debitCorrect && $creditCorrect)
         ];
     }
 
@@ -3400,22 +3424,35 @@ class Submission extends Model
                 ];
             }
 
-            // Balance: at most one, always after postings, never reordered, side + label + amount.
+            // Balance: at most one, always after postings, never reordered. Graded
+            // on 4 independent fields (debitLabel, debit, creditLabel, credit),
+            // same shape as a posting row - a stray label on the unused side is
+            // its own wrong answer, independent of whether the amount is right.
             $balanceResult = $this->gradeSimpleBalance($solutionAccount->balance ?? null, $studentAccount['balance'] ?? null, true);
             if ($balanceResult) {
-                $totalFields += 3; // side, label, amount
-                if ($balanceResult['sideCorrect']) $correctFields++;
-                if ($balanceResult['labelCorrect']) $correctFields++;
-                if ($balanceResult['amountCorrect']) $correctFields++;
+                $totalFields += 4; // debitLabel, debit, creditLabel, credit
+                if ($balanceResult['debitLabelCorrect']) $correctFields++;
+                if ($balanceResult['debitCorrect']) $correctFields++;
+                if ($balanceResult['creditLabelCorrect']) $correctFields++;
+                if ($balanceResult['creditCorrect']) $correctFields++;
             }
 
-            // Beginning Balance: at most one, always first, never reordered, side + amount
-            // only - it has no editable label, always tagged simply "Beginning Balance".
-            $beginningBalanceResult = $this->gradeSimpleBalance($solutionAccount->beginningBalance ?? null, $studentAccount['beginningBalance'] ?? null, false);
+            // Beginning Balance: at most one, always first, never reordered - the
+            // student now picks "Beginning Balance" from a label dropdown on
+            // whichever side they choose, same interaction as the ending Balance
+            // row, so it's graded the same way (4 independent fields). The
+            // expected label is forced to the constant "Beginning Balance"
+            // rather than read from the solution, since that's the only value
+            // it can ever validly be - this also means old solution data (saved
+            // before the label existed) still grades correctly with no
+            // migration needed.
+            $beginningBalanceResult = $this->gradeSimpleBalance($solutionAccount->beginningBalance ?? null, $studentAccount['beginningBalance'] ?? null, true, 'Beginning Balance');
             if ($beginningBalanceResult) {
-                $totalFields += 2; // side, amount
-                if ($beginningBalanceResult['sideCorrect']) $correctFields++;
-                if ($beginningBalanceResult['amountCorrect']) $correctFields++;
+                $totalFields += 4; // debitLabel, debit, creditLabel, credit
+                if ($beginningBalanceResult['debitLabelCorrect']) $correctFields++;
+                if ($beginningBalanceResult['debitCorrect']) $correctFields++;
+                if ($beginningBalanceResult['creditLabelCorrect']) $correctFields++;
+                if ($beginningBalanceResult['creditCorrect']) $correctFields++;
             }
 
             $results[$accountIndex] = [

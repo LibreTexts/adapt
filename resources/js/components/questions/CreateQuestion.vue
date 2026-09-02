@@ -54,6 +54,32 @@
         </b-button>
       </template>
     </b-modal>
+    <b-modal id="modal-confirm-t-accounts-revision"
+             title="Confirm T-Accounts Are Up To Date"
+             no-close-on-esc
+    >
+      <p>
+        You have revised the journal entries for this question since the T-Accounts section was last
+        reviewed. If any accounts, amounts, or entries changed, please double-check that the T-Accounts
+        section still matches before saving.
+      </p>
+      <p>Would you like to save the question as is?</p>
+      <template #modal-footer>
+        <b-button
+          size="sm"
+          @click="$bvModal.hide('modal-confirm-t-accounts-revision')"
+        >
+          Cancel, let me review T-Accounts
+        </b-button>
+        <b-button
+          size="sm"
+          variant="primary"
+          @click="$bvModal.hide('modal-confirm-t-accounts-revision');checkedTAccountsRevision = true; qtiJson.tAccountsConfirmedEntriesSnapshot = JSON.stringify(qtiJson.entries || []); initSaveQuestion()"
+        >
+          Save
+        </b-button>
+      </template>
+    </b-modal>
     <b-modal id="modal-add-edit-question-subject-chapter-section"
              :title="`${capitalize(questionSubjectChapterSectionAction)} ${capitalize(questionSubjectChapterSectionToAddEditLevel)}`"
              no-close-on-backdrop
@@ -2969,7 +2995,7 @@
         id="save-question"
         size="sm"
         variant="primary"
-        @click="checkedOpenEndedSubmissionType = false;initSaveQuestion()"
+        @click="checkedOpenEndedSubmissionType = false;checkedTAccountsRevision = false;initSaveQuestion()"
       >Save</b-button>
     </span>
     <span v-if="savingQuestion">
@@ -3326,6 +3352,7 @@ export default {
     questionSubjectIdOptions: [{ value: null, text: 'Choose a subject' }],
     questionSectionIdOptions: [{ value: null, text: 'Choose a section' }],
     checkedOpenEndedSubmissionType: false,
+    checkedTAccountsRevision: false,
     openEndedSubmissionTypeOptions: openEndedSubmissionTypeOptions,
     parameters3DModel: parameters3DModel,
     smiles: '',
@@ -4377,6 +4404,21 @@ export default {
       await this.waitForStructure()
       this.message = 'Structure received!'
     },
+    // True when the journal entries have changed since the T-Accounts section
+    // was last confirmed to match them (toggling T-Accounts on, or explicitly
+    // confirming this same warning, both re-baseline it). If no baseline exists
+    // yet - a question saved before this feature existed - silently adopt the
+    // current entries as the baseline instead of nagging on the very first save.
+    journalEntriesRevisedSinceTAccountsConfirmed () {
+      if (this.qtiQuestionType !== 'accounting_journal_entry') return false
+      if (!this.qtiJson || !this.qtiJson.includeTAccounts) return false
+      const currentSnapshot = JSON.stringify(this.qtiJson.entries || [])
+      if (this.qtiJson.tAccountsConfirmedEntriesSnapshot === undefined) {
+        this.$set(this.qtiJson, 'tAccountsConfirmedEntriesSnapshot', currentSnapshot)
+        return false
+      }
+      return this.qtiJson.tAccountsConfirmedEntriesSnapshot !== currentSnapshot
+    },
     async initSaveQuestion () {
       if (window.self !== window.top) {
         window.parent.postMessage('scroll-to-top', '*')
@@ -4387,6 +4429,11 @@ export default {
         this.questionForm.open_ended_submission_type === '0') {
         this.checkedOpenEndedSubmissionType = true
         this.$bvModal.show('modal-confirm-no-open-ended-submission-with-no-auto-grading')
+        return
+      }
+      if (!this.checkedTAccountsRevision && this.journalEntriesRevisedSinceTAccountsConfirmed()) {
+        this.checkedTAccountsRevision = true
+        this.$bvModal.show('modal-confirm-t-accounts-revision')
         return
       }
       this.threeDModelSolutionStructureErrors = ''
@@ -5367,6 +5414,7 @@ export default {
         switch (event.key) {
           case ('S'):
             this.checkedOpenEndedSubmissionType = false
+            this.checkedTAccountsRevision = false
             this.initSaveQuestion()
             break
           case ('V'):
