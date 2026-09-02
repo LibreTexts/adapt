@@ -27,7 +27,7 @@
                         :variant="item.chosenMatchIdentifier === null ? 'secondary' : 'info'"
                         @shown="onDropdownShown(item)"
             >
-              <div v-if="poolIsExclusive && item.chosenMatchIdentifier !== null"
+              <div v-if="item.chosenMatchIdentifier !== null"
                    class="dropdown-match-item dropdown-match-item__clear"
                    @click="clearChosenMatch(item)"
               >
@@ -153,9 +153,6 @@ export default {
     },
     nonNullPossibleMatches () {
       return this.possibleMatches.filter(possibleMatch => possibleMatch.identifier !== null)
-    },
-    poolIsExclusive () {
-      return !!this.qtiJson.removeMatchedOptionsFromPool
     }
   },
   mounted () {
@@ -194,9 +191,6 @@ export default {
   methods: {
     formatQuestionMediaPlayer,
     getAvailableMatches (item) {
-      if (!this.poolIsExclusive) {
-        return this.nonNullPossibleMatches
-      }
       const chosenIdentifiers = this.termsToMatch
         .filter(termToMatch => termToMatch.chosenMatchIdentifier !== null)
         .map(termToMatch => termToMatch.chosenMatchIdentifier)
@@ -288,7 +282,7 @@ export default {
   border-bottom: none;
 }
 
-/* "Clear selection" row shown when the pool is exclusive */
+/* "Clear selection" row shown once a match has been chosen */
 .dropdown-match-item__clear {
   cursor: pointer;
   padding: 6px 0 6px 12px;
