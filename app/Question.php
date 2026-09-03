@@ -762,10 +762,23 @@ class Question extends Model
                             ];
                         }, $tAccount['postings'] ?? []);
                         if (!empty($tAccount['balance'])) {
+                            // Reveal the label TEXT (so it can appear as a
+                            // selectable dropdown option) but never which
+                            // side it belongs to, or the amount. Mirror
+                            // whichever label the instructor actually typed
+                            // onto BOTH sides equally, so it shows up as a
+                            // valid option regardless of which side the
+                            // student ultimately picks it for - populating
+                            // only the real side would leak the answer via
+                            // the network payload even though the amount
+                            // itself stays hidden.
+                            $rawDebitLabel = $tAccount['balance']['debitLabel'] ?? '';
+                            $rawCreditLabel = $tAccount['balance']['creditLabel'] ?? '';
+                            $balanceLabel = trim($rawDebitLabel !== '' ? $rawDebitLabel : $rawCreditLabel);
                             $tAccount['balance'] = [
-                                'debitLabel' => '',
+                                'debitLabel' => $balanceLabel,
                                 'debit' => '',
-                                'creditLabel' => '',
+                                'creditLabel' => $balanceLabel,
                                 'credit' => ''
                             ];
                         }

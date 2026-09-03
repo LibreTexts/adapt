@@ -915,4 +915,167 @@ class AccountingTAccountTest extends TestCase
         $this->assertTrue($result['allCorrect']);
         $this->assertEquals([], $result['tAccountResults']);
     }
+
+    // ------------------------------------------------------------------
+    // Student-facing stripping (Question::formatQtiJson)
+    // ------------------------------------------------------------------
+    //
+    // Question::formatQtiJson() strips the T-Account solution before it's
+    // sent to students (role 3), so the answer isn't visible in the network
+    // payload. None of this was previously covered by a test - not even the
+    // original "textboxes don't render for students" bug (formerly this
+    // stripping unset() the fields entirely, collapsing every T-Account to
+    // zero rows), nor the balance-label leak fixed in this same session.
+    // These tests call formatQtiJson() directly rather than going through
+    // the API, since it doesn't depend on the model being persisted - it
+    // operates entirely on the qti_json string argument.
+
+    private function accountingJournalEntryQtiJson(array $tAccountOverrides = [])
+    {
+        return json_encode([
+            'questionType' => 'accounting_journal_entry',
+            'entries' => [
+                [
+                    'identifier' => 'entry-1',
+                    'entryText' => 'Jan 1',
+                    'entryDescription' => 'Test entry',
+                    'solutionRows' => [
+                        ['identifier' => 'row-1', 'accountTitle' => 'Cash', 'type' => 'debit', 'amount' => '5000'],
+                        ['identifier' => 'row-2', 'accountTitle' => 'Common Stock', 'type' => 'credit', 'amount' => '5000']
+                    ]
+                ]
+            ],
+            'includeTAccounts' => true,
+            'tAccounts' => [
+                array_merge([
+                    'identifier' => 'taccount-1',
+                    'accountTitle' => 'Cash',
+                    'postings' => [
+                        ['identifier' => 'posting-1', 'debitLabel' => 'Jan 1', 'debit' => '5000', 'creditLabel' => '', 'credit' => '']
+                    ],
+                    'balance' => ['debitLabel' => '', 'debit' => '', 'creditLabel' => 'Ending Balance', 'credit' => '5000'],
+                    'beginningBalance' => ['debitLabel' => 'Beginning Balance', 'debit' => '1900', 'creditLabel' => '', 'credit' => '']
+                ], $tAccountOverrides)
+            ],
+            'removedTAccountTitles' => []
+        ]);
+    }
+
+    // formatQtiJson() reads request()->user()->role directly. actingAs() sets
+    // the auth guard's user, which is enough for tests that go through an
+    // actual dispatched HTTP request (postJson/get - those pass through the
+    // real middleware stack, which wires up the request's user resolver).
+    // These tests call formatQtiJson() directly with no HTTP dispatch at
+    // all, so that wiring never happens on its own - the request instance's
+    // user resolver has to be set explicitly too, or request()->user()
+    // resolves to null.
+    private function actingAsForFormatQtiJson($user)
+    {
+        $this->actingAs($user);
+        app('request')->setUserResolver(function () use ($user) {
+            return $user;
+        });
+        return $this;
+    }
+
+    /** @test */
+    public function students_still_get_the_right_number_of_input_boxes()
+    {
+        // Regression test for the original reported bug: students saw no
+        // textboxes at all for their T-Accounts. The postings/balance/
+        // beginningBalance VALUES must be hidden, but their SHAPE (how many
+        // postings exist, and whether a balance/beginningBalance row exists
+        // at all) must survive, since the frontend derives how many input
+        // boxes to render from that shape.
+        $question = new Question();
+        $qtiJson = $this->accountingJournalEntryQtiJson();
+
+        $this->actingAsForFormatQtiJson($this->student_user);
+        $result = json_decode($question->formatQtiJson('question_json', $qtiJson, [], false), true);
+
+        $account = $result['tAccounts'][0];
+        $this->assertCount(1, $account['postings']); // posting count preserved
+        $this->assertNotNull($account['balance']); // balance row still exists
+        $this->assertNotNull($account['beginningBalance']); // beginning balance row still exists
+    }
+
+    /** @test */
+    public function students_never_see_t_account_amounts()
+    {
+        $question = new Question();
+        $qtiJson = $this->accountingJournalEntryQtiJson();
+
+        $this->actingAsForFormatQtiJson($this->student_user);
+        $result = json_decode($question->formatQtiJson('question_json', $qtiJson, [], false), true);
+
+        $account = $result['tAccounts'][0];
+        $this->assertEquals('', $account['postings'][0]['debit']);
+        $this->assertEquals('', $account['postings'][0]['debitLabel']);
+        $this->assertEquals('', $account['balance']['debit']);
+        $this->assertEquals('', $account['balance']['credit']);
+        $this->assertEquals('', $account['beginningBalance']['debit']);
+        $this->assertEquals('', $account['beginningBalance']['credit']);
+    }
+
+    /** @test */
+    public function students_can_select_the_balance_label_as_a_dropdown_option()
+    {
+        // Regression test for this session's bug: the ending Balance's label
+        // text must survive stripping so it can appear as a selectable
+        // dropdown option on the frontend, even though the side it belongs
+        // to (and the amount) must still be hidden. The fix mirrors the
+        // label onto both sides equally rather than leaving both blank.
+        $question = new Question();
+        $qtiJson = $this->accountingJournalEntryQtiJson();
+
+        $this->actingAsForFormatQtiJson($this->student_user);
+        $result = json_decode($question->formatQtiJson('question_json', $qtiJson, [], false), true);
+
+        $balance = $result['tAccounts'][0]['balance'];
+        $this->assertEquals('Ending Balance', $balance['debitLabel']);
+        $this->assertEquals('Ending Balance', $balance['creditLabel']); // mirrored - side not given away
+        $this->assertEquals('', $balance['debit']);
+        $this->assertEquals('', $balance['credit']);
+    }
+
+    /** @test */
+    public function balance_label_mirroring_works_regardless_of_which_side_the_solution_uses()
+    {
+        // Same as above, but the solution's real label lives on debit
+        // instead of credit - the mirrored result must be identical either
+        // way, so a student can never tell which side is correct just from
+        // which field originally had content.
+        $question = new Question();
+        $qtiJson = $this->accountingJournalEntryQtiJson([
+            'balance' => ['debitLabel' => 'Ending Balance', 'debit' => '5000', 'creditLabel' => '', 'credit' => '']
+        ]);
+
+        $this->actingAsForFormatQtiJson($this->student_user);
+        $result = json_decode($question->formatQtiJson('question_json', $qtiJson, [], false), true);
+
+        $balance = $result['tAccounts'][0]['balance'];
+        $this->assertEquals('Ending Balance', $balance['debitLabel']);
+        $this->assertEquals('Ending Balance', $balance['creditLabel']);
+        $this->assertEquals('', $balance['debit']);
+        $this->assertEquals('', $balance['credit']);
+    }
+
+    /** @test */
+    public function instructors_see_the_full_unstripped_solution()
+    {
+        // Sanity check: this stripping is role-3-specific. An instructor
+        // previewing their own question must still see the real solution,
+        // including which side the balance is really on.
+        $question = new Question();
+        $qtiJson = $this->accountingJournalEntryQtiJson();
+
+        $this->actingAsForFormatQtiJson($this->user); // instructor
+        $result = json_decode($question->formatQtiJson('question_json', $qtiJson, [], false), true);
+
+        $account = $result['tAccounts'][0];
+        $this->assertEquals('5000', $account['postings'][0]['debit']);
+        $this->assertEquals('5000', $account['balance']['credit']);
+        $this->assertEquals('', $account['balance']['debitLabel']); // not mirrored for instructors - untouched
+        $this->assertEquals('Ending Balance', $account['balance']['creditLabel']);
+    }
 }
