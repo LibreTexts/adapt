@@ -28,14 +28,20 @@ class ProcessUpdateAllQuestionRevisions implements ShouldQueue
     private $course;
 
     /**
+     * @var bool
+     */
+    private $changesAreTopical;
+
+    /**
      * Create a new job instance.
      *
      * @return void
      */
-    public function __construct(Course $course)
+    public function __construct(Course $course, bool $changesAreTopical = false)
     {
 
         $this->course = $course;
+        $this->changesAreTopical = $changesAreTopical;
     }
 
     /**
@@ -54,7 +60,8 @@ class ProcessUpdateAllQuestionRevisions implements ShouldQueue
             $response = $nonUpdatedQuestionRevision->updateToLatestQuestionRevisionByCourse($this->course,
                 $questionRevision,
                 $assignmentSyncQuestion,
-                $pendingQuestionRevision);
+                $pendingQuestionRevision,
+                $this->changesAreTopical);
             $client->publish("update-all-question-revisions-{$this->course->id}", ["type" => $response['type'], "message" => $response['message']]);
         } catch (Exception $e) {
             if (DB::transactionLevel()) {

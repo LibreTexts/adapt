@@ -67,7 +67,7 @@ class QuestionRevisionController extends Controller
         try {
             $authorized = Gate::inspect('update', [$question, $question->folder_id]);
             if (!$authorized->allowed()) {
-                $response['message'] = "You are not allowed to get the revisions for this question.";
+                $response['message'] = 'You are not allowed to get the revisions for this question.';
                 return $response;
             }
             $rubric_categories_revision_info = DB::table('rubric_categories')

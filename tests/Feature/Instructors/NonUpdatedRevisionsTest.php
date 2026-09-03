@@ -71,6 +71,11 @@ class NonUpdatedRevisionsTest extends TestCase
     /** @test */
     public function correctly_updates_all_non_update_questions_to_the_latest_revision_in_the_course_including_the_revision_id_score_and_removes_submissions()
     {
+        // Non-admin path: only here are submissions/scores still touched automatically.
+        // An admin request now must confirm changes_are_topical, which guarantees
+        // submissions are left untouched (see the topical test below).
+        $this->user->email = 'nonadmin@hotmail.com';
+        $this->user->save();
 
         $original_assignment_score = 30;
         $question_score = 5;
@@ -115,7 +120,7 @@ class NonUpdatedRevisionsTest extends TestCase
         ]);
 
         $this->actingAs($this->user)
-            ->patch("/api/non-updated-question-revisions/update-to-latest/course/{$this->course->id}", ['understand_student_submissions_removed' => true])
+            ->patch("/api/non-updated-question-revisions/update-to-latest/course/{$this->course->id}")
             ->assertJson(['type' => 'success', 'message' => 'The question has been updated to the latest revision. There were no student submissions which needed to be removed.']);
         //first 2 in the course
         $this->assertDatabaseHas('assignment_question', ['question_id' => $this->question->id, 'question_revision_id' => $this->question_revision->id]);
@@ -133,14 +138,47 @@ class NonUpdatedRevisionsTest extends TestCase
         $this->assertDatabaseCount('submissions', 0);
     }
 
+    /** @test */
+    public function admin_confirming_topical_updates_the_revision_but_leaves_submissions_and_scores_untouched()
+    {
+        $original_assignment_score = 30;
+        $question_score = 5;
+        DB::table('scores')
+            ->insert(['assignment_id' => $this->assignment->id,
+                'user_id' => $this->student_user->id,
+                'score' => $original_assignment_score]);
+        Submission::create(['assignment_id' => $this->assignment->id,
+            'question_id' => $this->question->id,
+            'user_id' => $this->student_user->id,
+            'score' => $question_score,
+            'submission_count' => 1,
+            'answered_correctly_at_least_once' => false,
+            'submission' => 'some submission']);
+        $this->assertDatabaseCount('submissions', 1);
+
+        $this->actingAs($this->user)
+            ->patch("/api/non-updated-question-revisions/update-to-latest/course/{$this->course->id}", ['changes_are_topical' => true])
+            ->assertJson(['type' => 'success', 'message' => 'The question has been updated to the latest revision. Since the changes were confirmed as topical, student submissions were not removed.']);
+
+        // the revision is still applied
+        $this->assertDatabaseHas('assignment_question', ['question_id' => $this->question->id, 'question_revision_id' => $this->question_revision->id]);
+
+        // but submissions and scores are left alone
+        $this->assertDatabaseCount('submissions', 1);
+        $score = DB::table('scores')->where('assignment_id', $this->assignment->id)
+            ->where('user_id', $this->student_user->id)
+            ->first();
+        $this->assertEquals($original_assignment_score, $score->score);
+    }
+
 
     /** @test */
-    public function if_admin_in_which_case_there_may_be_enrollments_must_confirm_student_submissions_removed()
+    public function if_admin_must_confirm_changes_are_topical()
     {
 
         $this->actingAs($this->user)
             ->patch("/api/non-updated-question-revisions/update-to-latest/course/{$this->course->id}")
-            ->assertJson(['message' => "You need to confirm that you understand that all student submissions will be removed."]);
+            ->assertJson(['message' => "You must confirm that the changes are topical."]);
     }
 
     /** @test */
@@ -154,8 +192,8 @@ class NonUpdatedRevisionsTest extends TestCase
         ]);
 
         $this->actingAs($this->user)
-            ->patch("/api/non-updated-question-revisions/update-to-latest/course/{$this->course->id}", ['understand_student_submissions_removed' => true])
-            ->assertJson(['message' => "The question has been updated to the latest revision. There were no student submissions which needed to be removed."]);
+            ->patch("/api/non-updated-question-revisions/update-to-latest/course/{$this->course->id}", ['changes_are_topical' => true])
+            ->assertJson(['message' => "The question has been updated to the latest revision. Since the changes were confirmed as topical, student submissions were not removed."]);
     }
 
     /** @test */

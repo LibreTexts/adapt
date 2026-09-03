@@ -15,12 +15,15 @@ class NonUpdatedQuestionRevision extends Model
      * @param QuestionRevision $questionRevision
      * @param AssignmentSyncQuestion $assignmentSyncQuestion
      * @param PendingQuestionRevision $pendingQuestionRevision
+     * @param bool $changesAreTopical When true (admin-confirmed), the revision is still applied but student
+     *             submissions and scores are left untouched.
      * @return array
      */
     public function updateToLatestQuestionRevisionByCourse(Course                  $course,
                                                            QuestionRevision        $questionRevision,
                                                            AssignmentSyncQuestion  $assignmentSyncQuestion,
-                                                           PendingQuestionRevision $pendingQuestionRevision): array
+                                                           PendingQuestionRevision $pendingQuestionRevision,
+                                                           bool                    $changesAreTopical = false): array
     {
         $non_updated_assignment_questions_by_course = $this->nonUpdatedAssignmentQuestionsByCourse($course, $questionRevision);
         $assignment_ids = [];
@@ -53,18 +56,25 @@ class NonUpdatedQuestionRevision extends Model
             $question = $questions_by_question_id[$question_id];
             $assignmentSyncQuestion->where('assignment_id', $assignment_id)
                 ->where('question_id', $question_id)
-                ->update(['question_revision_id' => $non_updated_assignment_question->latest_question_revision_id]);
+                ->update(['question_revision_id' => $non_updated_assignment_question->latest_question_revision_id,
+                    'updated_at' => now()]);
             $pendingQuestionRevision->where('assignment_id', $assignment_id)->where('question_id', $question_id)->delete();
-            $removed_student_submissions = $assignmentSyncQuestion->questionHasSomeTypeOfRealStudentSubmission($assignment, $question);
-            $assignmentSyncQuestion->updateAssignmentScoreBasedOnRemovedQuestion($assignment, $question);
-            Helper::removeAllStudentSubmissionTypesByAssignmentAndQuestion($assignment_id, $question_id);
+            if (!$changesAreTopical) {
+                $removed_student_submissions = $assignmentSyncQuestion->questionHasSomeTypeOfRealStudentSubmission($assignment, $question);
+                $assignmentSyncQuestion->updateAssignmentScoreBasedOnRemovedQuestion($assignment, $question);
+                Helper::removeAllStudentSubmissionTypesByAssignmentAndQuestion($assignment_id, $question_id);
+            }
         }
         DB::commit();
         $response['type'] = 'success';
         $response['message'] = 'The question has been updated to the latest revision.';
-        $response['message'] .= $removed_student_submissions ?
-            ' In addition, student submissions were removed and scores were updated.'
-            : ' There were no student submissions which needed to be removed.';
+        if ($changesAreTopical) {
+            $response['message'] .= ' Since the changes were confirmed as topical, student submissions were not removed.';
+        } else {
+            $response['message'] .= $removed_student_submissions ?
+                ' In addition, student submissions were removed and scores were updated.'
+                : ' There were no student submissions which needed to be removed.';
+        }
         return $response;
     }
 

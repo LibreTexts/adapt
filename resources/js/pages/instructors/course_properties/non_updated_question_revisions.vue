@@ -21,6 +21,40 @@
                color="#007BFF"
                background="#FFFFFF"
       />
+      <b-modal id="modal-confirm-update-all-topical"
+               title="Confirm Topical Changes"
+               no-close-on-backdrop
+               @hidden="updateAllChangesAreTopical=false"
+      >
+        <p>
+          Updates every question in this course to its latest revision without touching student submissions.
+        </p>
+        <b-alert variant="danger" show>
+          If any changes are non-topical in nature, assignments with those questions may not load for students.
+        </b-alert>
+        <b-form-checkbox
+          id="update-all-changes-are-topical"
+          v-model="updateAllChangesAreTopical"
+          name="update_all_changes_are_topical"
+          :value="true"
+          :unchecked-value="false"
+        >
+          The changes I made are topical in nature.
+        </b-form-checkbox>
+        <template #modal-footer>
+          <b-button size="sm"
+                    @click="$bvModal.hide('modal-confirm-update-all-topical')"
+          >
+            Cancel
+          </b-button>
+          <b-button size="sm"
+                    variant="primary"
+                    @click="confirmUpdateAllTopical"
+          >
+            Submit
+          </b-button>
+        </template>
+      </b-modal>
       <b-modal id="modal-update-all-students-enrolled"
                title="All Student Submissions Removed"
                @hidden="understandStudentSubmissionsRemoved=false"
@@ -198,6 +232,7 @@ export default {
     centrifuge: {},
     isBetaCourse: false,
     understandStudentSubmissionsRemoved: false,
+    updateAllChangesAreTopical: false,
     powerUser: false,
     enrolledUsers: false,
     activeAssignmentId: 0,
@@ -276,6 +311,28 @@ export default {
       this.$bvModal.show('modal-show-revision')
     },
     initUpdateAll () {
+      if (this.powerUser) {
+        this.$bvModal.show('modal-confirm-update-all-topical')
+        return
+      }
+      this.proceedWithUpdateAll()
+    },
+    confirmUpdateAllTopical () {
+      if (!this.updateAllChangesAreTopical) {
+        this.$noty.info('Please check the box stating that you agree that the changes are topical in nature.')
+        return false
+      }
+      // Capture before hiding: @hidden resets updateAllChangesAreTopical to false, and that
+      // reset can land before updateAllQuestionRevisions gets to read it (it awaits
+      // initCentrifuge() first), so we pass the confirmed value through explicitly instead
+      // of relying on reactive state read after an async gap.
+      const changesAreTopical = this.updateAllChangesAreTopical
+      this.$bvModal.hide('modal-confirm-update-all-topical')
+      // Admin + confirmed topical means submissions are never touched, so the
+      // separate "submissions will be erased" confirmation doesn't apply here.
+      this.updateAllQuestionRevisions(changesAreTopical)
+    },
+    proceedWithUpdateAll () {
       if (this.enrolledUsers) {
         this.$bvModal.show('modal-update-all-students-enrolled')
         return false
@@ -284,8 +341,8 @@ export default {
       }
       this.updateAllQuestionRevisions()
     },
-    async updateAllQuestionRevisions () {
-      if (this.enrolledUsers && !this.understandStudentSubmissionsRemoved) {
+    async updateAllQuestionRevisions (changesAreTopical = this.updateAllChangesAreTopical) {
+      if (!this.powerUser && this.enrolledUsers && !this.understandStudentSubmissionsRemoved) {
         this.$noty.info('Please check the box before submitting.')
         return false
       }
@@ -296,9 +353,9 @@ export default {
         this.$noty[ctx.data.type](ctx.data.message)
         this.centrifuge.disconnect()
         await this.getNonUpdatedAssignmentQuestionsByCourse(this.courseId)
-       this.$nextTick(() => {
-         this.updatingAllQuestionRevisions = false
-       })
+        this.$nextTick(() => {
+          this.updatingAllQuestionRevisions = false
+        })
       }
       sub.on('publication', function (ctx) {
         console.log(ctx)
@@ -307,7 +364,10 @@ export default {
       this.updatingAllQuestionRevisions = true
       this.$bvModal.hide('modal-update-all-students-enrolled')
       try {
-        const { data } = await axios.patch(`/api/non-updated-question-revisions/update-to-latest/course/${this.courseId}`, { understand_student_submissions_removed: this.understandStudentSubmissionsRemoved })
+        const { data } = await axios.patch(`/api/non-updated-question-revisions/update-to-latest/course/${this.courseId}`, {
+          understand_student_submissions_removed: this.understandStudentSubmissionsRemoved,
+          changes_are_topical: changesAreTopical
+        })
         if (data.type === 'error') {
           this.$noty.error(data.message)
           this.updatingAllQuestionRevisions = false

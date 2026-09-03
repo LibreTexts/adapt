@@ -6,7 +6,6 @@ use App\Assignment;
 use App\AssignmentSyncQuestion;
 use App\Course;
 use App\Exceptions\Handler;
-use App\Helpers\Helper;
 use App\Jobs\ProcessUpdateAllQuestionRevisions;
 use App\NonUpdatedQuestionRevision;
 use App\PendingQuestionRevision;
@@ -37,21 +36,18 @@ class NonUpdatedQuestionRevisionController extends Controller
                                                             PendingQuestionRevision    $pendingQuestionRevision): array
     {
         $response['type'] = 'error';
-        $authorized = Gate::inspect('updateToLatestQuestionRevisionsByCourse', [$nonUpdatedQuestionRevision, $course]);
+        $changes_are_topical = $request->boolean('changes_are_topical');
+        $authorized = Gate::inspect('updateToLatestQuestionRevisionsByCourse', [$nonUpdatedQuestionRevision, $course, $changes_are_topical]);
 
         if (!$authorized->allowed()) {
             $response['message'] = $authorized->message();
             return $response;
         }
-        if (Helper::isAdmin() && !$request->understand_student_submissions_removed) {
-            $response['message'] = "You need to confirm that you understand that all student submissions will be removed.";
-            return $response;
-        }
         try {
             if (app()->environment() === 'testing') {
-                return $nonUpdatedQuestionRevision->updateToLatestQuestionRevisionByCourse($course, $questionRevision, $assignmentSyncQuestion, $pendingQuestionRevision);
+                return $nonUpdatedQuestionRevision->updateToLatestQuestionRevisionByCourse($course, $questionRevision, $assignmentSyncQuestion, $pendingQuestionRevision, $changes_are_topical);
             } else {
-                ProcessUpdateAllQuestionRevisions::dispatch($course);
+                ProcessUpdateAllQuestionRevisions::dispatch($course, $changes_are_topical);
                 $response['type'] = 'info';
                 $response['message'] = "Processing...please be patient.";
             }
