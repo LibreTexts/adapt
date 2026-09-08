@@ -92,17 +92,18 @@ class StoreAssignmentProperties extends FormRequest
                     'auto_release_solutions_released',
                     'auto_release_students_can_view_assignment_statistics'];
                 foreach ($auto_releases as $auto_release) {
-                    if ($this->{$auto_release}) {
-                        $rules[$auto_release] = new IsValidPeriodOfTime();
-                        if ($auto_release !== 'auto_release_shown' && $this->late_policy !== 'not accepted') {
-                            $rules[$auto_release . "_after"] = 'required';
-                        }
-                    }
                     if ($this->late_policy !== 'not accepted'
                         && $auto_release !== 'auto_release_shown'
                         && $this->{$auto_release . "_after"}) {
                         $rules[$auto_release] = 'required';
                     }
+                    if ($this->{$auto_release}) {
+                        $rules[$auto_release] = ['required', new IsValidPeriodOfTime()];
+                        if ($auto_release !== 'auto_release_shown' && $this->late_policy !== 'not accepted') {
+                            $rules[$auto_release . "_after"] = 'required';
+                        }
+                    }
+
                 }
             }
             if ($this->is_template) {
