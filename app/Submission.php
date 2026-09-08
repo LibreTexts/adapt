@@ -447,7 +447,7 @@ class Submission extends Model
                     case('accounting_journal_entry'):
                         $studentSubmission = json_decode($submission->student_response, 1);
                         $solution = $submission->question->entries;
-                        $tAccountsSolution = $submission->question->includeTAccounts
+                        $tAccountsSolution = property_exists($submission->question, 'includeTAccounts')
                             ? ($submission->question->tAccounts ?? [])
                             : [];
                         $proportion_correct_info = $this->computeScoreForAccountingJournalEntry($solution, $studentSubmission, $tAccountsSolution);

@@ -699,11 +699,13 @@ class Question extends Model
                     $entriesResponse = array_map(function ($i, $entry) {
                         return [
                             'selectedEntryIndex' => $i,
-                            'rows' => array_map(fn($row) => [
-                                'accountTitle' => $row['accountTitle'] ?? '',
-                                'debit' => ($row['type'] ?? '') === 'debit' ? ($row['amount'] ?? '') : '',
-                                'credit' => ($row['type'] ?? '') === 'credit' ? ($row['amount'] ?? '') : '',
-                            ], $entry['solutionRows'] ?? [])
+                            'rows' => array_map(function ($row) {
+                                return [
+                                    'accountTitle' => $row['accountTitle'] ?? '',
+                                    'debit' => ($row['type'] ?? '') === 'debit' ? ($row['amount'] ?? '') : '',
+                                    'credit' => ($row['type'] ?? '') === 'credit' ? ($row['amount'] ?? '') : '',
+                                ];
+                            }, $entry['solutionRows'] ?? [])
                         ];
                     }, array_keys($qti_array['entries']), $qti_array['entries']);
 
@@ -741,7 +743,11 @@ class Question extends Model
 
                 if (request()->user()->role === 3 && isset($qti_array['entries'])) {
                     foreach ($qti_array['entries'] as &$entry) {
-                        unset($entry['solutionRows']);
+                        foreach ($entry['solutionRows'] as &$solutionRow){
+                            $solutionRow['accountTitle'] = '';
+                            $solutionRow['type'] = '';
+                            $solutionRow['amount'] ='';
+                        }
                     }
                 }
                 if (request()->user()->role === 3 && isset($qti_array['tAccounts'])) {
