@@ -4,7 +4,10 @@
     <AllFormErrors :all-form-errors="allFormErrors" :modal-id="'modal-form-errors-link-course-to-lms-form'"/>
     <AllFormErrors :all-form-errors="allFormErrors" :modal-id="'modal-form-errors-canvas-url-form'"/>
 
-    <PageTitle v-if="canViewAssignments" :title="title"/>
+    <PageTitle v-if="canViewAssignments"
+               :consult-insight-url="user && user.role === 2 ? 'https://commons.libretexts.org/insight/creating-a-new-adapt-assignment' :''"
+               :title="title"
+    />
     <b-modal id="modal-confirm-link-course"
              title="Confirmation"
     >
@@ -474,7 +477,8 @@
           class="mt-2"
         >
           <small>
-            <strong>Note:</strong> Questions will be linked to the source assignment's questions, not cloned as independent copies.
+            <strong>Note:</strong> Questions will be linked to the source assignment's questions, not cloned as
+            independent copies.
           </small>
         </b-alert>
         <b-form-group
@@ -579,7 +583,8 @@
       >
         <b-container>
           <b-alert :show="Boolean(course.formative)">
-            Only formative assignments and assignments from formative courses are available to import into this formative course.
+            Only formative assignments and assignments from formative courses are available to import into this
+            formative course.
           </b-alert>
           <b-row class="pb-4">
             <b-form-select id="collections"
@@ -798,6 +803,9 @@
               <p v-if="!course.lms_course_id">
                 This is a course which is being served through your LMS. You will create your assignments
                 in ADAPT including determining due dates, but will use your LMS's gradebook.
+                <ConsultInsight v-if="user && user.role === 2 && course.lms"
+                                :url="'https://commons.libretexts.org/insight/interfacing-adapt-to-lms-via-lti-and-api'"
+                />
               </p>
               <p v-if="course.is_brightspace">
                 LTI URL:
@@ -965,9 +973,6 @@
                   </div>
                 </div>
               </div>
-              <ConsultInsight v-if="user && user.role === 2 && course.lms"
-                              :url="'https://commons.libretexts.org/insight/interfacing-adapt-to-lms-via-lti-and-api'"
-              />
             </b-alert>
             <div v-show="false && lms &&
                    course.lms_has_api_key
@@ -1093,9 +1098,6 @@
               >
                 Course Properties
               </b-button>
-               <ConsultInsight v-if="user && user.role === 2"
-                               :url="'https://commons.libretexts.org/insight/creating-a-new-adapt-assignment'"
-               />
             </span>
           </b-col>
         </b-row>

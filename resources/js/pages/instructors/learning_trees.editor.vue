@@ -373,21 +373,28 @@
     </b-modal>
     <!-- TREE TITLE / ID BAR -->
     <div v-if="learningTreeId && !assignmentId && !previewMode" id="learning-tree-title-bar" class="px-2 pt-1">
-      <h1 style="font-size: 26px; line-height: 1.1;" class="page-title mb-0 text-primary font-weight-normal">
-        <b-icon icon="tree" variant="success"/>{{ title }}
-      </h1>
-      <small class="text-muted">
-        <span>
-          Learning Tree ID: <span id="learning-tree-id-value">{{ learningTreeId }}</span>
-          <span class="text-info">
-            <a href=""
-               aria-label="Copy Learning Tree ID"
-               @click.prevent="doCopy('learning-tree-id-value')"
-            >
-              <font-awesome-icon :icon="copyIcon"/>
-            </a>
+      <div class="d-flex align-items-center">
+        <h1 style="font-size: 26px; line-height: 1.1;" class="page-title mb-0 text-primary font-weight-normal">
+          <b-icon icon="tree" variant="success" class="mr-1"/>{{ title }}
+        </h1>
+        <span class="mt-2">
+        <ConsultInsight :url="'https://commons.libretexts.org/insight/creating-and-editing-learning-trees'"
+                        class="ml-2"
+        />
           </span>
-        </span>
+      </div>
+      <small class="text-muted">
+    <span>
+      Learning Tree ID: <span id="learning-tree-id-value">{{ learningTreeId }}</span>
+      <span class="text-info">
+        <a href=""
+           aria-label="Copy Learning Tree ID"
+           @click.prevent="doCopy('learning-tree-id-value')"
+        >
+          <font-awesome-icon :icon="copyIcon"/>
+        </a>
+      </span>
+    </span>
       </small>
       <hr style="margin-top:7px">
     </div>
@@ -467,10 +474,6 @@
       <b-tooltip target="auto-center-tooltip" delay="250" triggers="hover">
         When on, the tree re-centers itself after edits and page loads. Turn off to keep your scroll position on wide trees.
       </b-tooltip>
-
-      <div class="toolbar-spacer"/>
-      <ConsultInsight :url="'https://commons.libretexts.org/insight/creating-and-editing-learning-trees'"
-      />
     </div>
 
     <!-- STAGING AREA: shown when a new node is pending placement -->

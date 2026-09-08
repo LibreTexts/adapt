@@ -27,7 +27,8 @@
             v-if="assessmentType === 'learning tree' || learningTreeId"
             icon="tree"
             variant="success"
-          />{{ title }}
+          />
+          {{ title }}
           <CustomTitle v-if="title && showPencil"
                        :assignment-id="assignmentId"
                        :question-id="questionId"
@@ -44,6 +45,7 @@
           <FormativeWarning v-if="showFormativeWarning && title"
                             :formative-question="true"
           />
+          <ConsultInsight v-if="consultInsightUrl" style="font-size: 20px" :url="consultInsightUrl"/>
         </h1>
         <small class="text-muted">
         <span v-if="adaptId">ID: <span id="adapt-id">{{ adaptId }}</span>  <span class="text-info">
@@ -89,17 +91,22 @@ import FormativeWarning from './FormativeWarning.vue'
 import CustomTitle from './CustomTitle.vue'
 import AlgorithmicIcon from './AlgorithmicIcon.vue'
 import { mapGetters } from 'vuex'
-
+import ConsultInsight from './ConsultInsight.vue'
 
 export default {
   name: 'PageTitle',
   components: {
+    ConsultInsight,
     CustomTitle,
     FormativeWarning,
     FontAwesomeIcon,
     AlgorithmicIcon
   },
   props: {
+    consultInsightUrl: {
+      type: String,
+      default: ''
+    },
     openEndedQuestionInRealTimeAssignment: {
       type: Boolean,
       default: false

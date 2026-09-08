@@ -89,26 +89,8 @@
     </p>
     <b-card body-class="card-body-pl">
       <template #header>
-        <div class="flex d-inline-flex align-items-center justify-content-between w-100">
-          <div class="d-inline-flex">
-            <div v-html="headerHtml" />
-            <div class="ml-1">
-              <a id="auto-release-tooltip"
-                 href=""
-                 style="color:black"
-                 @click.prevent
-              >
-                <b-icon icon="question-circle" style="color:black; margin-bottom: 2px" />
-              </a>
-              <b-tooltip target="auto-release-tooltip"
-                         delay="250"
-                         triggers="hover focus"
-              >
-                With auto-release, you can automatically set a time to show your assignment, release scores,
-                reveal solutions, and share class statistics with your students.
-              </b-tooltip>
-            </div>
-          </div>
+        <div class="flex d-inline-flex w-100">
+            <div  v-html="headerHtml" />
           <ConsultInsight :url="'https://commons.libretexts.org/insight/auto-release-settings'"/>
         </div>
       </template>
@@ -577,7 +559,7 @@ export default {
     if (this.courseId) {
       this.getGlobalAutoReleaseUpdateOptions()
     }
-    this.headerHtml = this.courseId ? '<h2 class="h7 m-0">Default Auto-Release</h2>' : '<h2 class="h7 m-0">Auto-Release</h2>'
+    this.headerHtml = this.courseId ? '<h2 class="h7 m-0 mr-1">Default Auto-Release</h2>' : '<h2 class="h7 m-0 mr-1">Auto-Release</h2>'
     if (this.assignmentId) {
       this.getReleasedSettings()
     }

@@ -1534,7 +1534,11 @@
                     </b-form-radio>
 
                     <b-form-radio value="webwork">
-                      WeBWork
+                      WeBWork <ConsultInsight
+                      id="consult-insight-webwork"
+                      :url="'https://commons.libretexts.org/insight/webwork-techniques'"
+                      :formatting-class="''"
+                    />
                     </b-form-radio>
                   </b-form-radio-group>
                   <b-form-select
@@ -1607,7 +1611,11 @@
                       </b-tooltip>
                     </b-form-radio>
                     <b-form-radio value="sketcher">
-                      Sketcher
+                      Sketcher <ConsultInsight
+                      id="consult-insight-sketcher"
+                      :url="'https://commons.libretexts.org/insight/adapt-sketcher'"
+                      :formatting-class="''"
+                    />
                     </b-form-radio>
                     <b-form-radio value="3d_model">
                       3D Model
@@ -1645,7 +1653,11 @@
                       />
                     </b-form-radio>
                     <b-form-radio value="accounting">
-                      Accounting
+                      Accounting <ConsultInsight
+                      id="consult-insight-accounting"
+                      :url="'https://commons.libretexts.org/insight/adapt-accounting'"
+                      :formatting-class="''"
+                    />
                     </b-form-radio>
                     <b-form-radio value="all">
                       All
@@ -1654,24 +1666,20 @@
                 </b-form-group>
                 <b-form-group>
                   <div v-if="nativeType === 'sketcher'">
-                    <div class="mb-2">
-                      If you need help getting started, please visit
-                      <ConsultInsight
-                        id="consult-insight-webwork"
-                        :url="'https://commons.libretexts.org/insight/adapt-sketcher'"
-                        :formatting-class="''"
-                      />
-                      .
-                    </div>
                     <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="submit_molecule"
                                   @change="initQTIQuestionType($event)"
                     >
-                      Submit Molecule
+                      Submit Molecule <ConsultInsight :url="'https://commons.libretexts.org/insight/sketcher---submit-molecule'"/>
                     </b-form-radio>
                     <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="marker"
                                   @change="initQTIQuestionType($event)"
                     >
-                      Marker
+                      Marker <ConsultInsight :url="'https://commons.libretexts.org/insight/sketcher---mark-atom-or-bond'"/>
+                    </b-form-radio>
+                    <b-form-radio v-show="false" v-model="qtiQuestionType" name="qti-question-type" value="marker"
+                                  @change="initQTIQuestionType($event)"
+                    >
+                      Pushing Arrows <ConsultInsight :url="'https://commons.libretexts.org/insight/sketcher---pushing-arrows'"/>
                     </b-form-radio>
                   </div>
                   <div v-if="nativeType === '3d_model'" v-show="false">
@@ -1689,34 +1697,26 @@
                     </b-form-radio>
                   </div>
                   <div v-if="nativeType === 'accounting'">
-                    <div class="mb-2">
-                      If you need help getting started, please visit
-                      <ConsultInsight
-                        id="consult-insight-webwork"
-                        :url="'https://commons.libretexts.org/insight/adapt-accounting'"
-                        :formatting-class="''"
-                      />
-                      .
-                    </div>
                     <b-form-radio v-model="qtiQuestionType" name="qti-question-type"
                                   value="accounting_journal_entry"
                                   @change="initQTIQuestionType($event)"
                     >
-                      Journal Entry
+                      Journal Entry  <ConsultInsight :url="'https://commons.libretexts.org/insight/accounting---journal-entry'"/>
                     </b-form-radio>
                     <b-form-radio v-model="qtiQuestionType" name="qti-question-type"
                                   value="accounting_report"
                                   @change="initQTIQuestionType($event)"
                     >
-                      Report
+                      Report  <ConsultInsight :url="'https://commons.libretexts.org/insight/accounting---report'"/>
                     </b-form-radio>
                     <b-form-radio v-model="qtiQuestionType"
                                   name="qti-question-type"
                                   value="accounting_multi_part_computation"
                                   @change="initQTIQuestionType($event)"
                     >
-                      Multi-part Computation
+                      Multi-part Computation  <ConsultInsight :url="'https://commons.libretexts.org/insight/accounting---multi-part-computation'"/>
                     </b-form-radio>
+
                   </div>
                   <div v-if="['all','basic'].includes(nativeType)">
                     <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="multiple_choice"
@@ -1766,7 +1766,7 @@
                                   value="flashcard"
                                   @change="initQTIQuestionType($event)"
                     >
-                      Flashcard
+                      Flashcard <ConsultInsight :url="'https://commons.libretexts.org/insight/flashcard'"/>
                     </b-form-radio>
                   </div>
                   <div v-if="['all','nursing'].includes(nativeType)">
@@ -1848,7 +1848,11 @@
                     <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="sketcher"
                                   @change="initQTIQuestionType('submit_molecule')"
                     >
-                      Sketcher
+                      Sketcher <ConsultInsight
+                      id="consult-insight-sketcher"
+                      :url="'https://commons.libretexts.org/insight/adapt-sketcher'"
+                      :formatting-class="''"
+                    />
                     </b-form-radio>
                   </div>
                 </b-form-group>
@@ -2606,17 +2610,6 @@
                 </b-form-row>
               </b-form-group>
               <div v-show="webworkEditorShown">
-                <div class="mb-2">
-                  If you need help getting started, please visit
-                  <ConsultInsight
-                    id="consult-insight-webwork"
-                    :url="'https://commons.libretexts.org/insight/webwork-techniques'"
-                    :formatting-class="''"
-                  />
-                  or visit <a href="https://webwork.maa.org/wiki/Authors"
-                              target="_blank"
-                >https://webwork.maa.org/wiki/Authors</a>.
-                </div>
                 <b-row class="align-items-center mb-2">
                   <b-col cols="auto">
                     <input

@@ -156,8 +156,8 @@
               on the scores for any of the questions.
               This can be particularly useful if you would like to give everyone full credit or no credit on a
               particular question.
-            </p>
             <ConsultInsight :url="'https://commons.libretexts.org/insight/assignment-regrader'"/>
+            </p>
             <hr>
             <b-row>
               <span class="font-weight-bold mr-2">Title: </span>

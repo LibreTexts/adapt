@@ -108,8 +108,8 @@
       <div v-if="isMainAccount() || !linkedAccounts.length">
         <b-card>
           <template #header>
-            <div class="d-flex align-items-center justify-content-between">
-              <h2 class="h7 m-0">Link Accounts</h2>
+            <div class="d-flex align-items-center">
+              <h2 class="h7 m-0 mr-1">Link Accounts</h2>
               <ConsultInsight :url="'https://commons.libretexts.org/insight/how-to-handle-multiple-instructor-accounts-in-adapt'"/>
             </div>
           </template>

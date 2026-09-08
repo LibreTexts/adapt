@@ -13,8 +13,8 @@
       <div v-if="!isLoading && [2,5].includes(user.role)">
         <b-card>
           <template #header>
-            <div class="d-flex align-items-center justify-content-between">
-              <h2 class="h7 m-0">
+            <div class="d-flex align-items-center">
+              <h2 class="h7 m-0 mr-1">
                 General Information
               </h2>
               <ConsultInsight :url="'https://commons.libretexts.org/insight/adapt-course-properties---general-information'"/>

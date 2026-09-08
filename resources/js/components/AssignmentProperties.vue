@@ -165,8 +165,8 @@
               class="mb-3"
       >
         <template #header>
-          <div class="d-flex align-items-center justify-content-between">
-            <h2 class="h7 m-0">Descriptions, Instructions, and Notifications</h2>
+          <div class="d-flex align-items-center">
+            <h2 class="h7 m-0 mr-1">Descriptions, Instructions, and Notifications</h2>
             <ConsultInsight :url="'https://commons.libretexts.org/insight/descriptions-instructions-and-notifications-properties'"/>
           </div>
         </template>
@@ -327,8 +327,8 @@
         class="mb-3"
       >
         <template #header>
-          <div class="d-flex align-items-center justify-content-between">
-            <h2 class="h7 m-0">Modality</h2>
+          <div class="d-flex align-items-center">
+            <h2 class="h7 m-0 mr-1">Modality</h2>
             <ConsultInsight :url="'https://commons.libretexts.org/insight/modality-settings'"/>
           </div>
         </template>
@@ -586,8 +586,8 @@
                   class="mb-3"
           >
             <template #header>
-              <div class="d-flex align-items-center justify-content-between">
-                <h2 class="h7 m-0">Scoring</h2>
+              <div class="d-flex align-items-center">
+                <h2 class="h7 m-0 mr-1">Scoring</h2>
                 <ConsultInsight :url="'https://commons.libretexts.org/insight/scoring-settings'"/>
               </div>
             </template>
@@ -855,8 +855,8 @@
                   body-class="pb-0 card-body-pl"
           >
             <template #header>
-              <div class="d-flex align-items-center justify-content-between">
-                <h2 class="h7 m-0">Assignment Mode</h2>
+              <div class="d-flex align-items-center">
+                <h2 class="h7 m-0 mr-1">Assignment Mode</h2>
                 <ConsultInsight :url="'https://commons.libretexts.org/insight/assignment-mode-settings'"/>
               </div>
             </template>
@@ -1339,8 +1339,8 @@
         class="mb-3"
       >
         <template #header>
-          <div class="d-flex align-items-center justify-content-between">
-            <h2 class="h7 m-0">Secondary Approval</h2>
+          <div class="d-flex align-items-center">
+            <h2 class="h7 m-0 mr-1">Secondary Approval</h2>
             <ConsultInsight :url="'https://commons.libretexts.org/insight/secondary-approval-for-real-time-questions'"/>
           </div>
         </template>
@@ -1424,8 +1424,8 @@
         class="mb-3"
       >
         <template #header>
-          <div class="d-flex align-items-center justify-content-between">
-            <h2 class="h7 m-0">Hints</h2>
+          <div class="d-flex align-items-center">
+            <h2 class="h7 m-0 mr-1">Hints</h2>
             <ConsultInsight :url="'https://commons.libretexts.org/insight/hints-settings'"/>
           </div>
         </template>
@@ -1487,8 +1487,8 @@
         class="mb-3"
       >
         <template #header>
-          <div class="d-flex align-items-center justify-content-between">
-            <h2 class="h7 m-0">Dynamic Questioning</h2>
+          <div class="d-flex align-items-center">
+            <h2 class="h7 m-0 mr-1">Dynamic Questioning</h2>
             <ConsultInsight :url="'https://commons.libretexts.org/insight/dynamic-questioning-properties'"/>
           </div>
         </template>
@@ -1752,8 +1752,8 @@
         class="mb-3"
       >
         <template #header>
-          <div class="d-flex align-items-center justify-content-between">
-            <h2 class="h7 m-0">Late Policy</h2>
+          <div class="d-flex align-items-center">
+            <h2 class="h7 m-0 mr-1">Late Policy</h2>
             <ConsultInsight :url="'https://commons.libretexts.org/insight/late-policy-setting'"/>
           </div>
         </template>
@@ -1838,8 +1838,8 @@
         class="mb-3"
       >
         <template #header>
-          <div class="d-flex align-items-center justify-content-between">
-            <h2 class="h7 m-0">Deadlines</h2>
+          <div class="d-flex align-items-center">
+            <h2 class="h7 m-0 mr-1">Deadlines</h2>
             <ConsultInsight :url="'https://commons.libretexts.org/insight/deadlines-settings'"/>
           </div>
         </template>

@@ -325,7 +325,10 @@
         </b-button>
       </template>
     </b-modal>
-    <PageTitle v-if="canViewCourses" title="My Courses"/>
+    <PageTitle v-if="canViewCourses"
+               :consult-insight-url="'https://commons.libretexts.org/insight/course-properties-overview'"
+               title="My Courses"
+    />
     <b-container v-if="canViewCourses && user && [2,5].includes(user.role)">
       <b-row class="float-right mb-4 d-inline-flex">
         <b-button v-b-modal.modal-course-details variant="primary" class="mr-1"
@@ -341,7 +344,6 @@
         >
           Import Course
         </b-button>
-        <ConsultInsight :url="'https://commons.libretexts.org/insight/course-properties-overview'"/>
       </b-row>
     </b-container>
 
@@ -353,13 +355,14 @@
       @hidden="resetModalForms"
     >
       <template #modal-header>
-        <div class="d-flex align-items-center justify-content-between w-100">
-          <h5 class="modal-title mb-0">
+        <div class="d-flex align-items-center w-100">
+          <h5 class="modal-title mb-0 mr-1">
             Course Details
           </h5>
           <div class="d-flex align-items-center">
-            <ConsultInsight :url="'https://commons.libretexts.org/insight/adapt-course-properties---general-information'"
-                            class="mr-2"
+            <ConsultInsight
+              :url="'https://commons.libretexts.org/insight/adapt-course-properties---general-information'"
+              class="mr-2"
             />
             <button type="button"
                     class="close"
@@ -983,7 +986,7 @@ export default {
             this.resetClickerSettingsToDefault = '1'
           }
           this.openEndedQuestionsInRealTimeAssignmentExist = data.open_ended_questions_in_real_time_assignment_exist
-          if (this.openEndedQuestionsInRealTimeAssignmentExist){
+          if (this.openEndedQuestionsInRealTimeAssignmentExist) {
             this.removeOpenEndedQuestionsFromRealTimeAssignments = '1'
           }
           if (this.discussItQuestionsExist || this.clickerQuestionsExist || this.openEndedQuestionsInRealTimeAssignmentExist) {
