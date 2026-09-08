@@ -492,6 +492,7 @@ class Assignment extends Model
                 $user_ids = $course->enrolledUsers->pluck('id')->toArray();
                 $need_to_grades = SubmissionFile::selectRaw('assignment_id, COUNT(*) as count')
                     ->whereNull('score')
+                    ->where('type','<>','no upload')
                     ->whereNotNull('question_id')
                     ->whereIn('user_id', $user_ids)
                     ->groupBy('assignment_id')
