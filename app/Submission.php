@@ -1142,8 +1142,15 @@ class Submission extends Model
                         $data['score'] = max($data['score'] * $proportion_of_score_received, 0);
                         $applied_penalty = (1 - $proportion_of_score_received) * 100;
                         $rounded_score = Round($data['score'], 4);
-                        $difference = Round($submission->score - $rounded_score, 4);
-                        if ($data['score'] < $submission->score) {
+                        // Compare rounded, same-typed values - $submission->score comes back
+                        // from the database as a string, and $data['score'] is the raw result
+                        // of a float multiplication above, so an unrounded comparison here can
+                        // find a spurious "decrease" purely from floating-point noise (e.g.
+                        // 3.9389999999999998 vs "3.9390") even when the two scores are actually
+                        // identical once rounded to the precision the student ever sees.
+                        $previous_rounded_score = Round((float)$submission->score, 4);
+                        $difference = Round($previous_rounded_score - $rounded_score, 4);
+                        if ($rounded_score < $previous_rounded_score) {
                             $response['type'] = 'error';
                             $lower_score_message = "Your current score on this problem is $submission->score points.<br><br>";
                             $lower_score_message .= "This new submission would give you a score of $rounded_score points (including a penalty of $applied_penalty%).<br><br>";
@@ -1158,7 +1165,10 @@ class Submission extends Model
                 if (request()->user()->role === 3) {
                     if ($this->latePenaltyPercent($assignment, Carbon::now('UTC'))) {
                         $score_with_late_penalty = $this->applyLatePenalyToScore($assignment, $data['score']);
-                        if ($score_with_late_penalty < $submission->score) {
+                        // Same fix as above: round both sides before comparing, so floating-
+                        // point noise on the computed side doesn't read as a real decrease
+                        // against the string-typed value stored in the database.
+                        if (Round($score_with_late_penalty, 4) < Round((float)$submission->score, 4)) {
                             $response['type'] = 'error';
                             $response['message'] = "With the late deduction, submitting will give you a lower score on this question than you currently have so the submission will not be accepted.";
                             return $response;
@@ -3061,9 +3071,18 @@ class Submission extends Model
             // Find which specific rows are out of order (returns array of indices)
             $outOfOrderRows = $this->findOutOfOrderRows($studentEntry['rows']);
 
+            // Rows that keep the required debits-before-credits order may
+            // still list their debits (or their credits) in a different
+            // sequence than the solution - match each student row to a
+            // solution row on the same side by account title + amount
+            // instead of raw position, so a same-side reorder isn't
+            // penalized the way an actual debit/credit ordering mistake is.
+            $rowMatches = $this->matchJournalEntryRows($solutionRows, $studentEntry['rows'], $outOfOrderRows);
+
             $allRowsCorrect = true;
             foreach ($studentEntry['rows'] as $rowIndex => $studentRow) {
-                $solutionRow = $solutionRows[$rowIndex] ?? null;
+                $matchedRowIndex = $rowMatches[$rowIndex] ?? $rowIndex;
+                $solutionRow = $solutionRows[$matchedRowIndex] ?? null;
 
                 if (is_array($solutionRow)) {
                     $solutionRow = (object)$solutionRow;
@@ -3360,12 +3379,13 @@ class Submission extends Model
         // "correct" value for an unused box is blank, so each sub-field is
         // still graded independently: a stray label doesn't make a correctly
         // -left-blank amount wrong too. Leaving both genuinely blank (matching
-        // the solution's non-use of this side/row) stays ungraded entirely.
+        // the solution's non-use of this side/row) stays ungraded entirely -
+        // no color is shown for a box neither side ever expected anything in.
         foreach ($studentRows as $rowIndex => $studentRow) {
             if (in_array($rowIndex, $relevantIndices)) continue; // already graded above
             $studentAmount = $studentRow[$side] ?? '';
             $studentLabel = trim($studentRow[$labelField] ?? '');
-            if ($studentAmount === '' && $studentLabel === '') continue; // genuinely blank - fine
+            if ($studentAmount === '' && $studentLabel === '') continue; // genuinely blank - fine, leave uncolored
 
             $labelCorrect = $studentLabel === '';
             $amountCorrect = $studentAmount === '';
@@ -3468,6 +3488,93 @@ class Submission extends Model
             'totalFields' => $totalFields,
             'correctFields' => $correctFields
         ];
+    }
+
+    /**
+     * Matches each student row (other than ones already flagged out-of-order
+     * by findOutOfOrderRows) to a solution row on the same side - debit rows
+     * matched among themselves, credit rows among themselves - by account
+     * title + amount, so that swapping two debits (or two credits) with each
+     * other isn't penalized; only the debits-before-credits ordering itself
+     * is graded by findOutOfOrderRows. A student row that can't find an
+     * exact same-side match falls back to whatever same-side solution row is
+     * still unmatched, purely so the mismatch still compares against a real
+     * row instead of nothing.
+     *
+     * @param array $solutionRows
+     * @param array $studentRows
+     * @param array $outOfOrderRows Row indices already forced incorrect for ordering
+     * @return array studentRowIndex => matchedSolutionRowIndex
+     */
+    private function matchJournalEntryRows(array $solutionRows, array $studentRows, array $outOfOrderRows): array
+    {
+        $solutionDebitIndices = [];
+        $solutionCreditIndices = [];
+        foreach ($solutionRows as $i => $row) {
+            $row = is_array($row) ? (object)$row : $row;
+            $type = $row->type ?? '';
+            if ($type === 'debit') {
+                $solutionDebitIndices[] = $i;
+            } elseif ($type === 'credit') {
+                $solutionCreditIndices[] = $i;
+            }
+        }
+
+        $matchSide = function (array $solutionIndices, string $side) use ($solutionRows, $studentRows, $outOfOrderRows) {
+            $available = $solutionIndices;
+            $matches = [];
+            $unmatchedStudent = [];
+
+            // Student rows that actually filled in this side, in the order
+            // typed, skipping rows already flagged out-of-order (those are
+            // graded wrong regardless, so they shouldn't consume a match).
+            $studentIndices = [];
+            foreach ($studentRows as $i => $row) {
+                if (in_array($i, $outOfOrderRows)) continue;
+                $amount = $row[$side] ?? '';
+                if ($amount !== '') {
+                    $studentIndices[] = $i;
+                }
+            }
+
+            foreach ($studentIndices as $si) {
+                $studentTitle = trim($studentRows[$si]['accountTitle'] ?? '');
+                $studentAmount = $studentRows[$si][$side] ?? '';
+                $found = null;
+                foreach ($available as $solIndex) {
+                    $solRow = is_array($solutionRows[$solIndex]) ? (object)$solutionRows[$solIndex] : $solutionRows[$solIndex];
+                    $solTitle = trim($solRow->accountTitle ?? '');
+                    $solAmount = $solRow->amount ?? '';
+                    if ($studentTitle === $solTitle
+                        && abs($this->parseAmount($studentAmount) - $this->parseAmount($solAmount)) < 0.01) {
+                        $found = $solIndex;
+                        break;
+                    }
+                }
+                if ($found !== null) {
+                    $matches[$si] = $found;
+                    $available = array_values(array_diff($available, [$found]));
+                } else {
+                    $unmatchedStudent[] = $si;
+                }
+            }
+
+            // Leftover student rows on this side pair with whatever solution
+            // rows are left, in order, so a genuine mistake still compares
+            // against a real row rather than showing as ungraded.
+            foreach ($unmatchedStudent as $idx => $si) {
+                if (isset($available[$idx])) {
+                    $matches[$si] = $available[$idx];
+                }
+            }
+
+            return $matches;
+        };
+
+        return array_merge(
+            $matchSide($solutionDebitIndices, 'debit'),
+            $matchSide($solutionCreditIndices, 'credit')
+        );
     }
 
     /**

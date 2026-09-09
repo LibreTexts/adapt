@@ -141,7 +141,7 @@
                 size="sm"
                 class="amount-input"
                 :class="[getTAccountBeginningBalanceFieldClass(accountIndex, 'debit'), {'is-incomplete': isTAccountBeginningBalanceIncomplete(accountIndex, 'debit')}]"
-                @input="hasStartedEditing = true"
+                @input="markFieldEdited(`taccount-${accountIndex}-beginningBalance-debit`)"
               />
             </td>
             <td v-else/>
@@ -163,7 +163,7 @@
                 size="sm"
                 class="amount-input"
                 :class="[getTAccountBeginningBalanceFieldClass(accountIndex, 'credit'), {'is-incomplete': isTAccountBeginningBalanceIncomplete(accountIndex, 'credit')}]"
-                @input="hasStartedEditing = true"
+                @input="markFieldEdited(`taccount-${accountIndex}-beginningBalance-credit`)"
               />
             </td>
             <td v-else/>
@@ -177,7 +177,7 @@
                 :options="tAccountLabelOptions"
                 size="sm"
                 :class="[getTAccountFieldClass(accountIndex, rowIndex, 'debitLabel'), {'is-incomplete': isTAccountFieldIncomplete(accountIndex, rowIndex, 'debitLabel')}]"
-                @change="hasStartedEditing = true"
+                @change="markFieldEdited(`taccount-${accountIndex}-row-${rowIndex}-debitLabel`)"
               />
             </td>
             <td>
@@ -188,7 +188,7 @@
                 size="sm"
                 class="amount-input"
                 :class="[getTAccountFieldClass(accountIndex, rowIndex, 'debit'), {'is-incomplete': isTAccountFieldIncomplete(accountIndex, rowIndex, 'debit')}]"
-                @input="hasStartedEditing = true"
+                @input="markFieldEdited(`taccount-${accountIndex}-row-${rowIndex}-debit`)"
               />
             </td>
             <td>
@@ -197,7 +197,7 @@
                 :options="tAccountLabelOptions"
                 size="sm"
                 :class="[getTAccountFieldClass(accountIndex, rowIndex, 'creditLabel'), {'is-incomplete': isTAccountFieldIncomplete(accountIndex, rowIndex, 'creditLabel')}]"
-                @change="hasStartedEditing = true"
+                @change="markFieldEdited(`taccount-${accountIndex}-row-${rowIndex}-creditLabel`)"
               />
             </td>
             <td>
@@ -208,7 +208,7 @@
                 size="sm"
                 class="amount-input"
                 :class="[getTAccountFieldClass(accountIndex, rowIndex, 'credit'), {'is-incomplete': isTAccountFieldIncomplete(accountIndex, rowIndex, 'credit')}]"
-                @input="hasStartedEditing = true"
+                @input="markFieldEdited(`taccount-${accountIndex}-row-${rowIndex}-credit`)"
               />
             </td>
           </tr>
@@ -219,7 +219,7 @@
                 :options="tAccountLabelOptions"
                 size="sm"
                 :class="[getTAccountBalanceFieldClass(accountIndex, 'debitLabel'), {'is-incomplete': isTAccountBalanceIncomplete(accountIndex, 'debitLabel')}]"
-                @change="hasStartedEditing = true"
+                @change="markFieldEdited(`taccount-${accountIndex}-balance-debitLabel`)"
               />
             </td>
             <td>
@@ -230,7 +230,7 @@
                 size="sm"
                 class="amount-input"
                 :class="[getTAccountBalanceFieldClass(accountIndex, 'debit'), {'is-incomplete': isTAccountBalanceIncomplete(accountIndex, 'debit')}]"
-                @input="hasStartedEditing = true"
+                @input="markFieldEdited(`taccount-${accountIndex}-balance-debit`)"
               />
             </td>
             <td>
@@ -239,7 +239,7 @@
                 :options="tAccountLabelOptions"
                 size="sm"
                 :class="[getTAccountBalanceFieldClass(accountIndex, 'creditLabel'), {'is-incomplete': isTAccountBalanceIncomplete(accountIndex, 'creditLabel')}]"
-                @change="hasStartedEditing = true"
+                @change="markFieldEdited(`taccount-${accountIndex}-balance-creditLabel`)"
               />
             </td>
             <td>
@@ -250,7 +250,7 @@
                 size="sm"
                 class="amount-input"
                 :class="[getTAccountBalanceFieldClass(accountIndex, 'credit'), {'is-incomplete': isTAccountBalanceIncomplete(accountIndex, 'credit')}]"
-                @input="hasStartedEditing = true"
+                @input="markFieldEdited(`taccount-${accountIndex}-balance-credit`)"
               />
             </td>
           </tr>
@@ -318,7 +318,12 @@ export default {
       environment: window.config.environment,
       studentEntries: [],
       studentTAccounts: [],
-      hasStartedEditing: false,
+      // Tracks which individual fields the student has touched since the
+      // last grading pass, keyed by a unique string per field (see
+      // markFieldEdited). Only a touched field's own red/green marking
+      // clears - everything else keeps showing its grading result until
+      // the student actually edits that specific box.
+      editedFields: {},
       accountTitles: [],
       indentTracker: 0
     }
@@ -419,7 +424,10 @@ export default {
     isComplete () {
       // T-Accounts are an optional add-on to the question, not a submission
       // requirement - tAccountsIncomplete still drives the "needs attention"
-      // styling on individual T-Account boxes, but it must never block submit.
+      // styling on individual T-Account boxes, but it doesn't factor in here.
+      // The parent (QtiJsonQuestionViewer) reads this to decide whether to
+      // warn the student before submitting an incomplete Journal Entries
+      // table - it no longer blocks submission outright.
       return !this.showValidationWarning
     },
     tAccountsIncomplete () {
@@ -726,7 +734,7 @@ export default {
       return false
     },
     getTAccountFieldClass (accountIndex, rowIndex, field) {
-      if (this.hasStartedEditing) return ''
+      if (this.isFieldEdited(`taccount-${accountIndex}-row-${rowIndex}-${field}`)) return ''
       const results = this.parsedTAccountGradingResults
       if (!results || !results[accountIndex] || !results[accountIndex].rows || !results[accountIndex].rows[rowIndex]) return ''
       const row = results[accountIndex].rows[rowIndex]
@@ -745,7 +753,7 @@ export default {
       return correct ? 'border-success' : 'border-danger'
     },
     getTAccountBalanceFieldClass (accountIndex, field) {
-      if (this.hasStartedEditing) return ''
+      if (this.isFieldEdited(`taccount-${accountIndex}-balance-${field}`)) return ''
       const results = this.parsedTAccountGradingResults
       if (!results || !results[accountIndex] || !results[accountIndex].balance) return ''
       const balance = results[accountIndex].balance
@@ -793,7 +801,7 @@ export default {
     // inputs are hidden. Picking "Select..." again (clearing this side)
     // simply reveals both sides again - the other side is already blank.
     onBeginningBalanceLabelChanged (accountIndex, side) {
-      this.hasStartedEditing = true
+      this.markFieldEdited(`taccount-${accountIndex}-beginningBalance-${side}Label`)
       const bb = this.studentTAccounts[accountIndex].beginningBalance
       if (side === 'debit' && bb.debitLabel === 'Beginning Balance') {
         bb.creditLabel = ''
@@ -804,7 +812,7 @@ export default {
       }
     },
     getTAccountBeginningBalanceFieldClass (accountIndex, field) {
-      if (this.hasStartedEditing) return ''
+      if (this.isFieldEdited(`taccount-${accountIndex}-beginningBalance-${field}`)) return ''
       const results = this.parsedTAccountGradingResults
       if (!results || !results[accountIndex] || !results[accountIndex].beginningBalance) return ''
       const beginningBalance = results[accountIndex].beginningBalance
@@ -834,6 +842,11 @@ export default {
       return false
     },
     loadStudentResponse () {
+      // A fresh response means a new grading pass has come in (e.g. after a
+      // resubmission) - clear the "edited since last grading" markers so
+      // fields the student touched and then fixed pick up their new
+      // red/green result instead of staying uncolored forever.
+      this.editedFields = {}
       let response = this.studentResponse || this.qtiJson.studentResponse
       if (typeof response === 'string') {
         try {
@@ -876,11 +889,19 @@ export default {
       this.clearFieldColor(entryIndex, rowIndex, field)
       this.indentTracker++
     },
+    // Marks one specific field as edited so only its own grading color
+    // clears, rather than wiping every box's color on any single edit.
+    markFieldEdited (key) {
+      this.$set(this.editedFields, key, true)
+    },
+    isFieldEdited (key) {
+      return !!this.editedFields[key]
+    },
     clearEntryColor (entryIndex) {
-      this.hasStartedEditing = true
+      this.markFieldEdited(`entry-${entryIndex}-entry`)
     },
     clearFieldColor (entryIndex, rowIndex, field) {
-      this.hasStartedEditing = true
+      this.markFieldEdited(`entry-${entryIndex}-row-${rowIndex}-${field}`)
     },
     isIncomplete (entryIndex, rowIndex, field) {
       if (this.parsedGradingResults && this.parsedGradingResults.length > 0) return false
@@ -897,17 +918,17 @@ export default {
       return false
     },
     getStudentResponse () {
-      // T-Accounts are an optional add-on to the question, not a submission
-      // requirement (matches isComplete above) - only the Journal Entries
-      // table blocks submission.
-      if (this.showValidationWarning) return null
+      // Completeness no longer blocks this from returning data - the parent
+      // (QtiJsonQuestionViewer) checks `isComplete` itself and confirms with
+      // the student before submitting an incomplete entry, so this always
+      // hands back whatever the student has entered so far.
       return {
         entries: this.studentEntries,
         tAccounts: this.studentTAccounts
       }
     },
     getEntryCellClass (entryIndex) {
-      if (this.hasStartedEditing) return ''
+      if (this.isFieldEdited(`entry-${entryIndex}-entry`)) return ''
       if (!this.parsedGradingResults ||
         !this.parsedGradingResults[entryIndex] ||
         this.parsedGradingResults[entryIndex].selectedEntryCorrect === undefined) {
@@ -918,7 +939,7 @@ export default {
         : 'border-danger'
     },
     getFieldClass (entryIndex, rowIndex, field) {
-      if (this.hasStartedEditing) return ''
+      if (this.isFieldEdited(`entry-${entryIndex}-row-${rowIndex}-${field}`)) return ''
       if (!this.parsedGradingResults ||
         !this.parsedGradingResults[entryIndex] ||
         !this.parsedGradingResults[entryIndex].rows ||
@@ -1032,7 +1053,7 @@ input.is-incomplete {
 }
 
 .t-account-table thead th {
-  border-bottom: 2px solid #dee2e6 !important;
+  border-bottom: 2px solid #6c757d !important;
   background-color: #f8f9fa;
   color: #495057;
   text-align: center;
@@ -1041,7 +1062,7 @@ input.is-incomplete {
 
 .t-account-table thead th:nth-child(2),
 .t-account-table tbody td:nth-child(2) {
-  border-right: 2px solid #dee2e6 !important;
+  border-right: 2px solid #6c757d !important;
 }
 
 .t-account-table tbody tr td {
@@ -1050,7 +1071,10 @@ input.is-incomplete {
 }
 
 .t-account-table .balance-row td {
-  border-top: 2px solid #dee2e6 !important;
+  /* Double rule marks the running/ending balance, matching the
+     accounting-textbook convention (e.g. Wiley) of underlining a total
+     twice rather than the thin single divider used elsewhere in the table. */
+  border-top: 3px double #212529 !important;
   padding-top: 0.6rem;
 }
 

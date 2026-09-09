@@ -741,15 +741,27 @@ export default {
         case ('accounting_report'):
           response = JSON.stringify(this.$refs.accountingReportViewer.studentResponses)
           break
-        case ('accounting_journal_entry'):
-          const journalEntryResponse = this.$refs.accountingJournalEntryViewer.getStudentResponse()
-          if (!journalEntryResponse) {
-            invalidResponse = true
-            submissionErrorMessage = 'Please complete all fields before submitting.'
-            break
+        case ('accounting_journal_entry'): {
+          const journalEntryViewer = this.$refs.accountingJournalEntryViewer
+          if (!journalEntryViewer.isComplete) {
+            const proceedAnyway = await this.$bvModal.msgBoxConfirm(
+              'This Journal Entry isn\'t complete. Do you want to proceed with submitting?',
+              {
+                title: 'Incomplete Submission',
+                okTitle: 'Submit Anyway',
+                cancelTitle: 'Keep Working',
+                okVariant: 'primary',
+                buttonSize: 'sm',
+                centered: true
+              }
+            )
+            if (!proceedAnyway) {
+              return false
+            }
           }
-          response = JSON.stringify(journalEntryResponse)
+          response = JSON.stringify(journalEntryViewer.getStudentResponse())
           break
+        }
         case ('accounting_multi_part_computation'):
           response = JSON.stringify(this.$refs.accountingMultiPartComputationViewer.getStudentResponse())
           break

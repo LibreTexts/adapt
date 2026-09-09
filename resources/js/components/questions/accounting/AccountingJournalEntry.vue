@@ -1277,7 +1277,7 @@ input[type="number"]:disabled {
 }
 
 .t-account-table thead th {
-  border-bottom: 2px solid #dee2e6 !important;
+  border-bottom: 2px solid #6c757d !important;
   background-color: #f8f9fa;
   color: #495057;
   text-align: center;
@@ -1286,7 +1286,7 @@ input[type="number"]:disabled {
 
 .t-account-table thead th:nth-child(2),
 .t-account-table tbody td:nth-child(2) {
-  border-right: 2px solid #dee2e6 !important;
+  border-right: 2px solid #6c757d !important;
 }
 
 .t-account-table tbody tr td {
@@ -1295,7 +1295,10 @@ input[type="number"]:disabled {
 }
 
 .t-account-table .balance-row td {
-  border-top: 2px solid #dee2e6 !important;
+  /* Double rule marks the running/ending balance, matching the
+     accounting-textbook convention (e.g. Wiley) of underlining a total
+     twice rather than the thin single divider used elsewhere in the table. */
+  border-top: 3px double #212529 !important;
   padding-top: 0.6rem;
 }
 
