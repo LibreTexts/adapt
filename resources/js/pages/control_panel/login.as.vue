@@ -27,6 +27,10 @@
               </b-button>
             </span>
           </b-row>
+          <small class="text-muted d-block mb-2">
+            You can also type an assignment ID, or paste a URL containing one, to log in as that
+            assignment's instructor.
+          </small>
           <ErrorMessage :message="form.errors.get('user')"/>
         </b-container>
       </div>
@@ -83,6 +87,9 @@ export default {
       if (input.includes('https://')) {
         return [input]
       }
+      if (/^\d+$/.test(input.trim())) {
+        return [input.trim()]
+      }
       if (input.length < 1) {
         return []
       }
@@ -113,6 +120,18 @@ export default {
       }
     },
     async submitLoginAs () {
+      // A name is only usable once picked from the dropdown, but an assignment id
+      // or URL is submittable as typed - there's nothing to "select." Read the raw
+      // value straight off the actual <input> element (rather than any internal
+      // library state, which clears its results on blur right as this runs).
+      if (!this.form.user) {
+        const inputEl = this.$refs.userSearch && this.$refs.userSearch.$el &&
+          this.$refs.userSearch.$el.querySelector('input')
+        const typed = (inputEl ? inputEl.value : '').trim()
+        if (typed.includes('https://') || /^\d+$/.test(typed)) {
+          this.form.user = typed
+        }
+      }
       if (!this.form.user) {
         this.form.errors.set('user', 'You have not selected a user from the dropdown list.')
         return false
@@ -130,8 +149,16 @@ export default {
           // Fetch the user.
           await this.$store.dispatch('auth/fetchUser')
           // Redirect to the correct home page
-          if (this.form.user.includes('https://')) {
-            window.location.href = this.form.user
+          const value = this.form.user.trim()
+          const idFromBareId = /^\d+$/.test(value) ? value : null
+          const idFromUrl = value.includes('https://') ? (value.match(/\/assignments\/(\d+)/) || [])[1] : null
+          const assignmentId = idFromBareId || idFromUrl
+          if (assignmentId) {
+            // Whether an id or a full URL (student view, instructor view, whatever
+            // page) was entered, always land on the instructor's questions page for
+            // that assignment - on whatever host we're actually running on, not a
+            // hardcoded one.
+            window.location.href = `${window.location.origin}/instructors/assignments/${assignmentId}/information/questions`
           } else {
             redirectOnLogin(this.$store, this.$router)
           }

@@ -6,7 +6,6 @@ use App\Analytics;
 use App\Enrollment;
 use App\Helpers\Helper;
 use App\Http\Requests\LoginAsRequest;
-use App\JWE;
 use App\User;
 use App\Course;
 use App\Assignment;
@@ -17,13 +16,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
-use MiladRahimi\Jwt\Cryptography\Keys\HmacKey;
 use MiladRahimi\Jwt\Exceptions\InvalidSignatureException;
-use MiladRahimi\Jwt\Generator;
-use MiladRahimi\Jwt\Parser;
-use MiladRahimi\Jwt\Cryptography\Algorithms\Hmac\HS256;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
 
@@ -341,16 +335,31 @@ class UserController extends Controller
         $user_info = [];
 
         try {
-            if (strpos($request->user, "https://") === false) {
+            if (strpos($request->user, "https://") === false && !ctype_digit($request->user)) {
+                // A user was selected from the autocomplete dropdown: "First Last --- email@example.com".
                 $user_info = explode(' --- ', $request->user);
                 $email = $user_info[1];
                 $new_user = User::where('email', $email)->first();
+            } elseif (ctype_digit($request->user)) {
+                // A bare assignment id: log in as that assignment's course instructor.
+                $assignment = Assignment::find($request->user);
+                if (!$assignment) {
+                    $response['message'] = "$request->user is not a valid assignment id.";
+                    return $response;
+                }
+                $new_user = User::find($assignment->course->user_id);
+                $email = $new_user->email;
             } else {
-                $pattern = "/\/assignments\/(\d+)\/questions\/view\/\d+\//";
+                // A URL containing an assignment id anywhere after "assignments/".
+                $pattern = "/\/assignments\/(\d+)/";
                 if (preg_match($pattern, $request->user, $matches)) {
                     $assignment_id = $matches[1];
-                    $user_id = Assignment::find($assignment_id)->course->user_id;
-                    $new_user = User::find($user_id);
+                    $assignment = Assignment::find($assignment_id);
+                    if (!$assignment) {
+                        $response['message'] = "$assignment_id is not a valid assignment id.";
+                        return $response;
+                    }
+                    $new_user = User::find($assignment->course->user_id);
                     $email = $new_user->email;
                 } else {
                     $response['message'] = "That is not a valid URL to log in as.";
@@ -428,11 +437,11 @@ class UserController extends Controller
     public function getPotentialWebworkEditors(Request $request, User $user): array
     {
         $response['type'] = 'error';
-            $authorized = Gate::inspect('getPotentialWebworkEditors', $user);
-            if (!$authorized->allowed()) {
-                $response['message'] = $authorized->message();
-                return $response;
-            }
+        $authorized = Gate::inspect('getPotentialWebworkEditors', $user);
+        if (!$authorized->allowed()) {
+            $response['message'] = $authorized->message();
+            return $response;
+        }
         try {
             $users
                 = DB::table('users')
