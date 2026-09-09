@@ -90,3 +90,9 @@ export default {
   }
 }
 </script>
+<style scoped>
+.form-inline > div {
+  flex: 1 1 100%;
+  width: 100%;
+}
+</style>
