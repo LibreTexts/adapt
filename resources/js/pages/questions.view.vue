@@ -2804,7 +2804,7 @@
                         @resetResponse="resetSubmission"
                       />
                       <b-alert :show="!submitButtonActive" variant="info">
-                        No additional submissions will be accepted.
+                        {{ submitBlockedReason || 'No additional submissions will be accepted.' }}
                       </b-alert>
                     </div>
                     <div style="margin-left: auto">
@@ -3194,7 +3194,7 @@
                               @cardChanged="cardChanged"
                             />
                             <b-alert :show="!submitButtonActive && assessmentType !== 'clicker'" variant="info">
-                              No additional submissions will be accepted.
+                              {{ submitBlockedReason || 'No additional submissions will be accepted.' }}
                             </b-alert>
                           </div>
                           <div
@@ -3234,7 +3234,7 @@
                               />
                             </div>
                             <b-alert :show="!submitButtonActive && iframeDomLoaded" variant="info">
-                              No additional submissions will be accepted.
+                              {{ submitBlockedReason || 'No additional submissions will be accepted.' }}
                             </b-alert>
                           </div>
                         </div>
@@ -3251,7 +3251,7 @@
                         </b-button>
                       </div>
                       <b-alert :show="!submitButtonActive" variant="info" class="mt-3">
-                        No additional submissions will be accepted.
+                        {{ submitBlockedReason || 'No additional submissions will be accepted.' }}
                       </b-alert>
                     </div>
                     <div v-if="isOpenEndedTextSubmission && user.role === 3 && !isAnonymousUser">
@@ -3649,7 +3649,7 @@
                     :question-id="+questions[currentPage-1].id"
                   />
                   <b-alert :show="!submitButtonActive" variant="info">
-                    No additional submissions will be accepted.
+                    {{ submitBlockedReason || 'No additional submissions will be accepted.' }}
                   </b-alert>
                 </div>
               </div>
@@ -3948,6 +3948,7 @@ export default {
     iframeDomLoaded: false,
     event: {},
     submitButtonActive: true,
+    submitBlockedReason: '',
     showLeftColumn: true,
     showRightColumn: true,
     taskStartTime: 0,
@@ -5377,10 +5378,8 @@ export default {
       try {
         const isForge = +this.isForge()
         const { data } = await axios.get(`/api/submissions/can-submit/assignment/${this.assignmentId}/question/${this.questions[this.currentPage - 1].id}/is-forge/${isForge}`)
-        if (data.type === 'error') {
-          console.log(`Cannot submit: ${data.message}`)
-        }
         this.submitButtonActive = data.type === 'success'
+        this.submitBlockedReason = data.type === 'error' ? data.message : ''
         if (this.submitButtonActive && this.questionStatus !== 'late' || !this.submitButtonActive) {
           this.questionStatus = this.submitButtonActive ? 'open' : 'closed'
         }
@@ -6621,8 +6620,10 @@ export default {
 
         this.qtiJson = this.questions[this.currentPage - 1]['qti_json']
         this.$forceUpdate()
-        console.log(data.too_many_submissions)
         this.submitButtonActive = !data.too_many_submissions
+        if (data.too_many_submissions) {
+          this.submitBlockedReason = 'You have reached the maximum number of allowed attempts for this question.'
+        }
         if (['real time', 'learning tree'].includes(this.assessmentType)) {
           this.numberOfRemainingAttempts = this.getNumberOfRemainingAttempts()
           this.maximumNumberOfPointsPossible = this.getMaximumNumberOfPointsPossible()

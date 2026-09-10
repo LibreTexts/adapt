@@ -98,8 +98,12 @@ trait GeneralSubmissionPolicy
                 ->where('user_id', $user->id)
                 ->where('status', 'gave up')
                 ->first();
-            if (($submission && $submission->show_solution) || $gave_up) {
+            if ($submission && $submission->show_solution) {
                 $response['message'] = "The solution is already available so you cannot resubmit.";
+                return $response;
+            }
+            if ($gave_up) {
+                $response['message'] = "You've given up on this question so it cannot be resubmitted.";
                 return $response;
             }
         }

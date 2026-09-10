@@ -245,7 +245,7 @@ class SubmissionController extends Controller
             if ($submission && $assignment->number_of_allowed_attempts !== 'unlimited'
                 && (int)$submission->submission_count === (int)$assignment->number_of_allowed_attempts) {
                 $response['type'] = 'error';
-                $response['message'] = "You have submitted this question $submission->submission_count times and you are only allowed $assignment->number_of_allowed_attempts attempts so your submission is not accepted.";
+                $response['message'] = "You have submitted this question $submission->submission_count times and you are only allowed $assignment->number_of_allowed_attempts attempts so no additional submissions will be accepted.";
                 return $response;
             }
             if ($questionLevelOverride->hasAutoGradedOverride($assignment->id, $question->id, $assignmentLevelOverride) ||
@@ -277,6 +277,9 @@ class SubmissionController extends Controller
                     return $result;
                 }
                 $response['type'] = $result['can_submit']['type'] === 'success' ? 'success' : 'error';
+                if ($response['type'] === 'error') {
+                    $response['message'] = $result['can_submit']['message'] ?? 'No responses will be saved since this Forge question cannot currently be submitted.';
+                }
             }
             return $response;
 
