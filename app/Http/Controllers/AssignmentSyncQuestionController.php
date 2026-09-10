@@ -3326,6 +3326,7 @@ class AssignmentSyncQuestionController extends Controller
      * @param Solution $solution
      * @param PendingQuestionRevision $pendingQuestionRevision
      * @param IMathAS $IMathAS
+     * @param Webwork $webwork
      * @return array
      * @throws ContainerExceptionInterface
      * @throws NotFoundExceptionInterface
@@ -3341,7 +3342,8 @@ class AssignmentSyncQuestionController extends Controller
                                 Question                $Question,
                                 Solution                $solution,
                                 PendingQuestionRevision $pendingQuestionRevision,
-                                IMathAS                 $IMathAS): array
+                                IMathAS                 $IMathAS,
+                                Webwork                 $webwork): array
     {
 
 
@@ -4062,7 +4064,7 @@ class AssignmentSyncQuestionController extends Controller
                 $shown_hint = $assignment->can_view_hint && (Auth::user()->role === 2 || (Auth::user()->role === 3 && in_array($question->id, $shown_hints)));
                 $assignment->questions[$key]['shown_hint'] = $shown_hint;
                 $assignment->questions[$key]['hint_exists'] = ($assignment->questions[$key]->hint !== null && $assignment->questions[$key]->hint !== '')
-                    || ($assignment->questions[$key]->webwork_code && str_contains($assignment->questions[$key]->webwork_code, 'BEGIN_PGML_HINT'));
+                    || $webwork->hasHint($assignment->questions[$key]);
                 $assignment->questions[$key]['hint'] = $shown_hint
                     ? $question->addTimeToS3Files($assignment->questions[$key]->hint, $domd)
                     : null;

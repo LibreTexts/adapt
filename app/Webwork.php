@@ -316,6 +316,15 @@ class Webwork extends Model
         if (!$value->webwork_code) {
             return false;
         }
-        return str_contains($value->webwork_code, 'BEGIN_PGML_HINT');
+        if (
+            strpos($value->webwork_code, 'BEGIN_PGML_HINT') !== false &&
+            (
+                strpos($value->webwork_code, '#-ULETH-#') !== false ||
+                !preg_match('/(?<!#)#\s*BEGIN_PGML_HINT/', $value->webwork_code)
+            )
+        ) {
+            return true;
+        }
+        return false;
     }
 }
