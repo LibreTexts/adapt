@@ -50,7 +50,6 @@ export default {
   computed: {
     addSelectChoices () {
       if (this.qtiJson.itemBody) {
-        console.log(this.qtiJson)
         if (this.qtiJson.questionType === 'drop_down_rationale_triad') {
           this.qtiJson.itemBody = this.qtiJson.itemBody.replace('[rationale]', '[rationale-1]')
           this.qtiJson.itemBody = this.qtiJson.itemBody.replace('[rationale]', '[rationale-2]')
@@ -72,6 +71,27 @@ export default {
           if (i % 2 === 0) {
             html += part
           } else {
+            // Guard against blanks whose bracketed text doesn't exactly match a key in
+            // inline_choice_interactions (e.g. apostrophes stored as &#39; in itemBody
+            // but as a literal ' in inline_choice_interactions, or vice versa, after the
+            // content round-trips through a sanitizer/CKEditor). Try the raw key first,
+            // then a normalized version, before giving up.
+            if (!this.qtiJson.inline_choice_interactions[part]) {
+              let normalizedPart = part.replace(/&#39;|&apos;/g, '\'')
+              if (this.qtiJson.inline_choice_interactions[normalizedPart]) {
+                part = normalizedPart
+              } else {
+                let denormalizedPart = part.replace(/'/g, '&#39;')
+                if (this.qtiJson.inline_choice_interactions[denormalizedPart]) {
+                  part = denormalizedPart
+                }
+              }
+            }
+            if (!this.qtiJson.inline_choice_interactions[part]) {
+              console.error(`SelectChoiceDropDownRationaleViewer: no inline_choice_interactions entry for blank "${part}". Check for an encoding mismatch (e.g. an apostrophe) between itemBody and inline_choice_interactions.`)
+              html += `<span class="text-danger">[Missing answer options for "${part}"]</span>`
+              continue
+            }
             let studentResponse
             // If there is an issue with not seeing the correct answer for select choices, it's because I used to do the identifier by
             // time stamp and I'm not 100% sure of uniqueness. This was changed at some point to use the uuid4()
