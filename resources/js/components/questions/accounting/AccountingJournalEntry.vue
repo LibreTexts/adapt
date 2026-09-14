@@ -5,10 +5,15 @@
       <b-card header="default" header-html="<h2 class=&quot;h7&quot;>Prompt (Optional)</h2>">
         <b-card-text>
           <label class="mb-1"><strong>Shown to students above the journal entries:</strong></label>
-          <b-form-textarea
+          <ckeditor
+            id="accountingJournalEntryOptionalPrompt"
             v-model="qtiJson.optionalPrompt"
-            placeholder="Optional instructions or context for this question..."
-            rows="2"
+            tabindex="0"
+            :config="richEditorConfig"
+            class="pb-3"
+            @namespaceloaded="onCKEditorNamespaceLoaded"
+            @ready="handleFixCKEditor()"
+            @focus="setCKEditorKeydownAsTrue()"
             @input="handleInput()"
           />
         </b-card-text>
@@ -508,10 +513,12 @@ import { v4 as uuidv4 } from 'uuid'
 import ErrorMessage from '~/components/ErrorMessage'
 import axios from 'axios'
 import { mapGetters } from 'vuex'
+import { fixCKEditor } from '~/helpers/accessibility/fixCKEditor'
+import CKEditor from 'ckeditor4-vue'
 
 export default {
   name: 'JournalEntry',
-  components: { ErrorMessage },
+  components: { ErrorMessage, ckeditor: CKEditor.component },
   props: {
     qtiJson: {
       type: Object,
@@ -520,6 +527,11 @@ export default {
     questionForm: {
       type: Object,
       default: () => ({})
+    },
+    richEditorConfig: {
+      type: Object,
+      default: () => {
+      }
     }
   },
   data () {
@@ -1070,6 +1082,15 @@ export default {
       } catch (error) {
         console.error('Error clearing errors:', error)
       }
+    },
+    setCKEditorKeydownAsTrue () {
+      this.$emit('setCKEditorKeydownAsTrue')
+    },
+    handleFixCKEditor () {
+      fixCKEditor(this)
+    },
+    onCKEditorNamespaceLoaded (CKEDITOR) {
+      CKEDITOR.addCss('.cke_editable { font-size: 15px; }')
     },
     handleInput () {
       // Keep every account's balance live-synced to the current postings,

@@ -1,10 +1,10 @@
 <template>
   <div class="pb-2">
     <!-- Optional Prompt -->
-    <div v-if="qtiJson.optionalPrompt && qtiJson.optionalPrompt.trim()" class="pb-3">
-      <p class="mb-0">{{ escapeDollar(qtiJson.optionalPrompt) }}</p>
-    </div>
-
+    <div v-if="qtiJson.optionalPrompt && qtiJson.optionalPrompt.trim()"
+         class="pb-3"
+         v-html="escapeDollar(qtiJson.optionalPrompt)"
+    />
     <!-- Entry Instructions - Verbal Information -->
     <div v-if="qtiJson.entries && qtiJson.entries.length > 0" class="instructions-section pb-4 mb-4">
       <h5 class="mb-3">Journal Entry Descriptions:</h5>

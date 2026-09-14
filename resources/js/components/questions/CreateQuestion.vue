@@ -2157,7 +2157,9 @@
                   <AccountingJournalEntry
                     :qti-json="qtiJson"
                     :question-form="questionForm"
+                    :rich-editor-config="shorterRichEditorConfig"
                     @updateQtiJson="updateQtiJson"
+                    @setCKEditorKeydownAsTrue="setCKEditorKeydownAsTrue"
                   />
                 </div>
                 <div v-if="'accounting_multi_part_computation' === qtiQuestionType">
