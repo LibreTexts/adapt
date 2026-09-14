@@ -1538,6 +1538,21 @@ class Submission extends Model
             return $student_response;
         }
         switch ($question->questionType) {
+            case('accounting_journal_entry'):
+                // $student_response is decoded into { entries: [{ selectedEntryIndex, rows: [{accountTitle, debit, credit}] }], tAccounts: [...] }.
+                // No bespoke display format for this yet - just make sure callers get a string.
+                $formatted_student_response = json_encode($student_response);
+                break;
+            case('accounting_report'):
+                // $student_response is decoded into a 2D array indexed by [row][cell] of raw cell values.
+                // No bespoke display format for this yet - just make sure callers get a string.
+                $formatted_student_response = json_encode($student_response);
+                break;
+            case('accounting_multi_part_computation'):
+                // $student_response is decoded into a 3D array indexed by [table][row][cell] of raw cell values.
+                // No bespoke display format for this yet - just make sure callers get a string.
+                $formatted_student_response = json_encode($student_response);
+                break;
             case('multiple_choice'):
                 foreach ($question->simpleChoice as $choice) {
                     if ($choice->identifier === $student_response) {
