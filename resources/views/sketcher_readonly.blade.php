@@ -15,7 +15,7 @@
   <script type="text/javascript"
           src="https://cdnjs.cloudflare.com/ajax/libs/iframe-resizer/4.2.11/iframeResizer.contentWindow.min.js"
   ></script>
-  <script type="module" src="https://molview.libretexts.org/api.js"></script>
+  <script type="module" src="https://molview.libretexts.org/2026-08/api.js"></script>
   <script>
     window.addEventListener('message', receiveMessage)
 
