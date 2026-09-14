@@ -74,7 +74,7 @@
           <th>{{ discussionCommentSubmissionResults.number_of_initiated_discussion_threads }}</th>
           <th>
             {{
-              discussionCommentSubmissionResults.satisfied_min_number_of_initiated_discussion_threads_requirement ? 'Yes' : 'No'
+            discussionCommentSubmissionResults.satisfied_min_number_of_initiated_discussion_threads_requirement ? 'Yes' : 'No'
             }}
           </th>
         </tr>
@@ -85,13 +85,13 @@
           <th>Reply to Thread</th>
           <th>
             {{
-              discussionCommentSubmissionResults.min_number_of_replies
+            discussionCommentSubmissionResults.min_number_of_replies
             }}
           </th>
           <th>{{ discussionCommentSubmissionResults.number_of_replies_that_satisfied_the_requirements }}</th>
           <th>
             {{
-              discussionCommentSubmissionResults.satisfied_min_number_of_replies_requirement ? 'Yes' : 'No'
+            discussionCommentSubmissionResults.satisfied_min_number_of_replies_requirement ? 'Yes' : 'No'
             }}
           </th>
         </tr>
@@ -102,17 +102,17 @@
           <th>Participate (Initiate/Reply)</th>
           <th>
             {{
-              discussionCommentSubmissionResults.min_number_of_initiate_or_reply_in_threads
+            discussionCommentSubmissionResults.min_number_of_initiate_or_reply_in_threads
             }}
           </th>
           <th>
             {{
-              discussionCommentSubmissionResults.number_of_initiate_or_reply_in_threads_that_satisfied_the_requirements
+            discussionCommentSubmissionResults.number_of_initiate_or_reply_in_threads_that_satisfied_the_requirements
             }}
           </th>
           <th>
             {{
-              discussionCommentSubmissionResults.satisfied_min_number_of_initiate_or_reply_in_threads_requirement ? 'Yes' : 'No'
+            discussionCommentSubmissionResults.satisfied_min_number_of_initiate_or_reply_in_threads_requirement ? 'Yes' : 'No'
             }}
           </th>
         </tr>
@@ -213,7 +213,7 @@
               allowfullscreen
       />
       <DiscussItSatisfiesRequirement v-if="reRecording && Boolean(+discussItSettingsForm.completion_criteria)"
-                                     ref="discussItSatisfiesRequirement"
+                                     ref="discussItSatisfiesRequirementReRecord"
                                      :key="`discussItSatisfiesRequirement-${discussItSatisfiesRequirementKey}`"
                                      :milliseconds-time-until-requirement-satisfied="millisecondsTimeUntilRequirementSatisfied"
                                      :human-readable-time-until-requirement-satisfied="humanReadableTimeUntilRequirementSatisfied"
@@ -245,7 +245,7 @@
           <audio-recorder
             v-if="reRecording"
             id="discuss-it-recorder"
-            ref="recorder"
+            ref="recorderReRecord"
             :upload-url="`/api/discussion-comments/assignment/${assignmentId}/question/${questionId}/audio`"
             :attempts="1"
             :time="3"
@@ -287,7 +287,7 @@
         />
       </div>
       <template #modal-footer>
-        <span v-show="commentType === 'video' || commentType === 'audio' && !stoppedAudioRecording">
+        <span v-show="commentType === 'video' || !reRecording || (commentType === 'audio' && !stoppedAudioRecording)">
           <b-button v-if="showAction('editComment', activeDiscussionComment.created_by_user_id)" variant="danger"
                     size="sm"
                     @click="reRecording=true"
@@ -306,7 +306,7 @@
             OK
           </b-button>
         </span>
-        <span v-show="commentType === 'audio' && stoppedAudioRecording">
+        <span v-show="reRecording && commentType === 'audio' && stoppedAudioRecording">
           <span class="mr-2">
             <b-button
               variant="primary"
@@ -555,8 +555,8 @@
                   />
                   <div class="col-form-label col-form-label-sm text-right pl-2">
                     {{
-                      +discussItSettingsForm.min_number_of_initiated_discussion_threads === 1
-                        ? 'discussion thread with new comment(s)' : 'discussion threads with new comment(s)'
+                    +discussItSettingsForm.min_number_of_initiated_discussion_threads === 1
+                    ? 'discussion thread with new comment(s)' : 'discussion threads with new comment(s)'
                     }}
                     <QuestionCircleTooltip :id="'discussion-thread-tooltip'" />
                     <b-tooltip target="discussion-thread-tooltip" triggers="hover focus" delay="500">
@@ -592,8 +592,8 @@
                   />
                   <div class="col-form-label col-form-label-sm text-right pl-2">
                     {{
-                      +discussItSettingsForm.min_number_of_replies === 1
-                        ? 'reply to comments in existing threads' : 'replies to comments in existing threads'
+                    +discussItSettingsForm.min_number_of_replies === 1
+                    ? 'reply to comments in existing threads' : 'replies to comments in existing threads'
                     }}
                     <QuestionCircleTooltip :id="'min-number-of-min-replies-tooltip'" />
                     <b-tooltip target="min-number-of-min-replies-tooltip" triggers="hover focus" delay="500">
@@ -626,8 +626,8 @@
                   />
                   <div class="col-form-label col-form-label-sm text-right pl-2">
                     {{
-                      +discussItSettingsForm.min_number_of_initiate_or_reply_in_threads === 1
-                        ? 'thread' : 'different threads'
+                    +discussItSettingsForm.min_number_of_initiate_or_reply_in_threads === 1
+                    ? 'thread' : 'different threads'
                     }}
                     <QuestionCircleTooltip :id="'initiate-or-reply-tooltip'" />
                     <b-tooltip target="initiate-or-reply-tooltip" triggers="hover focus" delay="500">
@@ -854,7 +854,7 @@
             >
               <p>
                 To count towards completion credit: {{
-                  completionRequirementsToolTipText
+                completionRequirementsToolTipText
                 }}
               </p>
               <ul style="list-style: none;padding:0">
@@ -921,7 +921,7 @@
                        target="”_blank”"
                     >
                       {{
-                        discussionCommentSubmissionResults.submission_summary.file_feedback_type === 'Audio' ? 'Listen To Feedback' : 'View Feedback'
+                      discussionCommentSubmissionResults.submission_summary.file_feedback_type === 'Audio' ? 'Listen To Feedback' : 'View Feedback'
                       }}
                     </a>
                   </strong>
@@ -1021,7 +1021,7 @@
               <div v-if="commentType === 'audio'">
                 <div v-if="!discussionCommentAudio">
                   <DiscussItSatisfiesRequirement v-if="+discussItSettingsForm.completion_criteria"
-                                                 ref="discussItSatisfiesRequirement"
+                                                 ref="discussItSatisfiesRequirementNew"
                                                  :key="`discussItSatisfiesRequirement-${discussItSatisfiesRequirementKey}`"
                                                  :milliseconds-time-until-requirement-satisfied="millisecondsTimeUntilRequirementSatisfied"
                                                  :human-readable-time-until-requirement-satisfied="humanReadableTimeUntilRequirementSatisfied"
@@ -1048,7 +1048,7 @@
                   <div v-else class="discuss-it-recorder-scroll">
                     <audio-recorder
                       id="discuss-it-recorder"
-                      ref="recorder"
+                      ref="recorderNew"
                       :upload-url="`/api/discussion-comments/assignment/${assignmentId}/question/${questionId}/audio`"
                       :attempts="1"
                       :time="3"
@@ -1083,7 +1083,7 @@
               <div v-show="commentType === 'video'">
                 <DiscussItSatisfiesRequirement
                   v-if="!discussionCommentVideo && Boolean(+discussItSettingsForm.completion_criteria)"
-                  ref="discussItSatisfiesRequirement"
+                  ref="discussItSatisfiesRequirementNew"
                   :key="`discussItSatisfiesRequirement-${discussItSatisfiesRequirementKey}`"
                   :milliseconds-time-until-requirement-satisfied="millisecondsTimeUntilRequirementSatisfied"
                   :human-readable-time-until-requirement-satisfied="humanReadableTimeUntilRequirementSatisfied"
@@ -1272,7 +1272,7 @@
                           <div v-if="commentType === 'audio'">
                             <div v-if="!discussionCommentAudio">
                               <DiscussItSatisfiesRequirement v-if="+discussItSettingsForm.completion_criteria"
-                                                             ref="discussItSatisfiesRequirement"
+                                                             :ref="`discussItSatisfiesRequirementReply-${discussion.id}`"
                                                              :key="`discussItSatisfiesRequirement-${discussItSatisfiesRequirementKey}`"
                                                              :milliseconds-time-until-requirement-satisfied="millisecondsTimeUntilRequirementSatisfied"
                                                              :human-readable-time-until-requirement-satisfied="humanReadableTimeUntilRequirementSatisfied"
@@ -1299,7 +1299,7 @@
                               <div v-else class="discuss-it-recorder-scroll">
                                 <audio-recorder
                                   id="discuss-it-recorder"
-                                  ref="recorder"
+                                  :ref="`recorderReply-${discussion.id}`"
                                   :upload-url="`/api/discussion-comments/assignment/${assignmentId}/question/${questionId}/audio`"
                                   :attempts="1"
                                   :time="3"
@@ -1334,7 +1334,7 @@
                           <div v-show="commentType === 'video'">
                             <DiscussItSatisfiesRequirement
                               v-if="!discussionCommentVideo && Boolean(+discussItSettingsForm.completion_criteria)"
-                              ref="discussItSatisfiesRequirement"
+                              :ref="`discussItSatisfiesRequirementReply-${discussion.id}`"
                               :key="`discussItSatisfiesRequirement-${discussItSatisfiesRequirementKey}`"
                               :milliseconds-time-until-requirement-satisfied="millisecondsTimeUntilRequirementSatisfied"
                               :human-readable-time-until-requirement-satisfied="humanReadableTimeUntilRequirementSatisfied"
@@ -1743,8 +1743,29 @@ export default {
     updateDiscussionCommentVideo () {
       this.discussionCommentVideo = true
     },
+    // The DiscussItSatisfiesRequirement component is rendered in three different
+    // places (starting a new discussion, replying to an existing discussion, and
+    // re-recording an existing comment), each with its own ref. The "reply" ref
+    // additionally lives inside a v-for, so Vue always exposes it as an array on
+    // $refs (even when only one is currently rendered) - this resolves the
+    // correct instance for whichever flow is currently active and unwraps that
+    // array when needed.
+    getSatisfiesRequirementRef () {
+      let ref
+      if (this.reRecording) {
+        ref = this.$refs.discussItSatisfiesRequirementReRecord
+      } else if (this.activeDiscussion && this.activeDiscussion.id) {
+        ref = this.$refs[`discussItSatisfiesRequirementReply-${this.activeDiscussion.id}`]
+      } else {
+        ref = this.$refs.discussItSatisfiesRequirementNew
+      }
+      return Array.isArray(ref) ? ref[0] : ref
+    },
     stopVideoRecording () {
-      this.$refs.discussItSatisfiesRequirement.endCountDown()
+      const satisfiesRequirementRef = this.getSatisfiesRequirementRef()
+      if (satisfiesRequirementRef) {
+        satisfiesRequirementRef.endCountDown()
+      }
     },
     startVideoRecording () {
       this.discussionCommentVideo = false
@@ -1960,6 +1981,7 @@ export default {
       this.activeDiscussionComment = comment
       this.fileRequirementSatisfied = false
       this.commentType = comment.recording_type
+      this.stoppedAudioRecording = false
       this.$bvModal.show('modal-listen-or-view-comment')
     },
     confirmDeleteComment (test) {
@@ -1972,12 +1994,26 @@ export default {
         document.getElementsByClassName('ar__uploader')[0].click()
       }
     },
+    // Mirrors getSatisfiesRequirementRef(): the audio-recorder is also rendered
+    // in three places (new / reply / re-record), and the "reply" one lives
+    // inside a v-for so Vue exposes it as an array on $refs.
+    getRecorderRef () {
+      let ref
+      if (this.reRecording) {
+        ref = this.$refs.recorderReRecord
+      } else if (this.activeDiscussion && this.activeDiscussion.id) {
+        ref = this.$refs[`recorderReply-${this.activeDiscussion.id}`]
+      } else {
+        ref = this.$refs.recorderNew
+      }
+      return Array.isArray(ref) ? ref[0] : ref
+    },
     reRecordAudio () {
       this.discussionCommentAudio = false
       this.discussItSatisfiesRequirementKey++
       this.showSatisfiesRequirementTimer = false
       try {
-        this.$refs.recorder.removeRecord()
+        this.getRecorderRef().removeRecord()
       } catch (error) {
         console.log('Does not exist if done multiple times.')
       }
@@ -1989,7 +2025,10 @@ export default {
         document.getElementsByClassName('ar-records__record')[0].click()
       })
       this.stoppedAudioRecording = true
-      this.$refs.discussItSatisfiesRequirement.endCountDown()
+      const satisfiesRequirementRef = this.getSatisfiesRequirementRef()
+      if (satisfiesRequirementRef) {
+        satisfiesRequirementRef.endCountDown()
+      }
     },
     beforeRecording () {
       this.discussionCommentAudio = false
@@ -2017,8 +2056,10 @@ export default {
       this.showComposePanel = true
       this.currentFile = ''
       this.$nextTick(() => {
-        updateModalToggleIndex('discuss-it-compose-panel')
-        const panel = document.getElementById('discuss-it-compose-panel')
+        const panelId = this.activeDiscussion && this.activeDiscussion.id
+          ? `discuss-it-compose-panel-${this.activeDiscussion.id}`
+          : 'discuss-it-compose-panel-new-thread'
+        const panel = document.getElementById(panelId)
         if (panel) {
           panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
         }
