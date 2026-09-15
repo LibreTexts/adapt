@@ -2179,6 +2179,10 @@ class QuestionController extends Controller
                         $questionMediaUpload->transcript = '';
                         $questionMediaUpload->question_revision_id = $new_question_revision_id;
                         $questionMediaUpload->show_captions = $show_captions;
+                        $questionMediaUpload->width = $new_media_upload['width'] ?? null;
+                        $questionMediaUpload->height = $new_media_upload['height'] ?? null;
+                        $questionMediaUpload->native_width = $new_media_upload['native_width'] ?? null;
+                        $questionMediaUpload->native_height = $new_media_upload['native_height'] ?? null;
                         $questionMediaUpload->save();
                         if (!in_array($new_media_upload['s3_key'], $current_s3_keys)) {
                             InitProcessTranscribe::dispatch($questionMediaUpload->s3_key, 'question_media_upload');
@@ -2195,6 +2199,10 @@ class QuestionController extends Controller
                             $questionMediaUpload->order = $media_upload['order'];
                         }
                         $questionMediaUpload->transcript = '';
+                        $questionMediaUpload->width = $media_upload['width'] ?? null;
+                        $questionMediaUpload->height = $media_upload['height'] ?? null;
+                        $questionMediaUpload->native_width = $media_upload['native_width'] ?? null;
+                        $questionMediaUpload->native_height = $media_upload['native_height'] ?? null;
                         $questionMediaUpload->save();
                         InitProcessTranscribe::dispatch($questionMediaUpload->s3_key, 'question_media_upload');
                     }

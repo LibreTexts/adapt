@@ -274,7 +274,8 @@ class QuestionMediaController extends Controller
             $question_media_uploads = $request->question_media_uploads;
             foreach ($question_media_uploads as $key => $question_media_upload) {
                 $s3_key = $question_media_upload['s3_key'];
-                $question_media_uploads[$key]['temporary_url'] = strpos($s3_key, '.pdf') !== false ?
+                $needs_temporary_url = strpos($s3_key, '.pdf') !== false || strpos($s3_key, '.mp4') !== false;
+                $question_media_uploads[$key]['temporary_url'] = $needs_temporary_url ?
                     Storage::disk('s3')
                         ->temporaryUrl("{$questionMediaUpload->getDir()}/$s3_key", Carbon::now()->addDays(7))
                     : null;

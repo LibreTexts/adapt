@@ -398,6 +398,10 @@ export default {
       type: String,
       default: ''
     },
+    mediaUploads: {
+      type: Array,
+      default: () => []
+    },
     studentResponse: {
       type: String,
       default: ''
@@ -598,7 +602,7 @@ export default {
       default:
         alert(`${this.questionType} is not yet supported.`)
     }
-    this.prompt = this.formatQuestionMediaPlayer(this.prompt)
+    this.prompt = this.formatQuestionMediaPlayer(this.prompt, this.mediaUploads.length ? this.mediaUploads : (this.question.media_uploads || []))
     this.$forceUpdate()
     this.$nextTick(() => {
       this.typesetMath()
@@ -1010,4 +1014,15 @@ export default {
   display: inline-block;
 }
 
+</style>
+<style>
+/* Not scoped: question-media-player content is injected via v-html, so
+   scoped styles (which rely on data-attributes added at compile time)
+   would never reach it. Custom video widths always fill on small screens. */
+@media (max-width: 576px) {
+  .question-media-player-wrapper {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
 </style>

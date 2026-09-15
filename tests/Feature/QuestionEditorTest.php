@@ -1222,4 +1222,119 @@ EOT;
             ->assertJson(['type' => 'success']);
     }
 
+    /**
+     * Builds a true_false qti_json + the flat qti_prompt/qti_simple_choice_*
+     * fields StoreQuestionRequest's validation rules require alongside it
+     * (see IsValidQtiPrompt, correctResponseRequired, nonRepeatingSimpleChoice,
+     * atLeastTwoResponses). $prompt should be unique per test so
+     * IsValidQtiPrompt's duplicate-question check never trips.
+     */
+    private function trueFalseQuestionFields(string $prompt): array
+    {
+        return [
+            'qti_prompt' => $prompt,
+            'qti_simple_choice_0' => 'True',
+            'qti_simple_choice_1' => 'False',
+            'qti_json' => json_encode([
+                'questionType' => 'true_false',
+                'prompt' => $prompt,
+                'simpleChoice' => [
+                    ['identifier' => 'choice_0', 'value' => 'True', 'correctResponse' => true],
+                    ['identifier' => 'choice_1', 'value' => 'False', 'correctResponse' => false]
+                ]
+            ])
+        ];
+    }
+
+    /** @test */
+    public function media_upload_width_and_height_are_persisted_when_creating_a_question()
+    {
+        $this->my_questions_folder->user_id = $this->question_editor_user->id;
+        $this->my_questions_folder->save();
+
+        $this->question_to_store['technology'] = 'qti';
+        $this->question_to_store = array_merge(
+            $this->question_to_store,
+            $this->trueFalseQuestionFields('<p>Media sizing test prompt - create</p>')
+        );
+        $this->question_to_store['media_uploads'] = [[
+            'original_filename' => 'video.mp4',
+            'size' => 500,
+            's3_key' => 'abc123.mp4',
+            'width' => 400,
+            'height' => 225,
+            'native_width' => 1920,
+            'native_height' => 1080
+        ]];
+
+        $this->actingAs($this->question_editor_user)->postJson("/api/questions", $this->question_to_store)
+            ->assertJson(['type' => 'success']);
+
+        $this->assertDatabaseHas('question_media_uploads', [
+            's3_key' => 'abc123.mp4',
+            'width' => 400,
+            'height' => 225,
+            'native_width' => 1920,
+            'native_height' => 1080
+        ]);
+    }
+
+    /** @test */
+    public function updating_a_question_creates_a_new_media_upload_row_for_the_new_revision_without_touching_the_old_one()
+    {
+        $this->my_questions_folder->user_id = $this->question_editor_user->id;
+        $this->my_questions_folder->save();
+
+        $true_false_fields = $this->trueFalseQuestionFields('<p>Media sizing test prompt - update</p>');
+
+        $this->question->technology = 'qti';
+        $this->question->qti_json = $true_false_fields['qti_json'];
+        $this->question->question_editor_user_id = $this->question_editor_user->id;
+        $this->question->folder_id = $this->my_questions_folder->id;
+        $this->question->save();
+
+        $original_media_upload_id = DB::table('question_media_uploads')->insertGetId([
+            'question_id' => $this->question->id,
+            'original_filename' => 'video.mp4',
+            'size' => 500,
+            's3_key' => 'abc123.mp4',
+            'transcript' => '',
+            'width' => null,
+            'height' => null,
+            'question_revision_id' => 0,
+            'created_at' => now(),
+            'updated_at' => now()
+        ]);
+
+        $this->question_to_store['id'] = $this->question->id;
+        $this->question_to_store['technology'] = 'qti';
+        $this->question_to_store = array_merge($this->question_to_store, $true_false_fields);
+        $this->question_to_store['folder_id'] = $this->my_questions_folder->id;
+        $this->question_to_store['media_uploads'] = [[
+            'original_filename' => 'video.mp4',
+            'size' => 500,
+            's3_key' => 'abc123.mp4',
+            'width' => 400,
+            'height' => 225
+        ]];
+        $this->question_to_store = $this->addQuestionRevisionInfo($this->question_to_store);
+
+        $this->actingAs($this->question_editor_user)->patchJson("/api/questions/{$this->question->id}", $this->question_to_store)
+            ->assertJson(['type' => 'success']);
+
+        // The original (previous-revision) row should be untouched.
+        $this->assertDatabaseHas('question_media_uploads', [
+            'id' => $original_media_upload_id,
+            'width' => null,
+            'height' => null
+        ]);
+        // A new row should exist carrying the new size for the new revision.
+        $this->assertDatabaseHas('question_media_uploads', [
+            's3_key' => 'abc123.mp4',
+            'width' => 400,
+            'height' => 225
+        ]);
+        $this->assertEquals(2, DB::table('question_media_uploads')->where('s3_key', 'abc123.mp4')->count());
+    }
+
 }

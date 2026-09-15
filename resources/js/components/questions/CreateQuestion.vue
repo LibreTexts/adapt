@@ -667,6 +667,7 @@
         <QtiJsonQuestionViewer
           :key="`qti-json-question-viewer-${qtiJsonQuestionViewerKey}`"
           :qti-json="showQtiAnswer ? qtiAnswerJson : JSON.stringify(qtiJson)"
+          :media-uploads="questionForm.media_uploads"
           :show-qti-answer="showQtiAnswer"
           :show-submit="false"
           :show-response-feedback="false"
@@ -1433,6 +1434,8 @@
                       :question-media-upload-id="questionMediaUploadId"
                       :qti-json="questionForm.non_technology_text"
                       @updateQuestionMediaUploads="updateQuestionMediaUploads"
+                      @updateQuestionMediaUploadNativeDimensions="updateQuestionMediaUploadNativeDimensions"
+                      @updateQuestionMediaUploadDimensions="updateQuestionMediaUploadDimensions"
                       @deleteQuestionMediaUpload="deleteQuestionMediaUpload"
                       @updateQuestionTranscript="updateQuestionTranscript"
                       @updateQtiJson="updateQtiJson"
@@ -2058,6 +2061,8 @@
                                            :question-media-upload-id="questionMediaUploadId"
                                            :qti-json="JSON.stringify(qtiJson)"
                                            @updateQuestionMediaUploads="updateQuestionMediaUploads"
+                                           @updateQuestionMediaUploadNativeDimensions="updateQuestionMediaUploadNativeDimensions"
+                                           @updateQuestionMediaUploadDimensions="updateQuestionMediaUploadDimensions"
                                            @deleteQuestionMediaUpload="deleteQuestionMediaUpload"
                                            @updateQuestionTranscript="updateQuestionTranscript"
                                            @updateQtiJson="updateQtiJson"
@@ -2101,6 +2106,8 @@
                                            :question-media-upload-id="questionMediaUploadId"
                                            :qti-json="JSON.stringify(qtiJson)"
                                            @updateQuestionMediaUploads="updateQuestionMediaUploads"
+                                           @updateQuestionMediaUploadNativeDimensions="updateQuestionMediaUploadNativeDimensions"
+                                           @updateQuestionMediaUploadDimensions="updateQuestionMediaUploadDimensions"
                                            @deleteQuestionMediaUpload="deleteQuestionMediaUpload"
                                            @updateQuestionTranscript="updateQuestionTranscript"
                                            @updateQtiJson="updateQtiJson"
@@ -2139,6 +2146,8 @@
                                          :is-discuss-it="true"
                                          @updateQuestionMediaUploadsOrder="updateQuestionMediaUploadsOrder"
                                          @updateQuestionMediaUploads="updateQuestionMediaUploads"
+                                         @updateQuestionMediaUploadNativeDimensions="updateQuestionMediaUploadNativeDimensions"
+                                         @updateQuestionMediaUploadDimensions="updateQuestionMediaUploadDimensions"
                                          @deleteQuestionMediaUpload="deleteQuestionMediaUpload"
                                          @updateQuestionTranscript="updateQuestionTranscript"
                                          @editDiscussItText="editDiscussItText"
@@ -2383,6 +2392,8 @@
                                          :qti-json="JSON.stringify(qtiJson)"
                                          :question-media-upload-id="questionMediaUploadId"
                                          @updateQuestionMediaUploads="updateQuestionMediaUploads"
+                                         @updateQuestionMediaUploadNativeDimensions="updateQuestionMediaUploadNativeDimensions"
+                                         @updateQuestionMediaUploadDimensions="updateQuestionMediaUploadDimensions"
                                          @deleteQuestionMediaUpload="deleteQuestionMediaUpload"
                                          @updateQuestionTranscript="updateQuestionTranscript"
                                          @updateQtiJson="updateQtiJson"
@@ -4292,6 +4303,21 @@ export default {
     deleteQuestionMediaUpload (activeQuestionMediaUpload) {
       this.questionForm.media_uploads = this.questionForm.media_uploads.filter(item => item.s3_key !== activeQuestionMediaUpload.s3_key)
       this.questionMediaUploadKey++
+    },
+    updateQuestionMediaUploadDimensions ({ s3_key, width, height }) {
+      const mediaUpload = this.questionForm.media_uploads.find(item => item.s3_key === s3_key)
+      if (mediaUpload) {
+        mediaUpload.width = width
+        mediaUpload.height = height
+      }
+      this.questionMediaUploadKey++
+    },
+    updateQuestionMediaUploadNativeDimensions ({ s3_key, native_width, native_height }) {
+      const mediaUpload = this.questionForm.media_uploads.find(item => item.s3_key === s3_key)
+      if (mediaUpload) {
+        mediaUpload.native_width = native_width
+        mediaUpload.native_height = native_height
+      }
     },
     updateQuestionMediaUploads (questionMediaUpload) {
       if (this.qtiQuestionType === 'discuss_it') {

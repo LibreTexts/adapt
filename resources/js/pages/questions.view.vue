@@ -532,6 +532,7 @@
           <QtiJsonQuestionViewer
             :key="`qti-json-${currentPage}-${cacheIndex}-${questions[currentPage - 1].student_response}`"
             :qti-json="getQtiJson()['qtiJson']"
+            :media-uploads="questions[currentPage - 1].media_uploads"
             :student-response="questions[currentPage - 1].student_response"
             :show-submit="false"
             :submit-button-active="getQtiJson()['submitButtonActive']"
@@ -1266,6 +1267,7 @@
         />
         <div v-if="questions[currentPage - 1].qti_answer_json">
           <QtiJsonQuestionViewer :qti-json="questions[currentPage - 1].qti_answer_json"
+                                 :media-uploads="questions[currentPage - 1].media_uploads"
                                  :show-qti-answer="true"
                                  :show-submit="false"
                                  :show-response-feedback="false"
@@ -2791,6 +2793,7 @@
                       <QtiJsonQuestionViewer
                         :key="`qti-json-${currentPage}-${cacheIndex}-${questions[currentPage - 1].student_response}`"
                         :qti-json="getQtiJson()['qtiJson']"
+                        :media-uploads="questions[currentPage - 1].media_uploads"
                         :student-response="questions[currentPage - 1].student_response"
                         :show-submit="[2,3,5].includes(user.role)"
                         :submit-button-active="getQtiJson()['submitButtonActive']"
@@ -3173,6 +3176,7 @@
                               ref="qtiViewer"
                               :key="assessmentType === 'flashcard' ? 'flashcard' : `qti-json-${currentPage}-${cacheIndex}-${questions[currentPage - 1].student_response}`"
                               :qti-json="getQtiJson()['qtiJson']"
+                              :media-uploads="questions[currentPage - 1].media_uploads"
                               :student-response="questions[currentPage - 1].student_response"
                               :show-submit="[2,3,5].includes(user.role) && !isDiscussIt() && !isForge() && !isFlashcard() && (assessmentType !== 'clicker' || timeLeft>0)"
                               :submit-button-active="getQtiJson()['submitButtonActive']"
@@ -3636,6 +3640,7 @@
                   <QtiJsonQuestionViewer
                     :key="`qti-json-${currentPage}-${cacheIndex}-${questions[currentPage - 1].student_response}`"
                     :qti-json="getA11yQtiJson()['qtiJson']"
+                    :media-uploads="questions[currentPage - 1].media_uploads"
                     :student-response="questions[currentPage - 1].student_response"
                     :show-submit="false"
                     :submit-button-active="getA11yQtiJson()['submitButtonActive']"

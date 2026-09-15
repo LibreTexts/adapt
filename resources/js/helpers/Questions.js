@@ -47,11 +47,22 @@ export function create3DModelSrc (parameters) {
   return src
 }
 
-export function formatQuestionMediaPlayer (htmlString) {
+export function formatQuestionMediaPlayer (htmlString, mediaUploads = []) {
   const currentDomain = window.location.origin
   const regex = new RegExp(`<a\\s+href="${currentDomain}/question-media-player/([^"]+)">([^<]+)<\\/a>`, 'g')
   return htmlString.replace(regex, (match, url) => {
-    return `<iframe class="question-media-player" style="width: 1px;min-width: 100%;" frameborder="0" src="${currentDomain}/question-media-player/${url}"></iframe></div>`
+    // url is the s3_key (optionally followed by /startTime) - strip that off to look up the media item.
+    const s3Key = url.split('/')[0]
+    const mediaUpload = mediaUploads.find(item => item.s3_key === s3Key)
+
+    // Default behavior (unchanged): fill the available width in the question area.
+    // Custom size: an explicit pixel width the instructor dragged to, capped so it
+    // still shrinks to fit on narrow screens.
+    const wrapperStyle = mediaUpload && mediaUpload.width
+      ? `width: ${mediaUpload.width}px;max-width: 100%;margin: 0 auto;`
+      : 'width: 100%;'
+
+    return `<div class="question-media-player-wrapper" style="${wrapperStyle}"><iframe class="question-media-player" style="width: 1px;min-width: 100%;" frameborder="0" src="${currentDomain}/question-media-player/${url}"></iframe></div></div>`
   })
 }
 
@@ -297,4 +308,3 @@ export const openEndedSubmissionTypeOptions = [
   { value: 0, text: 'No submission, auto grading' },
   { value: 'no submission, manual grading', text: 'No submission, manual grading' }
 ]
-

@@ -3723,12 +3723,14 @@ class AssignmentSyncQuestionController extends Controller
                 $question_revision_ids[] = $question_revision->id;
             }
             $question_media_uploads = DB::table('question_media_uploads')
-                ->select('s3_key', 'show_captions')
+                ->select('question_id', 's3_key', 'original_filename', 'show_captions', 'width', 'height')
                 ->whereIn('question_revision_id', $question_revision_ids)
                 ->get();
             $show_captions = [];
+            $media_uploads_by_question_id = [];
             foreach ($question_media_uploads as $question_media_upload) {
                 $show_captions[$question_media_upload->s3_key] = $question_media_upload->show_captions;
+                $media_uploads_by_question_id[$question_media_upload->question_id][] = $question_media_upload;
             }
             session()->put('show_captions', $show_captions);
             //for current or upcoming assignments get pending question revisions
@@ -3777,6 +3779,7 @@ class AssignmentSyncQuestionController extends Controller
                 $assignment->questions[$key]['question_revision_id'] = isset($question_revisions_by_question_id[$question->id]) ? $question_revisions_by_question_id[$question->id]->id : null;
                 $assignment->questions[$key]['question_revision_number'] = isset($question_revisions_by_question_id[$question->id]) ? $question_revisions_by_question_id[$question->id]->revision_number : null;
                 $assignment->questions[$key]['question_revision_id_latest'] = $latest_question_revisions_by_question_id[$question->id] ?? null;
+                $assignment->questions[$key]['media_uploads'] = $media_uploads_by_question_id[$question->id] ?? [];
                 $assignment->questions[$key]['time_to_submit'] = isset($assignment_questions_by_question_id[$question->id]) ? $assignment_questions_by_question_id[$question->id]->custom_clicker_time_to_submit : null;
                 $assignment->questions[$key]['release_solution_when_question_is_closed'] = isset($assignment_questions_by_question_id[$question->id]) ? $assignment_questions_by_question_id[$question->id]->release_solution_when_question_is_closed : 0;
                 $assignment->questions[$key]['question_reason_for_edit'] = null;

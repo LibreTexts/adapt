@@ -105,7 +105,13 @@
              hide-footer
     >
       <b-row>
-        <div style="width:60%;margin:auto">
+        <div :style="{
+               width: (isVideo(activeMedia) && sizeWidth) ? sizeWidth + 'px' : '60%',
+               maxWidth: '100%',
+               margin: 'auto',
+               padding: '0 15px'
+             }"
+        >
           <iframe
             :key="`question-media-${questionMediaKey}`"
             v-resize="{ log: false }"
@@ -119,6 +125,50 @@
           />
         </div>
       </b-row>
+      <div v-if="isVideo(activeMedia)"
+           class="mb-3 mt-2 p-2"
+           style="border: 1px solid #dee2e6; border-radius: 6px; max-width: 60%; margin: 0 auto;"
+      >
+        <h6 class="mb-2">
+          Video Size
+        </h6>
+        <p class="text-muted mb-2" style="font-size: 0.85em">
+          By default the video expands to fill the available width in the question. Set a width to
+          constrain it instead — it will never display larger than this, but will still shrink to fit
+          on narrow screens.
+        </p>
+        <b-form-checkbox v-model="sizeMaintainAspectRatio" class="mb-2">
+          Maintain aspect ratio
+        </b-form-checkbox>
+        <b-form-row>
+          <b-col>
+            <b-form-group label="Width (px)" label-for="media-size-width">
+              <b-form-input id="media-size-width"
+                            v-model.number="sizeWidth"
+                            type="number"
+                            min="1"
+                            @input="onSizeWidthInput"
+              />
+            </b-form-group>
+          </b-col>
+          <b-col>
+            <b-form-group label="Height (px)" label-for="media-size-height">
+              <b-form-input id="media-size-height"
+                            v-model.number="sizeHeight"
+                            type="number"
+                            min="1"
+                            @input="onSizeHeightInput"
+              />
+            </b-form-group>
+          </b-col>
+        </b-form-row>
+        <b-button size="sm" class="mr-2" @click="resetMediaSize">
+          Reset to Fill
+        </b-button>
+        <b-button size="sm" variant="primary" @click="saveMediaSize">
+          Apply Size
+        </b-button>
+      </div>
       <div v-if="needsTranscript(activeMedia)">
         <Transcript :model="'QuestionMediaUpload'"
                     :active-transcript="activeTranscript"
@@ -283,7 +333,7 @@
             <span v-show="needsTranscript(mediaUpload)">
                 <b-icon :id="getTooltipTarget('editCaptions',mediaUpload.s3_key)"
                         icon="pencil"
-                        :aria-label="`Edit question transcription`"
+                        :aria-label="isVideo(mediaUpload) ? 'Edit video size' : 'Edit question transcription'"
                         style="cursor: pointer;"
                         class="mr-1"
                         @click="showQuestionMedia(mediaUpload)"
@@ -292,7 +342,7 @@
                            triggers="hover"
                            delay="500"
                 >
-                  Edit transcript for {{ mediaUpload.original_filename }}
+                  {{ isVideo(mediaUpload) ? 'Edit Video Size' : 'View Video' }}
                 </b-tooltip>
                 <span v-show="mediaUpload.id && mediaUpload.transcript">
                   <a v-show="false"
@@ -441,13 +491,18 @@ export default {
     modalId: '',
     activeMedia: {},
     activeTranscript: [],
-    orderedMediaUploads: []
+    orderedMediaUploads: [],
+    sizeWidth: null,
+    sizeHeight: null,
+    sizeMaintainAspectRatio: true,
+    sizeRatio: null
   }),
   mounted () {
     this.modalId = uuidv4()
     this.orderedMediaUploads = this.isDiscussIt
       ? this.mediaUploads.sort((a, b) => a.order - b.order)
       : this.mediaUploads
+    this.backfillNativeDimensions()
 
     if (this.questionMediaUploadId) {
       this.autoOpenTranscript()
@@ -471,6 +526,86 @@ export default {
     },
     hideMediaModal () {
       this.$bvModal.hide('modal-question-media')
+    },
+    onSizeWidthInput () {
+      if (this.sizeMaintainAspectRatio && this.sizeRatio && this.sizeWidth) {
+        this.sizeHeight = Math.round(this.sizeWidth / this.sizeRatio)
+      } else if (this.sizeWidth && this.sizeHeight) {
+        this.sizeRatio = this.sizeWidth / this.sizeHeight
+      }
+    },
+    onSizeHeightInput () {
+      if (this.sizeMaintainAspectRatio && this.sizeRatio && this.sizeHeight) {
+        this.sizeWidth = Math.round(this.sizeHeight * this.sizeRatio)
+      } else if (this.sizeWidth && this.sizeHeight) {
+        this.sizeRatio = this.sizeWidth / this.sizeHeight
+      }
+    },
+    resetMediaSize () {
+      this.sizeWidth = null
+      this.sizeHeight = null
+      this.saveMediaSize()
+    },
+    saveMediaSize () {
+      const width = this.sizeWidth || null
+      const height = this.sizeHeight || null
+      this.activeMedia.width = width
+      this.activeMedia.height = height
+      this.$emit('updateQuestionMediaUploadDimensions', { s3_key: this.activeMedia.s3_key, width, height })
+      this.$noty.success(width
+        ? `${this.activeMedia.original_filename} will display at ${width}px wide once you save the question.`
+        : `${this.activeMedia.original_filename} will fill the question area once you save the question.`)
+    },
+    isVideo (mediaUpload) {
+      return /\.mp4$/i.test(mediaUpload.original_filename || '')
+    },
+    // Reads intrinsic width/height off a playable video URL (blob: or a signed
+    // S3 URL) without ever attaching it to the DOM or playing it.
+    probeVideoDimensions (src) {
+      return new Promise((resolve) => {
+        const probe = document.createElement('video')
+        probe.preload = 'metadata'
+        probe.onloadedmetadata = () => resolve({ width: probe.videoWidth, height: probe.videoHeight })
+        probe.onerror = () => resolve(null)
+        probe.src = src
+      })
+    },
+    async detectVideoDimensions (newFile) {
+      const dims = await this.probeVideoDimensions(newFile.blob)
+      if (dims) {
+        newFile.native_width = dims.width
+        newFile.native_height = dims.height
+      }
+    },
+    async fetchTemporaryUrl (s3Key) {
+      try {
+        const { data } = await axios.patch('/api/question-media/temporary-urls', {
+          question_media_uploads: [{ s3_key: s3Key }]
+        })
+        return data && data.type === 'success' ? (data.question_media_uploads[0] || {}).temporary_url : null
+      } catch (error) {
+        console.error(error)
+        return null
+      }
+    },
+    // For media saved before native dimensions were being captured: fetch a
+    // signed URL and probe it once, then persist the result via an emit so
+    // this never has to happen again for that file.
+    async backfillNativeDimensions () {
+      const missing = this.mediaUploads.filter(item => this.isVideo(item) && (!item.native_width || !item.native_height))
+      for (const item of missing) {
+        const temporaryUrl = await this.fetchTemporaryUrl(item.s3_key)
+        if (!temporaryUrl) continue
+        const dims = await this.probeVideoDimensions(temporaryUrl)
+        if (!dims) continue
+        item.native_width = dims.width
+        item.native_height = dims.height
+        this.$emit('updateQuestionMediaUploadNativeDimensions', {
+          s3_key: item.s3_key,
+          native_width: dims.width,
+          native_height: dims.height
+        })
+      }
     },
     updateQuestionMediaUploadsOrder () {
       for (let i = 0; i < this.orderedMediaUploads.length; i++) {
@@ -530,7 +665,7 @@ export default {
     needsTranscript (activeMedia) {
       return activeMedia.original_filename && !activeMedia.original_filename.endsWith('.pdf')
     },
-    showQuestionMedia (activeMedia) {
+    async showQuestionMedia (activeMedia) {
       this.activeMedia = activeMedia
       if (activeMedia.text) {
         this.$emit('editDiscussItText', activeMedia)
@@ -540,6 +675,27 @@ export default {
         if (this.needsTranscript(activeMedia)) {
           this.$bvModal.show('modal-question-media')
         }
+      }
+      if (this.isVideo(activeMedia)) {
+        if (!activeMedia.native_width || !activeMedia.native_height) {
+          const temporaryUrl = await this.fetchTemporaryUrl(activeMedia.s3_key)
+          const dims = temporaryUrl ? await this.probeVideoDimensions(temporaryUrl) : null
+          if (dims) {
+            activeMedia.native_width = dims.width
+            activeMedia.native_height = dims.height
+            this.$emit('updateQuestionMediaUploadNativeDimensions', {
+              s3_key: activeMedia.s3_key,
+              native_width: dims.width,
+              native_height: dims.height
+            })
+          }
+        }
+        this.sizeWidth = activeMedia.width || null
+        this.sizeHeight = activeMedia.height || null
+        this.sizeMaintainAspectRatio = true
+        this.sizeRatio = (activeMedia.native_width && activeMedia.native_height)
+          ? activeMedia.native_width / activeMedia.native_height
+          : (this.sizeWidth && this.sizeHeight ? this.sizeWidth / this.sizeHeight : null)
       }
     },
     initStartUpload (fileUploadRef) {
@@ -610,6 +766,9 @@ export default {
       if (URL && URL.createObjectURL) {
         newFile.blob = URL.createObjectURL(newFile.file)
       }
+      if (newFile.blob && /\.mp4$/i.test(newFile.name)) {
+        await this.detectVideoDimensions(newFile)
+      }
       console.log(newFile.blob)
     },
     inputFile (newFile, oldFile) {
@@ -648,7 +807,11 @@ export default {
           size: this.files[0].size,
           s3_key: this.questionMediaUpload.question_media_filename,
           url: this.questionMediaUpload.url,
-          transcript: ''
+          transcript: '',
+          native_width: newFile.native_width || null,
+          native_height: newFile.native_height || null,
+          width: null,
+          height: null
         })
       } else {
         this.validateVTTFile()
