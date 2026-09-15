@@ -24,11 +24,11 @@
       if (event.data.method === 'load') {
         const sketcher = document.getElementById('sketcher')
         await sketcher.load(event.data.structure)
-        if (event.data.style) {
-          await sketcher.set_props({
-            style: event.data.style
-          })
-        }
+        //if (event.data.style) {
+          //await sketcher.set_props({
+           // style: event.data.style
+          //})
+       // }
       }
     }
   </script>
