@@ -618,18 +618,29 @@
                   </b-alert>
                 </div>
                 <div v-if="assignmentTemplateOptions.length">
-                  <b-form-select
-                    id="assignment_template"
-                    v-model="assignmentTemplate"
-                    style="width:400px"
-                    class="mt-2"
-                    size="sm"
-                    :options="assignmentTemplateOptions"
-                  />
+                  <div class="d-flex align-items-center">
+                    <b-form-select
+                      id="assignment_template"
+                      v-model="assignmentTemplate"
+                      style="width:400px"
+                      class="mt-2"
+                      size="sm"
+                      :options="assignmentTemplateOptions"
+                    />
+                    <QuestionCircleTooltip id="assignment-template-tooltip" class="ml-2 mt-2" />
+                    <b-tooltip target="assignment-template-tooltip"
+                               delay="250"
+                               triggers="hover focus"
+                    >
+                      Choose from one one of your assigment templates and ADAPT will create an assignment
+                      using the name from Canvas and the assignment properties from your template.
+                    </b-tooltip>
+                  </div>
+
                   <input type="hidden" class="form-control is-invalid">
                   <span v-if="importTemplate === 'qti'" class="help-block invalid-feedback">
-                    {{ qtiUploadFormErrors.assignment_template }}
-                  </span>
+    {{ qtiUploadFormErrors.assignment_template }}
+  </span>
                 </div>
               </b-col>
             </b-form-row>
