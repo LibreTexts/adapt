@@ -1170,27 +1170,49 @@ class AssignmentSyncQuestionController extends Controller
                     $discuss_it_question_ids[] = $discuss_it_question->id;
                 }
             }
-            $submitted_file_infos = DB::table('submission_files')
-                ->where('assignment_id', $assignment->id)
-                ->where('user_id', $request->user()->id)
-                ->get();
-            $submitted_file_infos_by_question_id = [];
-            foreach ($submitted_file_infos as $submitted_file_info) {
-                $submitted_file_infos_by_question_id[$submitted_file_info->question_id] = $submitted_file_info;
-            }
 
+            $discussionComment = new DiscussionComment();
+            $user_id = $request->user()->id;
             $discuss_it_question_info = [];
+
             foreach ($discuss_it_question_ids as $discuss_it_question_id) {
-                $submitted_file_info = $submitted_file_infos_by_question_id[$discuss_it_question_id] ?? null;
-                $last_submitted = $submitted_file_info
-                    ? $this->convertUTCMysqlFormattedDateToHumanReadableLocalDateAndTime(
-                        $submitted_file_info->date_submitted,
-                        $request->user()->time_zone, 'M d, Y g:i:s a')
-                    : 'Not yet fully submitted';
-                $score = $submitted_file_info ? Helper::removeZerosAfterDecimal($submitted_file_info->score) : 'N/A';
+                $discuss_it_settings = json_decode($assignmentSyncQuestion->discussItSettings($assignment->id, $discuss_it_question_id));
+                $satisfied_requirements = $discussionComment->satisfiedRequirements(
+                    $assignment,
+                    $discuss_it_question_id,
+                    $user_id,
+                    $assignmentSyncQuestion
+                );
+
+                $comment_dates = DB::table('discussion_comments')
+                    ->join('discussions', 'discussion_comments.discussion_id', '=', 'discussions.id')
+                    ->where('discussions.assignment_id', $assignment->id)
+                    ->where('discussions.question_id', $discuss_it_question_id)
+                    ->where('discussion_comments.user_id', $user_id)
+                    ->max('discussion_comments.created_at');
+
+                $has_any_comment = (bool)$comment_dates;
+                $satisfied_all_requirements = $satisfied_requirements['satisfied_all_requirements'];
+
+                if ($satisfied_all_requirements) {
+                    if (+$discuss_it_settings->auto_grade === 1) {
+                        // auto-graded: trust the submission_files date since a scored row is guaranteed to exist
+                        $last_submitted = $satisfied_requirements['submission_summary']['date_submitted'] !== 'N/A'
+                            ? $satisfied_requirements['submission_summary']['date_submitted']
+                            : $this->convertUTCMysqlFormattedDateToHumanReadableLocalDateAndTime($comment_dates, $request->user()->time_zone, 'M d, Y g:i:s a');
+                    } else {
+                        // manually graded: no submission_files row is guaranteed, so derive completion from their comments
+                        $last_submitted = $this->convertUTCMysqlFormattedDateToHumanReadableLocalDateAndTime($comment_dates, $request->user()->time_zone, 'M d, Y g:i:s a');
+                    }
+                } elseif ($has_any_comment) {
+                    $last_submitted = 'Partial';
+                } else {
+                    $last_submitted = 'Nothing submitted yet.';
+                }
+
                 $discuss_it_question_info[] = ['id' => $discuss_it_question_id,
                     'last_submitted' => $last_submitted,
-                    'total_score' => $score];
+                    'total_score' => $satisfied_requirements['submission_summary']['score']];
             }
             $response['discuss_it_question_info'] = $discuss_it_question_info;
             $response['type'] = 'success';
