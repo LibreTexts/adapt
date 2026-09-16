@@ -158,6 +158,12 @@ export default {
               value: this.$moment(this.assignment.assign_tos[0].final_submission_deadline, 'YYYY-MM-DD HH:mm:ss A').format('M/D/YY h:mm A')
             })
           }
+          if (this.assignment.assign_tos[0].time_limit) {
+            this.items.push({
+              property: 'Time Limit',
+              value: `${this.assignment.assign_tos[0].time_limit} once started`
+            })
+          }
         }
         this.items.push(
           { property: 'Assessment Type', value: _.startCase(this.assignment.assessment_type) }

@@ -69,7 +69,15 @@ trait GeneralSubmissionPolicy
          * return $response;
          * }**/
 
-        if ($assignment->course->ownsCourseOrIsCoInstructor($user->id)
+        // Fake students are meant to experience an assignment exactly like a
+        // real student would - including the time limit below - so an
+        // instructor can preview the timed-out experience. Logged in as
+        // their own Fake Student, ownsCourseOrIsCoInstructor($user->id) is
+        // still true, which was silently bypassing everything below
+        // (including the time-limit check) before it ever ran. Carved out
+        // here the same way fake_student is already excluded from the
+        // comparable bypass in AssignmentPolicy.
+        if (($assignment->course->ownsCourseOrIsCoInstructor($user->id) && !$user->fake_student)
             || $user->role === 5
             || $assignment->formative
             || $assignment->course->formative
@@ -140,6 +148,45 @@ trait GeneralSubmissionPolicy
             $response['message'] = 'No responses will be saved since the assignment is `not` part of your course.';
             return $response;
         }
+
+        // Deliberately checked before the instructor_user_id ("logged in as
+        // student") bypass below: that bypass exists so instructors can freely
+        // test past due dates/late policy, but the personal time limit should
+        // still be enforced under Fake Student / student-view impersonation -
+        // otherwise there's no way to actually test the timed-out experience.
+        $timing_start = null;
+        if ($assign_to_timing->time_limit) {
+            $timing_start = DB::table('assign_to_timing_starts')
+                ->where('assign_to_timing_id', $assign_to_timing->id)
+                ->where('user_id', $user->id)
+                ->first();
+
+            $window_is_open = strtotime($available_from) <= time() && strtotime($due) >= time();
+
+            // A real student who never started gets the normal late-policy
+            // fallthrough below once the window closes - no timer, but not
+            // blocked either. A fake student is exempt from that leniency:
+            // since start() lets them begin the timer past due specifically
+            // so instructors can test the timed-out experience, they must
+            // still be required to actually start it first, the same as if
+            // the window were open.
+            $past_due_already = strtotime($due) < time();
+            if ((!$timing_start || !$timing_start->started_at)
+                && ($window_is_open || ($user->fake_student && $past_due_already))) {
+                $response['message'] = 'No responses will be saved since you have not started the timer for this assignment.';
+                return $response;
+            }
+            if ($timing_start && $timing_start->started_at && time() > strtotime($timing_start->expires_at)) {
+                $response['message'] = 'No responses will be saved since your time limit for this assignment has expired.';
+                return $response;
+            }
+            // Never started and the window has since closed (before
+            // available_from, or past due) - deliberately falls through to
+            // the normal available-from/due-date handling below rather than
+            // reporting "not started", since the real reason it's closed is
+            // the window, not the personal timer.
+        }
+
         if ($user->instructor_user_id) {
             //logged in as student
             $response['type'] = 'success';
@@ -187,6 +234,19 @@ trait GeneralSubmissionPolicy
                 }
                 break;
             case(true):
+                if ($assign_to_timing->time_limit
+                    && $timing_start
+                    && $timing_start->started_at
+                    && time() <= strtotime($timing_start->expires_at)) {
+                    // Their personal timer is still running past the group's
+                    // due date - the only way that happens is an instructor
+                    // deliberately extending it (addTime/setTime can push
+                    // expires_at past due; automatic starts never do). Let
+                    // that override stand rather than blocking on the
+                    // general due date underneath it.
+                    $response['type'] = 'success';
+                    return $response;
+                }
                 if (DB::table('assignment_level_overrides')
                     ->where('assignment_id', $assignment_id)
                     ->where('user_id', $user->id)

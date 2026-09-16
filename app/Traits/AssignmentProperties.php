@@ -14,6 +14,7 @@ use App\Section;
 use App\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 trait AssignmentProperties
 
@@ -267,19 +268,39 @@ trait AssignmentProperties
     {
 
 
-        $assign_to_timings = AssignToTiming::where('assignment_id', $assignment->id)->get();
-        if ($assign_to_timings->isNotEmpty()) {
-            //remove the old ones
-            foreach ($assign_to_timings as $assign_to_timing) {
+        // Positional snapshot of the existing rows, taken before anything is
+        // deleted, so we can tell afterward whether a given assign-to group's
+        // dates/time_limit/assigned groups actually changed. Matched by array
+        // position, same assumption StoreAssignmentProperties already relies
+        // on for due_$key/available_from_$key/etc.
+        $old_assign_to_timings = AssignToTiming::where('assignment_id', $assignment->id)
+            ->orderBy('id')
+            ->get()
+            ->values();
+
+        // Capture each old timing's assigned group signature before its
+        // AssignToGroup rows are deleted below - needed to tell whether the
+        // set of sections/users/course assigned to this position changed,
+        // not just its dates/time_limit.
+        $old_group_signatures = [];
+        foreach ($old_assign_to_timings as $key => $assign_to_timing) {
+            $old_group_signatures[$key] = $this->groupSignatureFromDb($assign_to_timing->id);
+        }
+
+        if ($old_assign_to_timings->isNotEmpty()) {
+            //remove the old groups/users - these are always fully rebuilt
+            //below regardless of whether anything changed, so there's
+            //nothing to preserve here beyond the signature already captured
+            //above.
+            foreach ($old_assign_to_timings as $assign_to_timing) {
                 AssignToGroup::where('assign_to_timing_id', $assign_to_timing->id)->delete();
                 AssignToUser::where('assign_to_timing_id', $assign_to_timing->id)->delete();
-                $assign_to_timing->delete();
             }
         }
 
         $assign_to_timings = [];
 
-        foreach ($assign_tos as $assign_to) {
+        foreach ($assign_tos as $key => $assign_to) {
             $assignToTiming = new AssignToTiming();
             $assignToTiming->assignment_id = $assignment->id;
             $assignToTiming->available_from = $this->formatDateFromRequest($assign_to['available_from_date'], $assign_to['available_from_time'], $user);
@@ -287,8 +308,41 @@ trait AssignmentProperties
             $assignToTiming->final_submission_deadline = $assignment->late_policy !== 'not accepted'
                 ? $this->formatDateFromRequest($assign_to['final_submission_deadline_date'], $assign_to['final_submission_deadline_time'], $user)
                 : null;
+            $assignToTiming->time_limit = $assign_to['time_limit'] ?? null;
             $assignToTiming->save();
             $assign_to_timings[] = $assignToTiming->id;
+
+            // If this same position's group has identical dates/time_limit
+            // AND the identical set of assigned sections/users/course to what
+            // was there before, carry over the old timing-start rows
+            // (started_at/expires_at/etc.) onto the new row's id, rather than
+            // letting them get deleted with the old row below - an unrelated
+            // edit elsewhere in the form (or just re-saving unchanged)
+            // shouldn't silently reset a student's already-running clock.
+            // But if who's actually assigned here changed, the old progress
+            // no longer clearly belongs to this position, so it's not carried
+            // forward.
+            $old_assign_to_timing = $old_assign_to_timings->get($key);
+            if ($old_assign_to_timing
+                && (string)$old_assign_to_timing->available_from === (string)$assignToTiming->available_from
+                && (string)$old_assign_to_timing->due === (string)$assignToTiming->due
+                && (string)$old_assign_to_timing->final_submission_deadline === (string)$assignToTiming->final_submission_deadline
+                && (string)$old_assign_to_timing->time_limit === (string)$assignToTiming->time_limit
+                && $old_group_signatures[$key] === $this->groupSignatureFromRequest($assign_to['groups'])) {
+                DB::table('assign_to_timing_starts')
+                    ->where('assign_to_timing_id', $old_assign_to_timing->id)
+                    ->update(['assign_to_timing_id' => $assignToTiming->id]);
+            }
+        }
+
+        // Now safe to remove the old timing rows - any assign_to_timing_starts
+        // rows worth keeping have already been migrated onto their new
+        // replacement above; whatever's left genuinely belonged to a group
+        // that changed or was removed, so it's deleted explicitly here
+        // rather than relying on a database cascade.
+        foreach ($old_assign_to_timings as $assign_to_timing) {
+            DB::table('assign_to_timing_starts')->where('assign_to_timing_id', $assign_to_timing->id)->delete();
+            $assign_to_timing->delete();
         }
         $assigned_users = [];
         $enrolled_users_by_course = $assignment->course->enrolledUsersWithFakeStudent->pluck('id')->toArray();
@@ -335,6 +389,51 @@ trait AssignmentProperties
             }
         }
 
+    }
+
+    /**
+     * Normalized, order-independent signature of who an assign-to group
+     * currently targets, read from the database (AssignToGroup rows) -
+     * comparable against groupSignatureFromRequest() for the same position.
+     *
+     * @param int $assign_to_timing_id
+     * @return string
+     */
+    function groupSignatureFromDb(int $assign_to_timing_id): string
+    {
+        $rows = DB::table('assign_to_groups')
+            ->where('assign_to_timing_id', $assign_to_timing_id)
+            ->get(['group', 'group_id']);
+        $signature = [];
+        foreach ($rows as $row) {
+            $signature[] = "{$row->group}:{$row->group_id}";
+        }
+        sort($signature);
+        return implode(',', $signature);
+    }
+
+    /**
+     * Same signature shape as groupSignatureFromDb(), built instead from a
+     * submitted assign_to's raw 'groups' array (the request shape, before
+     * it's been persisted as AssignToGroup rows).
+     *
+     * @param array $groups
+     * @return string
+     */
+    function groupSignatureFromRequest(array $groups): string
+    {
+        $signature = [];
+        foreach ($groups as $group) {
+            if (isset($group['value']['user_id'])) {
+                $signature[] = 'user:' . $group['value']['user_id'];
+            } elseif (isset($group['value']['section_id'])) {
+                $signature[] = 'section:' . $group['value']['section_id'];
+            } elseif (isset($group['value']['course_id'])) {
+                $signature[] = 'course:' . $group['value']['course_id'];
+            }
+        }
+        sort($signature);
+        return implode(',', $signature);
     }
 
     function saveAssignToUser(int $user_id, int $assign_to_timing_id)

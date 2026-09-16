@@ -1284,6 +1284,21 @@
                 icon="tree"
                 variant="success"
               />
+              <span v-if="assignmentTimeLimits(assignment).length" :id="`time-limit-tooltip-${assignment.id}`" class="mr-1" style="color: #0f6674;" aria-label="This assignment has a time limit">
+                <b-icon icon="stopwatch" font-scale="1.1"/>
+              </span>
+              <b-tooltip v-if="assignmentTimeLimits(assignment).length" :target="`time-limit-tooltip-${assignment.id}`"
+                         delay="250"
+                         triggers="hover focus"
+                         custom-class="time-limit-tooltip"
+              >
+                <span v-if="assignmentTimeLimitSecondsList(assignment).length === 1">
+                  Time limit: {{ formatSecondsAsHms(assignmentTimeLimitSecondsList(assignment)[0]) }}.
+                </span>
+                <span v-else>
+                  Time limit varies by assign-to group - click View for each group's timing.
+                </span>
+              </b-tooltip>
               <router-link v-if="assignment.source !== 'x'"
                            :to="{ name: 'instructors.assignments.questions',params:{assignmentId:assignment.id}}"
               >
@@ -1990,6 +2005,34 @@ export default {
     showAssignTos (assignment) {
       return !this.isFormative(assignment) && assignment.assessment_type !== 'clicker'
     },
+    assignmentTimeLimits (assignment) {
+      if (!assignment.assign_tos || !assignment.assign_tos.length) {
+        return []
+      }
+      const limits = assignment.assign_tos
+        .map(assignTo => assignTo.time_limit)
+        .filter(timeLimit => Boolean(timeLimit))
+      return [...new Set(limits)]
+    },
+    assignmentTimeLimitSecondsList (assignment) {
+      if (!assignment.assign_tos || !assignment.assign_tos.length) {
+        return []
+      }
+      const seconds = assignment.assign_tos
+        .map(assignTo => assignTo.time_limit_seconds)
+        .filter(timeLimitSeconds => Boolean(timeLimitSeconds))
+      return [...new Set(seconds)]
+    },
+    formatSecondsAsHms (totalSeconds) {
+      const hours = Math.floor(totalSeconds / 3600)
+      const minutes = Math.floor((totalSeconds % 3600) / 60)
+      const seconds = totalSeconds % 60
+      const parts = []
+      if (hours > 0) parts.push(`${hours} hour${hours === 1 ? '' : 's'}`)
+      if (minutes > 0) parts.push(`${minutes} minute${minutes === 1 ? '' : 's'}`)
+      if (seconds > 0 || parts.length === 0) parts.push(`${seconds} second${seconds === 1 ? '' : 's'}`)
+      return parts.join(', ')
+    },
     async alreadyUpdatedCanvas (property) {
       try {
         const { data } = await axios.patch(`/api/canvas-api/course/${this.courseId}/${property}/already-updated`)
@@ -2557,6 +2600,11 @@ What assignment parameters??? */
 <style>
 svg:focus, svg:active:focus {
   outline: none !important;
+}
+
+.time-limit-tooltip .tooltip-inner {
+  text-align: left;
+  max-width: 240px;
 }
 
 .header-high-z-index table thead tr th {

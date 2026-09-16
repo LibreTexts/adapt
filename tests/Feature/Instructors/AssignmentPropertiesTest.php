@@ -3,6 +3,7 @@
 namespace Tests\Feature\Instructors;
 
 use App\Assignment;
+use App\AssignToTiming;
 use App\Course;
 use App\Enrollment;
 use App\LearningTree;
@@ -120,6 +121,26 @@ class AssignmentPropertiesTest extends TestCase
         $this->actingAs($this->user)->postJson("/api/assignments/{$this->assignment->id}/validate-assessment-type",
             ['assessment_type' => 'learning tree'])
             ->assertJson(['message' => "You can't switch to a learning tree assessment type since this is not a learning tree assignment and you already have non-learning tree questions."]);
+    }
+
+    /** @test */
+    public function time_limit_is_included_in_the_assignment_summary_for_the_instructor()
+    {
+        AssignToTiming::where('assignment_id', $this->assignment->id)->update(['time_limit' => '2 minutes']);
+
+        $response['assignment']['assign_tos'][0]['time_limit'] = '2 minutes';
+        $this->actingAs($this->user)->getJson("/api/assignments/{$this->assignment->id}/summary")
+            ->assertJson($response);
+    }
+
+    /** @test */
+    public function time_limit_is_included_when_listing_assignments_for_the_instructor()
+    {
+        AssignToTiming::where('assignment_id', $this->assignment->id)->update(['time_limit' => '90 seconds']);
+
+        $expected['assignments'][0]['assign_tos'][0]['time_limit'] = '90 seconds';
+        $this->actingAs($this->user)->getJson("/api/assignments/courses/{$this->course->id}")
+            ->assertJson($expected);
     }
 
 

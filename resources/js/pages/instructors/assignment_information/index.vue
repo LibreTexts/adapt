@@ -215,8 +215,8 @@ export default {
         },
         {
           icon: '',
-          name: 'Submission Overrides',
-          route: 'instructors.assignments.submission_overrides'
+          name: 'Overrides',
+          route: 'instructors.assignments.overrides'
         },
         {
           icon: '',

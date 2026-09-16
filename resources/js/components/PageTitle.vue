@@ -28,6 +28,9 @@
             icon="tree"
             variant="success"
           />
+          <span v-if="hasTimeLimit" style="color: #0f6674;" aria-label="This assignment has a time limit">
+            <b-icon icon="stopwatch"/>
+          </span>
           {{ title }}
           <CustomTitle v-if="title && showPencil"
                        :assignment-id="assignmentId"
@@ -158,6 +161,10 @@ export default {
     assessmentType: {
       type: String,
       default: ''
+    },
+    hasTimeLimit: {
+      type: Boolean,
+      default: false
     }
   },
   data: () => ({

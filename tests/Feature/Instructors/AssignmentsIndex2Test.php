@@ -871,5 +871,98 @@ class AssignmentsIndex2Test extends TestCase
             ->assertJsonValidationErrors(['available_from_time_0']);
     }
 
+    /** @test */
+    public function can_create_an_assignment_with_a_time_limit()
+    {
+        $assignment_info = $this->assignment_info;
+        $assignment_info['time_limit_0'] = '2 minutes';
+        $assignment_info['assign_tos'][0]['time_limit'] = '2 minutes';
+
+        $this->actingAs($this->user)->postJson("/api/assignments", $assignment_info)
+            ->assertJson(['type' => 'success']);
+
+        $assignment_id = DB::table('assignments')->select('id')->orderBy('id', 'desc')->first()->id;
+        $assign_to_timing = AssignToTiming::where('assignment_id', $assignment_id)->first();
+        $this->assertEquals('2 minutes', $assign_to_timing->time_limit);
+    }
+
+    /** @test */
+    public function time_limit_is_optional_when_creating_an_assignment()
+    {
+        // $this->assignment_info never sets a time_limit_0 key.
+        $this->actingAs($this->user)->postJson("/api/assignments", $this->assignment_info)
+            ->assertJson(['type' => 'success']);
+
+        $assignment_id = DB::table('assignments')->select('id')->orderBy('id', 'desc')->first()->id;
+        $assign_to_timing = AssignToTiming::where('assignment_id', $assignment_id)->first();
+        $this->assertNull($assign_to_timing->time_limit);
+    }
+
+    /** @test */
+    public function invalid_time_limit_fails_validation()
+    {
+        // NOTE: written against the assumption that IsValidPeriodOfTime rejects
+        // a string CarbonInterval::make() can't parse, matching how it's used
+        // for late_deduction_application_period/default_clicker_time_to_submit
+        // elsewhere. Confirm/adjust once run against the real rule.
+        $assignment_info = $this->assignment_info;
+        $assignment_info['time_limit_0'] = 'not a real duration';
+
+        $this->actingAs($this->user)->postJson("/api/assignments", $assignment_info)
+            ->assertJsonValidationErrors(['time_limit_0']);
+    }
+
+    /** @test */
+    public function each_assign_to_group_can_have_its_own_time_limit()
+    {
+        $assignment_info = $this->assignment_info;
+        $assignment_info['assign_tos'] = [
+            [
+                'groups' => [['value' => ['section_id' => $this->section->id], 'text' => $this->section->name]],
+                'available_from' => '2020-06-10 09:00:00',
+                'available_from_date' => '2020-06-10',
+                'available_from_time' => '9:00 AM',
+                'due' => '2020-06-12 09:00:00',
+                'due_date' => '2020-06-12',
+                'due_time' => '9:00 AM',
+                'time_limit' => '1 hour',
+            ],
+            [
+                'groups' => [['value' => ['course_id' => $this->course->id], 'text' => 'Everybody']],
+                'available_from' => '2020-06-10 09:00:00',
+                'available_from_date' => '2020-06-10',
+                'available_from_time' => '9:00 AM',
+                'due' => '2020-06-12 09:00:00',
+                'due_date' => '2020-06-12',
+                'due_time' => '9:00 AM',
+            ],
+        ];
+        $assignment_info['groups_0'] = [['value' => ['section_id' => $this->section->id], 'text' => $this->section->name]];
+        $assignment_info['available_from_date_0'] = '2020-06-10';
+        $assignment_info['available_from_time_0'] = '9:00 AM';
+        $assignment_info['available_from_0'] = '2020-06-10';
+        $assignment_info['due_date_0'] = '2020-06-12';
+        $assignment_info['due_time_0'] = '9:00 AM';
+        $assignment_info['due_0'] = '2020-06-12 09:00:00';
+        $assignment_info['time_limit_0'] = '1 hour';
+
+        $assignment_info['groups_1'] = [['value' => ['course_id' => $this->course->id], 'text' => 'Everybody']];
+        $assignment_info['available_from_date_1'] = '2020-06-10';
+        $assignment_info['available_from_time_1'] = '9:00 AM';
+        $assignment_info['available_from_1'] = '2020-06-10';
+        $assignment_info['due_date_1'] = '2020-06-12';
+        $assignment_info['due_time_1'] = '9:00 AM';
+        $assignment_info['due_1'] = '2020-06-12 09:00:00';
+
+        $this->actingAs($this->user)->postJson("/api/assignments", $assignment_info)
+            ->assertJson(['type' => 'success']);
+
+        $assignment_id = DB::table('assignments')->select('id')->orderBy('id', 'desc')->first()->id;
+        $assign_to_timings = AssignToTiming::where('assignment_id', $assignment_id)->orderBy('id')->get();
+        $this->assertCount(2, $assign_to_timings);
+        $this->assertEquals('1 hour', $assign_to_timings[0]->time_limit);
+        $this->assertNull($assign_to_timings[1]->time_limit);
+    }
+
 
 }

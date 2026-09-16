@@ -19,6 +19,7 @@ use App\Rules\IsValidPeriodOfTime;
 use App\Rules\IsADateLaterThan;
 use App\Rules\IsValidAssesmentTypeForScoringType;
 use App\Rules\SubmittedWorkFormatRule;
+use App\Rules\TimeLimitCannotBeChangedOnceStarted;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -174,6 +175,23 @@ class StoreAssignmentProperties extends FormRequest
                     $rules['available_from_time_' . $key] = 'required|date_format:g:i A';
                     $rules['due_time_' . $key] = 'required|date_format:g:i A';
                     $rules['groups_' . $key] = 'required';
+                    // Personal time limit is optional per assign-to group, so
+                    // only validate its format/bounds when one was actually set -
+                    // no `required` here, unlike the fields above.
+                    $rules['time_limit_' . $key] = [];
+                    if ($this->{'time_limit_' . $key}) {
+                        $rules['time_limit_' . $key][] = new IsValidPeriodOfTime();
+                    }
+                    // Unlike the format rule above, this has to run even when
+                    // the submitted value is empty/absent - removing an
+                    // existing time limit is exactly the kind of change this
+                    // is meant to block once a real student has started.
+                    if (!$this->is_template && $this->route()->getActionMethod() === 'update') {
+                        $rules['time_limit_' . $key][] = new TimeLimitCannotBeChangedOnceStarted(
+                            $this->route()->parameters()['assignment']->id,
+                            $key
+                        );
+                    }
                 }
             }
             switch ($this->source) {

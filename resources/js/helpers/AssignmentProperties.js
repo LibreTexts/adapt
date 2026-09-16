@@ -108,7 +108,9 @@ export function defaultAssignTos (moment, courseStartDate, courseEndDate) {
     due_date: moment().add(1, 'day').format('YYYY-MM-DD'),
     due_time: '9:00 AM',
     final_submission_deadline_date: moment(courseEndDate).format('YYYY-MM-DD'),
-    final_submission_deadline_time: '9:00 AM'
+    final_submission_deadline_time: '9:00 AM',
+    time_limit: null,
+    time_limit_locked: false
   }
 }
 
@@ -127,6 +129,7 @@ export function prepareForm (form) {
     form[`due_date_${i}`] = assignTo.due_date
     form[`due_time_${i}`] = assignTo.due_time
     form[`due_${i}`] = assignTo.due_date + ' ' + assignTo.due_time
+    form[`time_limit_${i}`] = assignTo.time_limit
   }
 }
 
@@ -255,6 +258,13 @@ export async function editAssignmentProperties (assignmentProperties, vm) {
     for (let i = 0; i < assignmentProperties.assign_tos.length; i++) {
       vm.form.assign_tos[i].groups = vm.form.assign_tos[i].formatted_groups
       vm.form.assign_tos[i].selectedGroup = null
+      // time_limit is a plain duration string (e.g. "1 hour"), not a
+      // time-of-day, so unlike available_from_time/due_time below it doesn't
+      // need reformatting - just needs to come through from the assign_to_timings
+      // row. Set explicitly here in case the backend's assign_tos response
+      // ever selects specific columns rather than spreading the whole row.
+      vm.form.assign_tos[i].time_limit = assignmentProperties.assign_tos[i].time_limit
+      vm.form.assign_tos[i].time_limit_locked = Boolean(assignmentProperties.assign_tos[i].time_limit_locked)
       if (vm.form.assign_tos[i].available_from_time) {
         vm.form.assign_tos[i].available_from_time = reformatTime(vm, vm.form.assign_tos[i].available_from_time)
       }

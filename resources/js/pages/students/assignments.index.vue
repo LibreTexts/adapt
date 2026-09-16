@@ -253,6 +253,15 @@
               <QuestionCircleTooltipModal :aria-label="'status-explained'" :modal-id="'modal-status'"/>
             </template>
             <template #cell(name)="data">
+              <span v-if="data.item.time_limit" :id="`time-limit-tooltip-${data.item.id}`" class="mr-1" style="color: #0f6674;" aria-label="This assignment has a time limit">
+                <b-icon icon="stopwatch" font-scale="1.1"/>
+              </span>
+              <b-tooltip v-if="data.item.time_limit" :target="`time-limit-tooltip-${data.item.id}`"
+                         delay="250"
+                         triggers="hover focus"
+              >
+                This assignment has a time limit of {{ data.item.time_limit }} once started.
+              </b-tooltip>
               <span v-show="data.item.is_available">
                 <a href="" @click.prevent="getAssignmentSummaryView(data.item)">{{ data.item.name }}</a>
               </span>

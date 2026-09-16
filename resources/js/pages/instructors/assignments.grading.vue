@@ -60,6 +60,95 @@
         and update the Open-Ended Submission Type to one of the manual options.
       </p>
     </b-modal>
+    <b-modal id="modal-manage-student-timer"
+             :title="`Manage Timer - ${grading.length ? grading[currentStudentPage - 1].student.name : ''}`"
+             hide-footer
+             @show="resetTimerModalInputs"
+    >
+      <p>
+        <span class="font-weight-bold">Time Limit:</span> {{ studentTimeLimitStatus.time_limit }}<br>
+        <span v-if="studentTimeLimitStatus.started_at">
+          <span class="font-weight-bold">Started:</span>
+          {{ $moment(studentTimeLimitStatus.started_at).format('M/D/YY h:mm A') }}<br>
+          <span class="font-weight-bold">Expires:</span>
+          {{ $moment(studentTimeLimitStatus.expires_at).format('M/D/YY h:mm A') }}
+          <span :class="studentTimeLimitStatus.seconds_left <= 0 ? 'text-danger' : 'text-success'">
+            (<countdown v-if="studentTimeLimitStatus.seconds_left > 0" :time="studentTimeLimitStatus.seconds_left * 1000" @end="getStudentTimeLimitStatus">
+              <template v-slot="props">{{ formattedCountdownText(props) }} remaining</template>
+            </countdown>
+            <template v-else>Expired</template>)
+          </span>
+        </span>
+        <span v-else>This student has not started the assignment yet.</span>
+      </p>
+      <hr>
+      <b-form-group label-size="sm">
+        <template #label>
+          Add minutes to the current clock
+          <QuestionCircleTooltip id="add-time-tooltip"/>
+          <b-tooltip target="add-time-tooltip" delay="250" triggers="hover focus">
+            Adds time to whatever's currently running. The fastest option for a quick, small extension - no need
+            to know or calculate the current total.
+          </b-tooltip>
+        </template>
+        <b-input-group>
+          <b-form-input v-model.number="minutesToAddForStudent" type="number" min="1" size="sm"/>
+          <b-input-group-append>
+            <b-button size="sm" variant="primary" :disabled="addingTimeForStudent || !studentTimeLimitStatus.started_at" @click="addTimeForStudent">
+              Add Time
+            </b-button>
+          </b-input-group-append>
+        </b-input-group>
+        <small v-if="!studentTimeLimitStatus.started_at" class="text-muted">
+          This student hasn't started yet, so there's no running clock to add time to. Use Set Time below to start
+          one on their behalf.
+        </small>
+      </b-form-group>
+      <b-form-group label-size="sm">
+        <template #label>
+          Set a new total duration (e.g. '1 hour', '90 seconds')
+          <QuestionCircleTooltip id="set-time-tooltip"/>
+          <b-tooltip target="set-time-tooltip" delay="250" triggers="hover focus">
+            Sets a brand-new total duration, replacing the current clock. If the student hasn't started yet, this
+            starts their clock immediately, right now - unlike Reset, it doesn't wait for them to click Start.
+          </b-tooltip>
+        </template>
+        <b-input-group>
+          <b-form-input v-model="newTimeLimitForStudent" type="text" size="sm" placeholder="e.g. 1 hour"
+                        :state="newTimeLimitForStudent ? looksLikeValidDuration(newTimeLimitForStudent) : null"
+          />
+          <b-input-group-append>
+            <b-button size="sm" variant="primary"
+                      :disabled="settingTimeForStudent || !newTimeLimitForStudent || !looksLikeValidDuration(newTimeLimitForStudent)"
+                      @click="setTimeForStudent"
+            >
+              Set Time
+            </b-button>
+          </b-input-group-append>
+          <b-form-invalid-feedback :state="newTimeLimitForStudent ? looksLikeValidDuration(newTimeLimitForStudent) : null">
+            Enter a duration like "1 hour", "90 seconds", or "2 minutes".
+          </b-form-invalid-feedback>
+        </b-input-group>
+      </b-form-group>
+      <hr>
+      <b-button size="sm" variant="outline-danger" :disabled="resettingStudentTimer" @click="resetStudentTimer">
+        Reset Timer Entirely
+      </b-button>
+      <QuestionCircleTooltip id="reset-timer-modal-tooltip"/>
+      <b-tooltip target="reset-timer-modal-tooltip" delay="250" triggers="hover focus">
+        Wipes the clock completely. The student sees the Start Assignment screen again and can begin on their own
+        timing whenever they're ready - unlike Set Time, which starts the clock immediately.
+      </b-tooltip>
+    </b-modal>
+    <b-modal id="modal-confirm-timer-action"
+             title="Please Confirm"
+             ok-title="Continue"
+             cancel-title="Cancel"
+             button-size="sm"
+             @ok="runPendingTimerConfirmAction"
+    >
+      <p class="mb-0">{{ confirmTimerModalMessage }}</p>
+    </b-modal>
     <b-modal id="modal-discussion"
              :title="`Started by ${activeDiscussion.started_by} on ${activeDiscussion.created_at}`"
              no-close-on-backdrop
@@ -445,6 +534,26 @@
               >
                 Open Assignment Gradebook
               </b-button>
+              <div v-if="studentTimeLimitStatus.time_limit" class="mt-2">
+                <font-awesome-icon :icon="clockIcon"/>
+                <span class="font-weight-bold">Time Limit ({{ studentTimeLimitStatus.time_limit }}):</span>
+                <span v-if="studentTimeLimitStatus.started_at">
+                  Started {{ $moment(studentTimeLimitStatus.started_at).format('M/D/YY h:mm A') }},
+                  <span :class="studentTimeLimitStatus.seconds_left <= 0 ? 'text-danger' : 'text-success'">
+                    <countdown v-if="studentTimeLimitStatus.seconds_left > 0" :time="studentTimeLimitStatus.seconds_left * 1000" @end="getStudentTimeLimitStatus">
+                      <template v-slot="props">{{ formattedCountdownText(props) }} remaining</template>
+                    </countdown>
+                    <template v-else>Expired</template>
+                  </span>
+                  <span v-if="studentTimeLimitStatus.extended_past_due" class="text-warning">
+                    (extended past due)
+                  </span>
+                </span>
+                <span v-else>Not started</span>
+                <b-button size="sm" variant="outline-info" class="ml-2" @click="$bvModal.show('modal-manage-student-timer')">
+                  Manage Timer
+                </b-button>
+              </div>
             </div>
           </div>
           <hr>
@@ -1292,7 +1401,7 @@ import CompletedIcon from '../../components/CompletedIcon.vue'
 import RubricPointsBreakdown from '../../components/RubricPointsBreakdown.vue'
 import ConsultInsight from '../../components/ConsultInsight.vue'
 import QtiJsonAnswerViewer from '../../components/QtiJsonAnswerViewer.vue'
-import { faExternalLinkAlt } from '@fortawesome/free-solid-svg-icons'
+import { faExternalLinkAlt, faClock } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { roundToDecimalSigFig } from '../../helpers/Math'
 import ForgeViewer from '../../components/viewers/ForgeViewer.vue'
@@ -1331,6 +1440,17 @@ export default {
     canSubmitWork: false,
     submittedWork: {},
     externalLink: faExternalLinkAlt,
+    clockIcon: faClock,
+    // Per-student time-limit management (Manage Timer modal below the
+    // student pagination). Refetched every time the student changes.
+    studentTimeLimitStatus: {},
+    minutesToAddForStudent: null,
+    addingTimeForStudent: false,
+    newTimeLimitForStudent: '',
+    settingTimeForStudent: false,
+    resettingStudentTimer: false,
+    confirmTimerModalMessage: '',
+    pendingTimerConfirmAction: null,
     qtiAnswerJson: '',
     structureImageTemporaryUrl: '',
     scoreInputType: '',
@@ -2298,6 +2418,154 @@ export default {
       this.totalScore =
         (1 * this.grading[this.currentStudentPage - 1]['open_ended_submission']['question_submission_score'] || 0) +
         (1 * this.grading[this.currentStudentPage - 1]['open_ended_submission']['file_submission_score'] || 0)
+      await this.getStudentTimeLimitStatus()
+    },
+    async getStudentTimeLimitStatus () {
+      this.studentTimeLimitStatus = {}
+      try {
+        const studentUserId = this.grading[this.currentStudentPage - 1].student.user_id
+        const { data } = await axios.get(`/api/assignments/${this.assignmentId}/time-limit/${studentUserId}/status`)
+        if (data.type === 'error') {
+          // Not every assignment has a time limit - a missing/blank response
+          // here is the normal case, not something to surface as an error.
+          return
+        }
+        this.studentTimeLimitStatus = data
+      } catch (error) {
+        this.$noty.error(error.message)
+      }
+    },
+    formattedCountdownText (props) {
+      const parts = []
+      if (props.hours > 0) parts.push(`${props.hours}h`)
+      if (props.minutes > 0) parts.push(`${props.minutes}m`)
+      parts.push(`${props.seconds}s`)
+      return parts.join(' ')
+    },
+    resetTimerModalInputs () {
+      this.minutesToAddForStudent = null
+      this.newTimeLimitForStudent = ''
+    },
+    looksLikeValidDuration (value) {
+      if (!value) {
+        return false
+      }
+      const trimmed = value.trim()
+      // ISO 8601 duration, e.g. PT1H30M
+      if (/^P(\d+Y)?(\d+M)?(\d+D)?(T(\d+H)?(\d+M)?(\d+S)?)?$/i.test(trimmed) && trimmed.toUpperCase() !== 'P') {
+        return true
+      }
+      // Human phrases like "2 minutes", "1 hour, 30 minutes", "90 seconds"
+      return /^\d+\s*(second|minute|hour|day|week)s?(\s*,?\s*\d+\s*(second|minute|hour|day|week)s?)*$/i.test(trimmed)
+    },
+    showTimerConfirm (message, action) {
+      this.confirmTimerModalMessage = message
+      this.pendingTimerConfirmAction = action
+      this.$bvModal.show('modal-confirm-timer-action')
+    },
+    async runPendingTimerConfirmAction () {
+      if (this.pendingTimerConfirmAction) {
+        await this.pendingTimerConfirmAction()
+        this.pendingTimerConfirmAction = null
+      }
+    },
+    async addTimeForStudent () {
+      const alreadyExpired = this.studentTimeLimitStatus.started_at && this.studentTimeLimitStatus.seconds_left <= 0
+      if (alreadyExpired) {
+        this.showTimerConfirm(
+          `This student's time limit has already expired. Adding ${this.minutesToAddForStudent} minute(s) will give them that much time starting now. Continue?`,
+          () => this.performAddTimeForStudent()
+        )
+        return
+      }
+      await this.performAddTimeForStudent()
+    },
+    async performAddTimeForStudent () {
+      const studentUserId = this.grading[this.currentStudentPage - 1].student.user_id
+      this.addingTimeForStudent = true
+      try {
+        const { data } = await axios.post(
+          `/api/assignments/${this.assignmentId}/time-limit/${studentUserId}/add-time`,
+          { minutes: this.minutesToAddForStudent }
+        )
+        if (data.type === 'error') {
+          this.$noty.error(data.message)
+          return
+        }
+        await this.getStudentTimeLimitStatus()
+        this.$noty.success(
+          data.extended_past_due
+            ? `Time added. Note: this student's time now extends past the assignment due date.`
+            : 'Time added.'
+        )
+      } catch (error) {
+        this.$noty.error(error.message)
+      } finally {
+        this.addingTimeForStudent = false
+      }
+    },
+    async setTimeForStudent () {
+      if (!this.newTimeLimitForStudent || !this.looksLikeValidDuration(this.newTimeLimitForStudent)) {
+        return
+      }
+      // We can't reliably compute the resulting expiry client-side (it
+      // depends on when they started, which the server tracks) - the server
+      // reports extended_past_due in the response after the fact, so this is
+      // a plain confirmation of the action rather than a specific claim about
+      // whether it will exceed due.
+      this.showTimerConfirm(
+        'This will set a new total duration for this student, replacing their current clock. Continue?',
+        () => this.performSetTimeForStudent()
+      )
+    },
+    async performSetTimeForStudent () {
+      const studentUserId = this.grading[this.currentStudentPage - 1].student.user_id
+      this.settingTimeForStudent = true
+      try {
+        const { data } = await axios.patch(
+          `/api/assignments/${this.assignmentId}/time-limit/${studentUserId}`,
+          { time_limit: this.newTimeLimitForStudent }
+        )
+        if (data.type === 'error') {
+          this.$noty.error(data.message)
+          return
+        }
+        await this.getStudentTimeLimitStatus()
+        this.newTimeLimitForStudent = ''
+        this.$bvModal.hide('modal-manage-student-timer')
+        this.$noty.success(
+          data.extended_past_due
+            ? `Time set. Note: this student's time now extends past the assignment due date.`
+            : 'Time set.'
+        )
+      } catch (error) {
+        this.$noty.error(error.message)
+      } finally {
+        this.settingTimeForStudent = false
+      }
+    },
+    async resetStudentTimer () {
+      this.showTimerConfirm(
+        'This will fully reset this student\'s timer. They will need to click Start Assignment again for a fresh duration. Continue?',
+        () => this.performResetStudentTimer()
+      )
+    },
+    async performResetStudentTimer () {
+      const studentUserId = this.grading[this.currentStudentPage - 1].student.user_id
+      this.resettingStudentTimer = true
+      try {
+        const { data } = await axios.delete(`/api/assignments/${this.assignmentId}/time-limit/${studentUserId}/reset`)
+        if (data.type === 'error') {
+          this.$noty.error(data.message)
+          return
+        }
+        await this.getStudentTimeLimitStatus()
+        this.$noty.success('Timer reset for this student.')
+      } catch (error) {
+        this.$noty.error(error.message)
+      } finally {
+        this.resettingStudentTimer = false
+      }
     },
     retryUntilEventNotNull (callback, interval = 100, maxAttempts = 50) {
       let attempts = 0

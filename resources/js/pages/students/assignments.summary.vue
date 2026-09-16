@@ -104,6 +104,7 @@
       <div v-if="!isLoading">
         <PageTitle :title="name"
                    :assessment-type="assessmentType"
+                   :has-time-limit="Boolean(timeLimitStatus.time_limit)"
         />
         <b-container>
           <div v-if="!showNoAccessMessage && (assessmentType !== 'clicker' || solutionsReleased)">
@@ -174,6 +175,16 @@
     This assignment is due {{ formattedDue }}.
     <span v-if="extension">(You have an extension until {{ extension }}).</span>
   </span>
+                </li>
+                <li v-if="timeLimitStatus.time_limit" class="mb-2">
+                  <span class="font-weight-bold">Time Limit: </span>
+                  <span>{{ timeLimitStatus.time_limit }} once started.</span>
+                  <span v-if="timeLimitStatus.started_at">
+                    (You started this assignment at
+                    {{ $moment(timeLimitStatus.started_at).format('M/D/YY h:mm A') }}<span v-if="timeLimitStatus.expires_at">
+                      and it {{ timeLimitStatus.seconds_left > 0 ? 'expires' : 'expired' }} at
+                      {{ $moment(timeLimitStatus.expires_at).format('M/D/YY h:mm A') }}</span>.)
+                  </span>
                 </li>
                 <li class="mb-2">
                   <span class="font-weight-bold">Late Policy: </span>
@@ -470,6 +481,7 @@ export default {
     hasAtLeastOneFileUpload: false,
     allFormErrors: [],
     extension: null,
+    timeLimitStatus: {},
     public_description: null,
     isInstructorLoggedInAsStudent: false,
     bothFileUploadMode: false,
@@ -532,6 +544,7 @@ export default {
       this.isLoading = false
       return false
     }
+    await this.getTimeLimitStatus()
 
     await this.$nextTick(() => {
       this.getSelectedQuestions(this.assignmentId)
@@ -796,6 +809,16 @@ export default {
       this.clickerPollingSetInterval = setInterval(function () {
         self.submitClickerPolling(self.assignmentId)
       }, 3000)
+    },
+    async getTimeLimitStatus () {
+      try {
+        const { data } = await axios.get(`/api/assignments/${this.assignmentId}/time-limit/status`)
+        if (data.type === 'success') {
+          this.timeLimitStatus = data
+        }
+      } catch (error) {
+        this.$noty.error(error.message)
+      }
     },
     async getAssignmentSummary () {
       try {

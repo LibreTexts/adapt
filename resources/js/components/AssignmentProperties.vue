@@ -1,6 +1,6 @@
 <template>
   <div>
-    <AllFormErrors :all-form-errors="allFormErrors" :modal-id="'modal-form-errors-create-assignment-group'"/>
+    <AllFormErrors :all-form-errors="allFormErrors" :modal-id="'modal-form-errors-create-assignment-group'" />
     <b-modal id="modal-remove-delayed-questions-from-assignment"
              title="Open-ended Questions in Assignment"
              size="lg"
@@ -46,7 +46,7 @@
     <b-form v-if="!isLoading" ref="form">
       <div v-if="isLocked(hasSubmissionsOrFileSubmissions) && !isFormativeCourse">
         <b-alert variant="info" show>
-          <span class="font-weight-bold" v-html="isLockedMessage()"/>
+          <span class="font-weight-bold" v-html="isLockedMessage()" />
         </b-alert>
       </div>
       <div v-if="isBetaAssignment">
@@ -56,7 +56,7 @@
             the late policy (if appropriate), whether you include this in the final score, student notifications, and the assign to information.</span>
         </b-alert>
       </div>
-      <RequiredText/>
+      <RequiredText />
       <b-card v-if="!courseId"
               :header-html="getHeaderHtml('Template Information')"
               body-class="pb-0 card-body-pl"
@@ -77,7 +77,7 @@
               :class="{ 'is-invalid': form.errors.has('template_name') }"
               @keydown="form.errors.clear('template_name')"
             />
-            <has-error :form="form" field="template_name"/>
+            <has-error :form="form" field="template_name" />
           </b-form-row>
         </b-form-group>
 
@@ -97,7 +97,7 @@
               :class="{ 'is-invalid': form.errors.has('template_description') }"
               @keydown="form.errors.clear('template_description')"
             />
-            <has-error :form="form" field="template_description"/>
+            <has-error :form="form" field="template_description" />
           </b-form-row>
         </b-form-group>
       </b-card>
@@ -114,7 +114,7 @@
           <template v-slot:label>
             <span v-if="!isFormativeAssignment && !isFormativeCourse">Summative</span>
             <span v-if="isFormativeAssignment || isFormativeCourse">Formative</span> URL
-            <QuestionCircleTooltip id="assignment-url-tooltip"/>
+            <QuestionCircleTooltip id="assignment-url-tooltip" />
             <b-tooltip target="assignment-url-tooltip"
                        delay="250"
                        triggers="hover focus"
@@ -131,15 +131,15 @@
           </template>
           <div class="mt-2">
             <span id="assignment-url">{{ getAssignmentUrl() }}</span> <a
-            href=""
-            class="pr-1"
-            aria-label="Copy Direct Student Link"
-            @click.prevent="doCopy('assignment-url')"
-          >
-            <font-awesome-icon
-              :icon="copyIcon"
-            />
-          </a>
+              href=""
+              class="pr-1"
+              aria-label="Copy Direct Student Link"
+              @click.prevent="doCopy('assignment-url')"
+            >
+              <font-awesome-icon
+                :icon="copyIcon"
+              />
+            </a>
           </div>
         </b-form-group>
         <b-form-group
@@ -149,7 +149,7 @@
         >
           <template v-slot:label>
             QR Code
-            <QuestionCircleTooltip id="qr_code"/>
+            <QuestionCircleTooltip id="qr_code" />
             <b-tooltip target="qr_code"
                        delay="250"
                        triggers="hover focus"
@@ -158,7 +158,7 @@
               right-clicking it.
             </b-tooltip>
           </template>
-          <div id="qrCodeCanvas" ref="qrCodeCanvas" class="ml-2"/>
+          <div id="qrCodeCanvas" ref="qrCodeCanvas" class="ml-2" />
         </b-form-group>
       </b-card>
       <b-card body-class="pb-0 card-body-pl"
@@ -166,8 +166,10 @@
       >
         <template #header>
           <div class="d-flex align-items-center">
-            <h2 class="h7 m-0 mr-1">Descriptions, Instructions, and Notifications</h2>
-            <ConsultInsight :url="'https://commons.libretexts.org/insight/descriptions-instructions-and-notifications-properties'"/>
+            <h2 class="h7 m-0 mr-1">
+              Descriptions, Instructions, and Notifications
+            </h2>
+            <ConsultInsight :url="'https://commons.libretexts.org/insight/descriptions-instructions-and-notifications-properties'" />
           </div>
         </template>
         <b-form-group
@@ -188,7 +190,7 @@
                 :class="{ 'is-invalid': form.errors.has('name') }"
                 @keydown="form.errors.clear('name')"
               />
-              <has-error :form="form" field="name"/>
+              <has-error :form="form" field="name" />
             </b-col>
           </b-form-row>
         </b-form-group>
@@ -199,7 +201,7 @@
         >
           <template v-slot:label>
             Public Description
-            <QuestionCircleTooltip :id="'public-description-tooltip'"/>
+            <QuestionCircleTooltip :id="'public-description-tooltip'" />
             <b-tooltip target="public-description-tooltip"
                        delay="250"
                        triggers="hover focus"
@@ -223,7 +225,7 @@
         >
           <template v-slot:label>
             Private Description
-            <QuestionCircleTooltip :id="'private-description-tooltip'"/>
+            <QuestionCircleTooltip :id="'private-description-tooltip'" />
             <b-tooltip target="private-description-tooltip"
                        delay="250"
                        triggers="hover focus"
@@ -247,7 +249,7 @@
         >
           <template v-slot:label>
             Textbook URL
-            <QuestionCircleTooltip :id="'textbook-url-tooltip'"/>
+            <QuestionCircleTooltip :id="'textbook-url-tooltip'" />
             <b-tooltip target="textbook-url-tooltip"
                        delay="250"
                        triggers="hover focus"
@@ -265,7 +267,7 @@
             max-rows="2"
             @keydown="form.errors.clear('textbook_url')"
           />
-          <has-error :form="form" field="textbook_url"/>
+          <has-error :form="form" field="textbook_url" />
         </b-form-group>
 
         <div v-show="form.source === 'a' && (!lms || lmsApi)" class="mb-3">
@@ -296,7 +298,7 @@
           >
             <template v-slot:label>
               Notifications*
-              <QuestionCircleTooltip :id="'notifications_tooltip'"/>
+              <QuestionCircleTooltip :id="'notifications_tooltip'" />
               <b-tooltip target="notifications_tooltip"
                          delay="250"
                          triggers="hover focus"
@@ -328,8 +330,10 @@
       >
         <template #header>
           <div class="d-flex align-items-center">
-            <h2 class="h7 m-0 mr-1">Modality</h2>
-            <ConsultInsight :url="'https://commons.libretexts.org/insight/modality-settings'"/>
+            <h2 class="h7 m-0 mr-1">
+              Modality
+            </h2>
+            <ConsultInsight :url="'https://commons.libretexts.org/insight/modality-settings'" />
           </div>
         </template>
         <b-alert :show="isFormativeCourse" alert>
@@ -357,7 +361,7 @@
             >
               <b-form-radio name="formative" value="0">
                 Summative
-                <QuestionCircleTooltip id="summative"/>
+                <QuestionCircleTooltip id="summative" />
                 <b-tooltip target="summative"
                            delay="250"
                            triggers="hover focus"
@@ -369,7 +373,7 @@
               </b-form-radio>
               <b-form-radio name="formative" value="1">
                 Formative
-                <QuestionCircleTooltip id="formative"/>
+                <QuestionCircleTooltip id="formative" />
                 <b-tooltip target="formative"
                            delay="250"
                            triggers="hover focus"
@@ -415,7 +419,7 @@
                                  :class="{ 'is-invalid': form.errors.has('assignment_group_id') }"
                                  @change="checkGroupId(form.assignment_group_id)"
                   />
-                  <has-error :form="form" field="assignment_group_id"/>
+                  <has-error :form="form" field="assignment_group_id" />
                 </b-col>
 
                 <b-modal id="modal-number-of-allowed-attempts-penalty-warning"
@@ -495,7 +499,7 @@
                   ref="modal"
                   title="Create Assignment Group"
                 >
-                  <RequiredText/>
+                  <RequiredText />
                   <b-form-row>
                     <b-form-group
                       label-cols-sm="5"
@@ -512,7 +516,7 @@
                         :class="{ 'is-invalid': assignmentGroupForm.errors.has('assignment_group') }"
                         @keydown="assignmentGroupForm.errors.clear('assignment_group')"
                       />
-                      <has-error :form="assignmentGroupForm" field="assignment_group"/>
+                      <has-error :form="assignmentGroupForm" field="assignment_group" />
                     </b-form-group>
                   </b-form-row>
                   <template #modal-footer>
@@ -554,7 +558,7 @@
               >
                 <b-form-radio name="source" value="a">
                   Internal
-                  <QuestionCircleTooltip :id="'internal'"/>
+                  <QuestionCircleTooltip :id="'internal'" />
                   <b-tooltip target="internal"
                              delay="250"
                              triggers="hover focus"
@@ -565,7 +569,7 @@
 
                 <b-form-radio name="source" value="x">
                   External
-                  <QuestionCircleTooltip :id="'external'"/>
+                  <QuestionCircleTooltip :id="'external'" />
                   <b-tooltip target="external"
                              delay="250"
                              triggers="hover focus"
@@ -587,8 +591,10 @@
           >
             <template #header>
               <div class="d-flex align-items-center">
-                <h2 class="h7 m-0 mr-1">Scoring</h2>
-                <ConsultInsight :url="'https://commons.libretexts.org/insight/scoring-settings'"/>
+                <h2 class="h7 m-0 mr-1">
+                  Scoring
+                </h2>
+                <ConsultInsight :url="'https://commons.libretexts.org/insight/scoring-settings'" />
               </div>
             </template>
             <b-card-text>
@@ -607,30 +613,30 @@
                                     :disabled="isLocked(hasSubmissionsOrFileSubmissions) || isBetaAssignment"
                                     required
                 >
-              <span @click="form.number_of_allowed_attempts=1">
-                <b-form-radio value="p">Performance <QuestionCircleTooltip :id="'performance'"/>
-                  <b-tooltip target="performance"
-                             delay="250"
-                             triggers="hover focus"
-                  >
-                    Students are given credit for providing correct answers.
-                  </b-tooltip></b-form-radio>
-              </span>
+                  <span @click="form.number_of_allowed_attempts=1">
+                    <b-form-radio value="p">Performance <QuestionCircleTooltip :id="'performance'" />
+                      <b-tooltip target="performance"
+                                 delay="250"
+                                 triggers="hover focus"
+                      >
+                        Students are given credit for providing correct answers.
+                      </b-tooltip></b-form-radio>
+                  </span>
                   <span @click="canSwitchToCompleteIncomplete">
-                <span @click="resetOpenEndedResponsesAndPointsPerQuestion">
-                  <b-form-radio value="c">Completion <QuestionCircleTooltip :id="'completion'"/>
-                    <b-tooltip target="completion"
-                               delay="250"
-                               triggers="hover focus"
-                    >
-                      Students are given full credit for automatically graded submissions as long as they submit something.
-                      Open-ended submissions are manually graded. For questions with both automatically
-                      graded and open-ended submissions, students are awarded half of the points as long as they submit something
-                      for the automatically graded piece, with the remaining points awarded at the discretion of the grader.
-                    </b-tooltip>
-                  </b-form-radio>
-                </span>
-              </span>
+                    <span @click="resetOpenEndedResponsesAndPointsPerQuestion">
+                      <b-form-radio value="c">Completion <QuestionCircleTooltip :id="'completion'" />
+                        <b-tooltip target="completion"
+                                   delay="250"
+                                   triggers="hover focus"
+                        >
+                          Students are given full credit for automatically graded submissions as long as they submit something.
+                          Open-ended submissions are manually graded. For questions with both automatically
+                          graded and open-ended submissions, students are awarded half of the points as long as they submit something
+                          for the automatically graded piece, with the remaining points awarded at the discretion of the grader.
+                        </b-tooltip>
+                      </b-form-radio>
+                    </span>
+                  </span>
                 </b-form-radio-group>
               </b-form-group>
               <b-form-group
@@ -641,7 +647,7 @@
               >
                 <template v-slot:label>
                   Default Completion Scoring Mode*
-                  <QuestionCircleTooltip :id="'default-completion-scoring-mode-tooltip'"/>
+                  <QuestionCircleTooltip :id="'default-completion-scoring-mode-tooltip'" />
                   <b-tooltip target="default-completion-scoring-mode-tooltip"
                              delay="250"
                              triggers="hover focus"
@@ -672,17 +678,17 @@
                     >% of points awarded for an auto-graded
                     submission<br>
                     <span v-if="!isNaN(parseFloat(completionSplitOpenEndedPercentage))">
-                  <input v-model="completionSplitOpenEndedPercentage"
-                         class="percent-input percent-input-disabled"
-                         aria-label="completion split open-ended percentage"
-                         :aria-disabled="true"
-                         @click="false"
-                  >%
-                  of the points awarded for an open-ended submission
-                </span>
+                      <input v-model="completionSplitOpenEndedPercentage"
+                             class="percent-input percent-input-disabled"
+                             aria-label="completion split open-ended percentage"
+                             :aria-disabled="true"
+                             @click="false"
+                      >%
+                      of the points awarded for an open-ended submission
+                    </span>
                   </b-form-radio>
                 </b-form-radio-group>
-                <has-error :form="form" field="default_completion_scoring_mode"/>
+                <has-error :form="form" field="default_completion_scoring_mode" />
               </b-form-group>
               <b-form-group
                 v-show="isAlphaCourse"
@@ -718,7 +724,7 @@
                     @keydown="form.errors.clear('points_per_question')"
                   >
                     Specify the points for each question individually
-                    <QuestionCircleTooltip :id="'points-per-question-specify-actual-values-tooltip'"/>
+                    <QuestionCircleTooltip :id="'points-per-question-specify-actual-values-tooltip'" />
                     <b-tooltip target="points-per-question-specify-actual-values-tooltip"
                                delay="250"
                                triggers="hover focus"
@@ -770,7 +776,7 @@
                         :disabled="isLocked(hasSubmissionsOrFileSubmissions) || isBetaAssignment"
                         @keydown="form.errors.clear('default_points_per_question')"
                       />
-                      <has-error :form="form" field="default_points_per_question"/>
+                      <has-error :form="form" field="default_points_per_question" />
                     </b-col>
                   </b-form-row>
                 </b-form-group>
@@ -792,7 +798,7 @@
                         :disabled="(isLocked(hasSubmissionsOrFileSubmissions) && !overallStatusIsNotOpen) || isBetaAssignment"
                         @keydown="form.errors.clear('total_points')"
                       />
-                      <has-error :form="form" field="total_points"/>
+                      <has-error :form="form" field="total_points" />
                     </b-col>
                   </b-form-row>
                 </b-form-group>
@@ -843,7 +849,7 @@
                         :class="{ 'is-invalid': form.errors.has('external_source_points') }"
                         @keydown="form.errors.clear('external_source_points')"
                       />
-                      <has-error :form="form" field="external_source_points"/>
+                      <has-error :form="form" field="external_source_points" />
                     </b-col>
                   </b-form-row>
                 </b-form-group>
@@ -856,8 +862,10 @@
           >
             <template #header>
               <div class="d-flex align-items-center">
-                <h2 class="h7 m-0 mr-1">Assignment Mode</h2>
-                <ConsultInsight :url="'https://commons.libretexts.org/insight/assignment-mode-settings'"/>
+                <h2 class="h7 m-0 mr-1">
+                  Assignment Mode
+                </h2>
+                <ConsultInsight :url="'https://commons.libretexts.org/insight/assignment-mode-settings'" />
               </div>
             </template>
             <b-form-group
@@ -877,7 +885,7 @@
               >
                 <b-form-radio name="assessment_type" value="real time">
                   Real Time Graded Assessments
-                  <QuestionCircleTooltip :id="'real_time'"/>
+                  <QuestionCircleTooltip :id="'real_time'" />
                   <b-tooltip target="real_time"
                              delay="250"
                              triggers="hover focus"
@@ -888,7 +896,7 @@
 
                 <b-form-radio name="assessment_type" value="delayed">
                   Delayed Graded Assessments
-                  <QuestionCircleTooltip :id="'delayed'"/>
+                  <QuestionCircleTooltip :id="'delayed'" />
                   <b-tooltip target="delayed"
                              delay="250"
                              triggers="hover focus"
@@ -900,7 +908,7 @@
 
                 <b-form-radio name="assessment_type" value="learning tree">
                   Learning Tree Assessments
-                  <QuestionCircleTooltip :id="'learning_tree'"/>
+                  <QuestionCircleTooltip :id="'learning_tree'" />
                   <b-tooltip target="learning_tree"
                              delay="250"
                              triggers="hover focus"
@@ -915,7 +923,7 @@
 
                 <b-form-radio name="assessment_type" value="clicker">
                   Clicker Assessments
-                  <QuestionCircleTooltip :id="'clicker-tooltip'"/>
+                  <QuestionCircleTooltip :id="'clicker-tooltip'" />
                   <b-tooltip target="clicker-tooltip"
                              delay="250"
                              triggers="hover focus"
@@ -926,7 +934,7 @@
 
                 <b-form-radio name="assessment_type" value="flashcard">
                   Flashcard Assessments
-                  <QuestionCircleTooltip :id="'flashcard-tooltip'"/>
+                  <QuestionCircleTooltip :id="'flashcard-tooltip'" />
                   <b-tooltip target="flashcard-tooltip"
                              delay="250"
                              triggers="hover focus"
@@ -951,7 +959,7 @@
                     icon="tree" variant="success"
                   />
                   Minimum Amount of Time in Exposition Nodes*
-                  <QuestionCircleTooltip id="min_number_of_minutes_in_exposition_node_tooltip"/>
+                  <QuestionCircleTooltip id="min_number_of_minutes_in_exposition_node_tooltip" />
                 </template>
                 <b-tooltip target="min_number_of_minutes_in_exposition_node_tooltip"
                            delay="250"
@@ -988,7 +996,7 @@
                     icon="tree" variant="success"
                   />
                   Reset Node After Incorrect Attempt*
-                  <QuestionCircleTooltip id="reset_node_after_incorrect_submission_tooltip"/>
+                  <QuestionCircleTooltip id="reset_node_after_incorrect_submission_tooltip" />
                 </template>
                 <b-tooltip target="reset_node_after_incorrect_submission_tooltip"
                            delay="250"
@@ -1025,7 +1033,7 @@
                     icon="tree" variant="success"
                   />
                   Number of successful paths for a reset*
-                  <QuestionCircleTooltip id="number_of_successful_paths_for_a_reset_tooltip"/>
+                  <QuestionCircleTooltip id="number_of_successful_paths_for_a_reset_tooltip" />
                 </template>
                 <b-tooltip target="number_of_successful_paths_for_a_reset_tooltip"
                            delay="250"
@@ -1046,7 +1054,7 @@
                       :class="{ 'is-invalid': form.errors.has('number_of_successful_paths_for_a_reset') }"
                       @keydown="form.errors.clear('number_of_successful_paths_for_a_reset')"
                     />
-                    <has-error :form="form" field="number_of_successful_paths_for_a_reset"/>
+                    <has-error :form="form" field="number_of_successful_paths_for_a_reset" />
                   </b-col>
                 </b-form-row>
               </b-form-group>
@@ -1054,7 +1062,7 @@
 
             <!-- Number of Allowed Attempts: hidden for flashcard (forced unlimited) -->
             <div v-if="form.assessment_type !== 'flashcard' && (form.assessment_type === 'clicker' ||
-          (['real time','learning tree'].includes(form.assessment_type) && form.scoring_type === 'p'))"
+              (['real time','learning tree'].includes(form.assessment_type) && form.scoring_type === 'p'))"
             >
               <b-form-group
                 label-cols-sm="4"
@@ -1063,7 +1071,7 @@
               >
                 <template v-slot:label>
                   Number of Allowed Attempts*
-                  <QuestionCircleTooltip :id="'number-of-allowed-attempts-tooltip'"/>
+                  <QuestionCircleTooltip :id="'number-of-allowed-attempts-tooltip'" />
                   <b-tooltip target="number-of-allowed-attempts-tooltip"
                              delay="250"
                              triggers="hover focus"
@@ -1078,11 +1086,11 @@
                 <div class="mt-2">
                   <div class="d-flex align-items-center mb-2">
                     <div style="width: 100px; cursor: pointer;" @click="() => {
-      if (form.number_of_allowed_attempts === 'unlimited') {
-        form.number_of_allowed_attempts = '';
-        initChangeNumberOfAllowedAttempts('');
-      }
-    }"
+                      if (form.number_of_allowed_attempts === 'unlimited') {
+                        form.number_of_allowed_attempts = '';
+                        initChangeNumberOfAllowedAttempts('');
+                      }
+                    }"
                     >
                       <b-form-input
                         :value="form.number_of_allowed_attempts !== 'unlimited' ? form.number_of_allowed_attempts : ''"
@@ -1092,9 +1100,9 @@
                         aria-label="Number of allowed attempts"
                         placeholder="1, 2, 3, ..."
                         @input="val => {
-          form.number_of_allowed_attempts = val;
-          initChangeNumberOfAllowedAttempts(val);
-        }"
+                          form.number_of_allowed_attempts = val;
+                          initChangeNumberOfAllowedAttempts(val);
+                        }"
                       />
                     </div>
                     <span class="mx-3 text-muted">— or —</span>
@@ -1102,14 +1110,14 @@
                       :checked="form.number_of_allowed_attempts === 'unlimited'"
                       :disabled="isBetaAssignment"
                       @change="checked => {
-        form.number_of_allowed_attempts = checked ? 'unlimited' : '';
-        initChangeNumberOfAllowedAttempts(form.number_of_allowed_attempts);
-      }"
+                        form.number_of_allowed_attempts = checked ? 'unlimited' : '';
+                        initChangeNumberOfAllowedAttempts(form.number_of_allowed_attempts);
+                      }"
                     >
                       Unlimited
                     </b-form-checkbox>
                   </div>
-                  <ErrorMessage :message="form.errors.get('number_of_allowed_attempts')"/>
+                  <ErrorMessage :message="form.errors.get('number_of_allowed_attempts')" />
                 </div>
               </b-form-group>
               <b-form-group
@@ -1120,7 +1128,7 @@
               >
                 <template v-slot:label>
                   Attempts Penalty*
-                  <QuestionCircleTooltip :id="'attempts-penalty-tooltip'"/>
+                  <QuestionCircleTooltip :id="'attempts-penalty-tooltip'" />
                   <b-tooltip target="attempts-penalty-tooltip"
                              delay="250"
                              triggers="hover focus"
@@ -1143,7 +1151,7 @@
                       @keydown="form.errors.clear('number_of_allowed_attempts_penalty')"
                       @blur="showNumberOfAllowedAttemptsPenaltyWarning"
                     />
-                    <has-error :form="form" field="number_of_allowed_attempts_penalty"/>
+                    <has-error :form="form" field="number_of_allowed_attempts_penalty" />
                   </b-col>
                 </b-form-row>
               </b-form-group>
@@ -1198,7 +1206,7 @@
               >
                 <template v-slot:label>
                   Default Time To Submit*
-                  <QuestionCircleTooltip :id="'default_clicker_time_to_submit_tooltip'"/>
+                  <QuestionCircleTooltip :id="'default_clicker_time_to_submit_tooltip'" />
                   <b-tooltip target="default_clicker_time_to_submit_tooltip"
                              delay="250"
                              triggers="hover focus"
@@ -1219,7 +1227,7 @@
                       :disabled="isBetaAssignment"
                       @keydown="form.errors.clear('default_clicker_time_to_submit')"
                     />
-                    <has-error :form="form" field="default_clicker_time_to_submit"/>
+                    <has-error :form="form" field="default_clicker_time_to_submit" />
                   </b-col>
                 </b-form-row>
               </b-form-group>
@@ -1245,22 +1253,24 @@
               >
                 <b-form-radio name="file_upload_mode" value="individual_assessment">
                   Individual Assessment Upload
-                  <QuestionCircleTooltip :id="'individual_assessment_upload_tooltip'"/>
+                  <QuestionCircleTooltip :id="'individual_assessment_upload_tooltip'" />
                   <b-tooltip target="individual_assessment_upload_tooltip" delay="250" triggers="hover focus">
-                    <p>If you choose this option, your students will upload individual submissions at the question
-                      level.</p>
+                    <p>
+                      If you choose this option, your students will upload individual submissions at the question
+                      level.
+                    </p>
                   </b-tooltip>
                 </b-form-radio>
                 <b-form-radio name="file_upload_mode" value="compiled_pdf">
                   Compiled Upload (PDFs only)
-                  <QuestionCircleTooltip :id="'compiled_pdf_tooltip'"/>
+                  <QuestionCircleTooltip :id="'compiled_pdf_tooltip'" />
                   <b-tooltip target="compiled_pdf_tooltip" delay="250" triggers="hover focus">
                     <p>If you choose this option, your students will upload a single compiled PDF.</p>
                   </b-tooltip>
                 </b-form-radio>
                 <b-form-radio name="file_upload_mode" value="both">
                   Compiled Upload &amp; Individual Assessment Upload
-                  <QuestionCircleTooltip :id="'both_upload_tooltip'"/>
+                  <QuestionCircleTooltip :id="'both_upload_tooltip'" />
                   <b-tooltip target="both_upload_tooltip" delay="250" triggers="hover focus">
                     <p>Students will be able to upload either a compiled PDF or individual assessment uploads.</p>
                   </b-tooltip>
@@ -1278,7 +1288,7 @@
             >
               <template v-slot:label>
                 Default Open-ended Submission Type*
-                <QuestionCircleTooltip :id="'default_open_ended_submission_type_tooltip'"/>
+                <QuestionCircleTooltip :id="'default_open_ended_submission_type_tooltip'" />
                 <b-tooltip target="default_open_ended_submission_type_tooltip" delay="250" triggers="hover focus">
                   Adjust this option if your assignment consists of open-ended questions.
                 </b-tooltip>
@@ -1293,10 +1303,18 @@
                                   @change="checkIfCompiledPdf()"
                                   @keydown="form.errors.clear('default_open_ended_submission_type')"
               >
-                <b-form-radio name="default_open_ended_submission_type" value="file">File</b-form-radio>
-                <b-form-radio name="default_open_ended_submission_type" value="rich text">Rich Text</b-form-radio>
-                <b-form-radio name="default_open_ended_submission_type" value="audio">Audio</b-form-radio>
-                <b-form-radio name="default_open_ended_submission_type" value="0">None</b-form-radio>
+                <b-form-radio name="default_open_ended_submission_type" value="file">
+                  File
+                </b-form-radio>
+                <b-form-radio name="default_open_ended_submission_type" value="rich text">
+                  Rich Text
+                </b-form-radio>
+                <b-form-radio name="default_open_ended_submission_type" value="audio">
+                  Audio
+                </b-form-radio>
+                <b-form-radio name="default_open_ended_submission_type" value="0">
+                  None
+                </b-form-radio>
               </b-form-radio-group>
               <div v-if="form.errors.has('default_open_ended_submission_type')" class="help-block invalid-feedback">
                 The selected default open ended submission type is invalid.
@@ -1319,14 +1337,18 @@
         >
           <template v-slot:label>
             Grade Passback*
-            <QuestionCircleTooltip :id="'lms_grade_passback_tooltip'"/>
+            <QuestionCircleTooltip :id="'lms_grade_passback_tooltip'" />
             <b-tooltip target="lms_grade_passback_tooltip" delay="250" triggers="hover focus">
               With the automatic option, grades are passed back to your LMS each time a student submits.
             </b-tooltip>
           </template>
           <b-form-radio-group v-model="form.lms_grade_passback" required stacked>
-            <b-form-radio name="lms" value="automatic">Automatic</b-form-radio>
-            <b-form-radio name="lms" value="manual">Manual</b-form-radio>
+            <b-form-radio name="lms" value="automatic">
+              Automatic
+            </b-form-radio>
+            <b-form-radio name="lms" value="manual">
+              Manual
+            </b-form-radio>
           </b-form-radio-group>
         </b-form-group>
       </b-card>
@@ -1340,8 +1362,10 @@
       >
         <template #header>
           <div class="d-flex align-items-center">
-            <h2 class="h7 m-0 mr-1">Secondary Approval</h2>
-            <ConsultInsight :url="'https://commons.libretexts.org/insight/secondary-approval-for-real-time-questions'"/>
+            <h2 class="h7 m-0 mr-1">
+              Secondary Approval
+            </h2>
+            <ConsultInsight :url="'https://commons.libretexts.org/insight/secondary-approval-for-real-time-questions'" />
           </div>
         </template>
         <b-card-text>
@@ -1352,11 +1376,13 @@
           >
             <template v-slot:label>
               Can Submit Work*
-              <CanSubmitWorkTooltip/>
+              <CanSubmitWorkTooltip />
             </template>
             <b-form-radio-group id="can_submit_work" v-model="form.can_submit_work" required stacked>
               <div>
-                <b-form-radio name="can_submit_work" value="1" class="d-inline-block">Yes</b-form-radio>
+                <b-form-radio name="can_submit_work" value="1" class="d-inline-block">
+                  Yes
+                </b-form-radio>
                 <span v-if="+form.can_submit_work === 1" class="ml-3 d-inline-block">
                   <b-form-checkbox-group
                     id="submitted_work_format"
@@ -1369,9 +1395,11 @@
                     <b-form-checkbox value="video">Video</b-form-checkbox>
                   </b-form-checkbox-group>
                 </span>
-                <ErrorMessage :message="form.errors.get('submitted_work_format')"/>
+                <ErrorMessage :message="form.errors.get('submitted_work_format')" />
               </div>
-              <b-form-radio name="can_submit_work" value="0">No</b-form-radio>
+              <b-form-radio name="can_submit_work" value="0">
+                No
+              </b-form-radio>
             </b-form-radio-group>
           </b-form-group>
           <b-form-group
@@ -1390,27 +1418,27 @@
             >
               <b-form-radio name="submitted_work_policy" value="optional">
                 Optional
-                <QuestionCircleTooltip id="optional_tooltip"/>
+                <QuestionCircleTooltip id="optional_tooltip" />
                 <b-tooltip target="optional_tooltip" delay="250" triggers="hover focus">
                   Students may submit work to request regrades if needed.
                 </b-tooltip>
               </b-form-radio>
               <b-form-radio name="submitted_work_policy" value="required with auto-approval">
                 Required with auto-approval
-                <QuestionCircleTooltip id="required_with_auto_graded_submission_tooltip"/>
+                <QuestionCircleTooltip id="required_with_auto_graded_submission_tooltip" />
                 <b-tooltip target="required_with_auto_graded_submission_tooltip" delay="250" triggers="hover focus">
                   Students must submit work to receive points; work quality reviewed separately in the Open Grader.
                 </b-tooltip>
               </b-form-radio>
               <b-form-radio name="submitted_work_policy" value="required with manual approval">
                 Required with manual approval
-                <QuestionCircleTooltip id="required_with_manually_graded_submission_tooltip"/>
+                <QuestionCircleTooltip id="required_with_manually_graded_submission_tooltip" />
                 <b-tooltip target="required_with_manually_graded_submission_tooltip" delay="250" triggers="hover focus">
                   Students must submit work; grade based on both answer correctness and work quality
                 </b-tooltip>
               </b-form-radio>
             </b-form-radio-group>
-            <ErrorMessage :message="form.errors.get('submitted_work_policy')"/>
+            <ErrorMessage :message="form.errors.get('submitted_work_policy')" />
           </b-form-group>
         </b-card-text>
       </b-card>
@@ -1418,21 +1446,23 @@
       <!-- Hints: hidden for flashcard (flashcard has its own hint setting below) -->
       <b-card
         v-show="form.assessment_type !== 'flashcard'
-        && form.assessment_type !== 'clicker'
-&& form.source === 'a'"
+          && form.assessment_type !== 'clicker'
+          && form.source === 'a'"
         body-class="pb-0 card-body-pl"
         class="mb-3"
       >
         <template #header>
           <div class="d-flex align-items-center">
-            <h2 class="h7 m-0 mr-1">Hints</h2>
-            <ConsultInsight :url="'https://commons.libretexts.org/insight/hints-settings'"/>
+            <h2 class="h7 m-0 mr-1">
+              Hints
+            </h2>
+            <ConsultInsight :url="'https://commons.libretexts.org/insight/hints-settings'" />
           </div>
         </template>
         <b-form-group label-cols-sm="4" label-cols-lg="3" label-for="hint">
           <template v-slot:label>
             Can View Hint*
-            <QuestionCircleTooltip :id="'hint-tooltip'"/>
+            <QuestionCircleTooltip :id="'hint-tooltip'" />
             <b-tooltip target="hint-tooltip" delay="250" triggers="hover focus">
               Allow your students to see a hint for the solution if a hint exists.
             </b-tooltip>
@@ -1444,8 +1474,12 @@
                               stacked
                               @change="updateHintPenaltyView($event)"
           >
-            <b-form-radio value="1">Yes</b-form-radio>
-            <b-form-radio value="0">No</b-form-radio>
+            <b-form-radio value="1">
+              Yes
+            </b-form-radio>
+            <b-form-radio value="0">
+              No
+            </b-form-radio>
           </b-form-radio-group>
         </b-form-group>
         <b-form-group
@@ -1456,7 +1490,7 @@
         >
           <template v-slot:label>
             Hint Penalty*
-            <QuestionCircleTooltip :id="'hint-penalty-tooltip'"/>
+            <QuestionCircleTooltip :id="'hint-penalty-tooltip'" />
             <b-tooltip target="hint-penalty-tooltip" delay="250" triggers="hover focus">
               Penalty applied if a student decides to view the hint.
             </b-tooltip>
@@ -1474,7 +1508,7 @@
                 :class="{ 'is-invalid': form.errors.has('hint_penalty') }"
                 @keydown="form.errors.clear('hint_penalty')"
               />
-              <has-error :form="form" field="hint_penalty"/>
+              <has-error :form="form" field="hint_penalty" />
             </b-col>
           </b-form-row>
         </b-form-group>
@@ -1488,8 +1522,10 @@
       >
         <template #header>
           <div class="d-flex align-items-center">
-            <h2 class="h7 m-0 mr-1">Dynamic Questioning</h2>
-            <ConsultInsight :url="'https://commons.libretexts.org/insight/dynamic-questioning-properties'"/>
+            <h2 class="h7 m-0 mr-1">
+              Dynamic Questioning
+            </h2>
+            <ConsultInsight :url="'https://commons.libretexts.org/insight/dynamic-questioning-properties'" />
           </div>
         </template>
         <b-form-group
@@ -1500,7 +1536,7 @@
         >
           <template v-slot:label>
             Random sampling*
-            <QuestionCircleTooltip :id="'random-sampling-tooltip'"/>
+            <QuestionCircleTooltip :id="'random-sampling-tooltip'" />
             <b-tooltip target="random-sampling-tooltip" delay="250" triggers="hover focus">
               With random sampling enabled, your students will receive a random subset of questions from a pool.
             </b-tooltip>
@@ -1512,8 +1548,12 @@
                               :disabled="isLocked(hasSubmissionsOrFileSubmissions) || isBetaAssignment"
                               @change="initRandomizationsSwitch($event)"
           >
-            <b-form-radio value="1">Yes</b-form-radio>
-            <b-form-radio value="0">No</b-form-radio>
+            <b-form-radio value="1">
+              Yes
+            </b-form-radio>
+            <b-form-radio value="0">
+              No
+            </b-form-radio>
           </b-form-radio-group>
         </b-form-group>
         <b-form-group
@@ -1524,7 +1564,7 @@
         >
           <template v-slot:label>
             Number of randomized assessments*
-            <QuestionCircleTooltip :id="'number_of_randomized_assessments_tooltip'"/>
+            <QuestionCircleTooltip :id="'number_of_randomized_assessments_tooltip'" />
             <b-tooltip target="number_of_randomized_assessments_tooltip" delay="250" triggers="hover focus">
               ADAPT will randomly choose a subset of assessments from the total that you provide
             </b-tooltip>
@@ -1540,7 +1580,7 @@
                 :class="{ 'is-invalid': form.errors.has('number_of_randomized_assessments') }"
                 @keydown="form.errors.clear('number_of_randomized_assessments')"
               />
-              <has-error :form="form" field="number_of_randomized_assessments"/>
+              <has-error :form="form" field="number_of_randomized_assessments" />
             </b-col>
           </b-form-row>
         </b-form-group>
@@ -1548,7 +1588,7 @@
           <b-form-group label-cols-sm="4" label-cols-lg="3" label-for="algorithmic">
             <template v-slot:label>
               Algorithmic*
-              <QuestionCircleTooltip :id="'algorithmic-tooltip'"/>
+              <QuestionCircleTooltip :id="'algorithmic-tooltip'" />
               <b-tooltip target="algorithmic-tooltip" delay="250" triggers="hover focus">
                 WeBWork and IMathAS support algorithmic questions. Students will receive slight variations of the
                 original question.
@@ -1560,8 +1600,12 @@
                                 stacked
                                 :disabled="isLocked(hasSubmissionsOrFileSubmissions)"
             >
-              <b-form-radio value="1">Yes</b-form-radio>
-              <b-form-radio value="0">No</b-form-radio>
+              <b-form-radio value="1">
+                Yes
+              </b-form-radio>
+              <b-form-radio value="0">
+                No
+              </b-form-radio>
             </b-form-radio-group>
           </b-form-group>
         </div>
@@ -1582,7 +1626,7 @@
         >
           <template v-slot:label>
             Autoplay
-            <QuestionCircleTooltip :id="'autoplay-tooltip'"/>
+            <QuestionCircleTooltip :id="'autoplay-tooltip'" />
             <b-tooltip target="autoplay-tooltip" delay="250" triggers="hover focus">
               When enabled, flashcards will automatically advance to the next card. Each side of the card is shown for
               this many seconds before advancing.
@@ -1594,8 +1638,12 @@
             name="autoplay_enabled"
             class="d-inline-flex align-items-center mr-4"
           >
-            <b-form-radio :value="true">On</b-form-radio>
-            <b-form-radio :value="false">Off</b-form-radio>
+            <b-form-radio :value="true">
+              On
+            </b-form-radio>
+            <b-form-radio :value="false">
+              Off
+            </b-form-radio>
           </b-form-radio-group>
           <span v-if="form.flashcard_settings.autoplay.enabled" class="d-inline-flex align-items-center mr-4">
             <b-form-input
@@ -1623,7 +1671,7 @@
         >
           <template v-slot:label>
             Random Shuffle
-            <QuestionCircleTooltip :id="'random-shuffle-tooltip'"/>
+            <QuestionCircleTooltip :id="'random-shuffle-tooltip'" />
             <b-tooltip target="random-shuffle-tooltip" delay="250" triggers="hover focus">
               When enabled, flashcards will be presented in a random order each session.
             </b-tooltip>
@@ -1634,8 +1682,12 @@
             name="random_shuffle_enabled"
             class="d-inline-flex align-items-center mr-4"
           >
-            <b-form-radio :value="true">On</b-form-radio>
-            <b-form-radio :value="false">Off</b-form-radio>
+            <b-form-radio :value="true">
+              On
+            </b-form-radio>
+            <b-form-radio :value="false">
+              Off
+            </b-form-radio>
           </b-form-radio-group>
           <b-form-checkbox
             v-model="form.flashcard_settings.random_shuffle.student_override"
@@ -1654,7 +1706,7 @@
         >
           <template v-slot:label>
             Show Hint <sup class="text-muted">†</sup>
-            <QuestionCircleTooltip :id="'flashcard-hint-tooltip'"/>
+            <QuestionCircleTooltip :id="'flashcard-hint-tooltip'" />
             <b-tooltip target="flashcard-hint-tooltip" delay="250" triggers="hover focus">
               When enabled, students will be able to view a hint before flipping the card.
             </b-tooltip>
@@ -1665,8 +1717,12 @@
             name="show_hint_enabled"
             class="d-inline-flex align-items-center mr-4"
           >
-            <b-form-radio :value="true">On</b-form-radio>
-            <b-form-radio :value="false">Off</b-form-radio>
+            <b-form-radio :value="true">
+              On
+            </b-form-radio>
+            <b-form-radio :value="false">
+              Off
+            </b-form-radio>
           </b-form-radio-group>
           <b-form-checkbox
             v-model="form.flashcard_settings.show_hint.student_override"
@@ -1685,7 +1741,7 @@
         >
           <template v-slot:label>
             Text-to-Speech <sup class="text-muted">†</sup>
-            <QuestionCircleTooltip :id="'flashcard-tts-tooltip'"/>
+            <QuestionCircleTooltip :id="'flashcard-tts-tooltip'" />
             <b-tooltip target="flashcard-tts-tooltip" delay="250" triggers="hover focus">
               When enabled, students will see a speaker icon on text-only cards that reads the content aloud using
               AI-generated audio.
@@ -1697,8 +1753,12 @@
             name="text_to_speech_enabled"
             class="d-inline-flex align-items-center mr-4"
           >
-            <b-form-radio :value="true">On</b-form-radio>
-            <b-form-radio :value="false">Off</b-form-radio>
+            <b-form-radio :value="true">
+              On
+            </b-form-radio>
+            <b-form-radio :value="false">
+              Off
+            </b-form-radio>
           </b-form-radio-group>
           <b-form-checkbox
             v-model="form.flashcard_settings.text_to_speech.student_override"
@@ -1717,7 +1777,7 @@
         >
           <template v-slot:label>
             Captions <sup class="text-muted">†</sup>
-            <QuestionCircleTooltip :id="'flashcard-captions-tooltip'"/>
+            <QuestionCircleTooltip :id="'flashcard-captions-tooltip'" />
             <b-tooltip target="flashcard-captions-tooltip" delay="250" triggers="hover focus">
               When enabled, students will see AI-generated captions displayed alongside text-to-speech audio on
               text-only cards.
@@ -1729,8 +1789,12 @@
             name="captions_enabled"
             class="d-inline-flex align-items-center mr-4"
           >
-            <b-form-radio :value="true">On</b-form-radio>
-            <b-form-radio :value="false">Off</b-form-radio>
+            <b-form-radio :value="true">
+              On
+            </b-form-radio>
+            <b-form-radio :value="false">
+              Off
+            </b-form-radio>
           </b-form-radio-group>
           <b-form-checkbox
             v-model="form.flashcard_settings.captions.student_override"
@@ -1753,15 +1817,17 @@
       >
         <template #header>
           <div class="d-flex align-items-center">
-            <h2 class="h7 m-0 mr-1">Late Policy</h2>
-            <ConsultInsight :url="'https://commons.libretexts.org/insight/late-policy-setting'"/>
+            <h2 class="h7 m-0 mr-1">
+              Late Policy
+            </h2>
+            <ConsultInsight :url="'https://commons.libretexts.org/insight/late-policy-setting'" />
           </div>
         </template>
         <b-card-text>
           <b-form-group label-cols-sm="4" label-cols-lg="3" label-for="late_policy">
             <template v-slot:label>
               Late Policy*
-              <QuestionCircleTooltip :id="'change_late_policy_tooltip'"/>
+              <QuestionCircleTooltip :id="'change_late_policy_tooltip'" />
               <b-tooltip target="change_late_policy_tooltip" delay="250" triggers="hover focus">
                 You can change the late policy as long as the assignment is not past due for any students.
               </b-tooltip>
@@ -1773,7 +1839,9 @@
                                 :disabled="form.can_change_late_policy === false"
                                 @change="updateFinalSubmissionDate($event)"
             >
-              <b-form-radio value="not accepted">Do not accept late</b-form-radio>
+              <b-form-radio value="not accepted">
+                Do not accept late
+              </b-form-radio>
               <span @click="initLateValues">
                 <b-form-radio value="marked late">Accept but mark late</b-form-radio>
                 <b-form-radio value="deduction">Accept late with a deduction</b-form-radio>
@@ -1795,12 +1863,14 @@
                     :class="{ 'is-invalid': form.errors.has('late_deduction_percent') }"
                     @keydown="form.errors.clear('late_deduction_percent')"
                   />
-                  <has-error :form="form" field="late_deduction_percent"/>
+                  <has-error :form="form" field="late_deduction_percent" />
                 </b-col>
               </b-form-row>
             </b-form-group>
             <b-form-group label-cols-sm="4" label-cols-lg="3" label-for="late_deduction_application_period">
-              <template v-slot:label>Late Deduction Applied*</template>
+              <template v-slot:label>
+                Late Deduction Applied*
+              </template>
               <b-form-radio-group v-model="form.late_deduction_applied_once" stacked required
                                   :disabled="isLocked(hasSubmissionsOrFileSubmissions)"
               >
@@ -1809,7 +1879,9 @@
                 </span>
                 <b-form-radio class="mt-2" value="0">
                   <b-row>
-                    <b-col lg="4" class="mt-1">Every</b-col>
+                    <b-col lg="4" class="mt-1">
+                      Every
+                    </b-col>
                     <b-col lg="6">
                       <b-form-input
                         id="late_deduction_application_period"
@@ -1820,9 +1892,9 @@
                         :class="{ 'is-invalid': form.errors.has('late_deduction_application_period') }"
                         @keydown="form.errors.clear('late_deduction_application_period')"
                       />
-                      <has-error :form="form" field="late_deduction_application_period"/>
+                      <has-error :form="form" field="late_deduction_application_period" />
                     </b-col>
-                    <QuestionCircleTooltip :id="'late_deduction_application_period_tooltip'"/>
+                    <QuestionCircleTooltip :id="'late_deduction_application_period_tooltip'" />
                     <b-tooltip target="late_deduction_application_period_tooltip" delay="250" triggers="hover focus">
                       Enter a timeframe such as 5 minutes, 3 hours, or 1 day.
                     </b-tooltip>
@@ -1839,8 +1911,10 @@
       >
         <template #header>
           <div class="d-flex align-items-center">
-            <h2 class="h7 m-0 mr-1">Deadlines</h2>
-            <ConsultInsight :url="'https://commons.libretexts.org/insight/deadlines-settings'"/>
+            <h2 class="h7 m-0 mr-1">
+              Deadlines
+            </h2>
+            <ConsultInsight :url="'https://commons.libretexts.org/insight/deadlines-settings'" />
           </div>
         </template>
         <b-form-group
@@ -1849,10 +1923,16 @@
           label-cols-lg="3"
           label-for="assign_to_everyone"
         >
-          <template v-slot:label>Assign to Everyone*</template>
+          <template v-slot:label>
+            Assign to Everyone*
+          </template>
           <b-form-radio-group id="assign_to_everyone" v-model="form.assign_to_everyone" required stacked>
-            <b-form-radio name="assign_to_everyone" value="1">Yes</b-form-radio>
-            <b-form-radio name="assign_to_everyone" value="0">No</b-form-radio>
+            <b-form-radio name="assign_to_everyone" value="1">
+              Yes
+            </b-form-radio>
+            <b-form-radio name="assign_to_everyone" value="0">
+              No
+            </b-form-radio>
           </b-form-radio-group>
         </b-form-group>
         <div v-show="form.assessment_type === 'clicker'">
@@ -1868,7 +1948,7 @@
             <b-form-group label-cols-sm="4" label-cols-lg="3" label-for="assign_to">
               <template v-slot:label>
                 Assign to*
-                <QuestionCircleTooltip :id="'assign_to_tooltip'"/>
+                <QuestionCircleTooltip :id="'assign_to_tooltip'" />
                 <b-tooltip target="assign_to_tooltip" delay="250" triggers="hover focus">
                   You can assign to Everybody, a particular section (search by name) or student (search by name or
                   email).
@@ -1883,7 +1963,7 @@
                                  :class="{ 'is-invalid': form.errors.has(`groups_${index}`) }"
                                  @change="form.errors.clear(`groups_${index}`);updateAssignTos(assignTo)"
                   />
-                  <has-error :form="form" :field="`groups_${index}`"/>
+                  <has-error :form="form" :field="`groups_${index}`" />
                 </b-col>
                 <b-col>
                   <ul v-for="(group,group_index) in assignTo.groups" :key="group_index"
@@ -1902,7 +1982,9 @@
               </b-form-row>
             </b-form-group>
             <b-form-group label-cols-sm="4" label-cols-lg="3" :label-for="`available_from_${index}`">
-              <template v-slot:label>Available on*</template>
+              <template v-slot:label>
+                Available on*
+              </template>
               <b-form-row>
                 <b-col lg="7">
                   <b-form-datepicker
@@ -1914,7 +1996,7 @@
                     class="datepicker"
                     :class="{ 'is-invalid': form.errors.has(`available_from_date_${index}`) }"
                   />
-                  <has-error :form="form" :field="`available_from_date_${index}`"/>
+                  <has-error :form="form" :field="`available_from_date_${index}`" />
                 </b-col>
                 <b-col>
                   <vue-timepicker :id="`available_from_time_${index}`"
@@ -1928,15 +2010,17 @@
                                   @shown="form.errors.clear(`available_from_time_${index}`)"
                   >
                     <template v-slot:icon>
-                      <b-icon-clock/>
+                      <b-icon-clock />
                     </template>
                   </vue-timepicker>
-                  <ErrorMessage :message="form.errors.get(`available_from_time_${index}`)"/>
+                  <ErrorMessage :message="form.errors.get(`available_from_time_${index}`)" />
                 </b-col>
               </b-form-row>
             </b-form-group>
             <b-form-group label-cols-sm="4" label-cols-lg="3" :label-for="`due_date_${index}`">
-              <template v-slot:label>Due Date*</template>
+              <template v-slot:label>
+                Due Date*
+              </template>
               <b-form-row>
                 <b-col lg="7">
                   <b-form-datepicker
@@ -1949,7 +2033,7 @@
                     class="datepicker"
                     @shown="form.errors.clear(`due_${index}`)"
                   />
-                  <has-error :form="form" :field="`due_${index}`"/>
+                  <has-error :form="form" :field="`due_${index}`" />
                 </b-col>
                 <b-col>
                   <vue-timepicker :id="`due_time_${index}`"
@@ -1963,10 +2047,39 @@
                                   @shown="form.errors.clear(`due_time_${index}`)"
                   >
                     <template v-slot:icon>
-                      <b-icon-clock/>
+                      <b-icon-clock />
                     </template>
                   </vue-timepicker>
-                  <ErrorMessage :message="form.errors.get(`due_time_${index}`)"/>
+                  <ErrorMessage :message="form.errors.get(`due_time_${index}`)" />
+                </b-col>
+              </b-form-row>
+            </b-form-group>
+            <b-form-group v-show="user.id === 173 || isAdmin" label-cols-sm="4" label-cols-lg="3" :label-for="`time_limit_${index}`">
+              <template v-slot:label>
+                Time Limit
+                <QuestionCircleTooltip :id="'time_limit_tooltip'" />
+                <b-tooltip target="time_limit_tooltip" delay="250" triggers="hover focus">
+                  Once a student starts this assignment, they must finish within this amount of time (e.g. "1 hour").
+                  Leave blank for no personal time limit. This will never extend a student's time past the due date
+                  above.
+                </b-tooltip>
+              </template>
+              <b-form-row>
+                <b-col lg="4">
+                  <b-form-input
+                    :id="`time_limit_${index}`"
+                    v-model="assignTo.time_limit"
+                    type="text"
+                    placeholder="e.g. 1 hour"
+                    :disabled="assignTo.time_limit_locked"
+                    :class="{ 'is-invalid': form.errors.has(`time_limit_${index}`) }"
+                    @keydown="form.errors.clear(`time_limit_${index}`)"
+                  />
+                  <has-error :form="form" :field="`time_limit_${index}`" />
+                  <small v-if="assignTo.time_limit_locked" class="text-muted d-block mt-1">
+                    This can't be changed because at least one student has already started their timer for this
+                    assignment.
+                  </small>
                 </b-col>
               </b-form-row>
             </b-form-group>
@@ -1978,7 +2091,7 @@
             >
               <template v-slot:label>
                 Final Submission Deadline*
-                <QuestionCircleTooltip :id="'final_submission_deadline_tooltip'"/>
+                <QuestionCircleTooltip :id="'final_submission_deadline_tooltip'" />
                 <b-tooltip target="final_submission_deadline_tooltip" delay="250" triggers="hover focus">
                   For assessments where you allow late submissions, this is the latest possible date for which you'll
                   accept a submission.
@@ -1997,7 +2110,7 @@
                     :disabled="Boolean(solutionsReleased) && assessmentType !== 'real time'"
                     @shown="form.errors.clear(`final_submission_deadline_${index}`)"
                   />
-                  <has-error :form="form" :field="`final_submission_deadline_${index}`"/>
+                  <has-error :form="form" :field="`final_submission_deadline_${index}`" />
                 </b-col>
                 <b-col>
                   <vue-timepicker :id="`final_submission_deadline_time_${index}`"
@@ -2011,25 +2124,25 @@
                                   @shown="form.errors.clear(`final_submission_deadline_time_${index}`)"
                   >
                     <template v-slot:icon>
-                      <b-icon-clock/>
+                      <b-icon-clock />
                     </template>
                   </vue-timepicker>
-                  <ErrorMessage :message="form.errors.get(`final_submission_deadline_time_${index}`)"/>
+                  <ErrorMessage :message="form.errors.get(`final_submission_deadline_time_${index}`)" />
                 </b-col>
               </b-form-row>
             </b-form-group>
             <div v-if="form.assign_tos.length>1">
               <b-row align-h="end">
                 <b-button variant="outline-danger" class="mr-4" size="sm" @click="removeAssignTo(assignTo)">
-                  Remove Assign to
+                  Remove Assign To
                 </b-button>
               </b-row>
               <hr>
             </div>
           </div>
           <span v-if="courseId">
-            <b-button variant="outline-primary" size="sm" @click="addAssignTo">Add Assign to</b-button>
-            <QuestionCircleTooltip :id="'add_assign_to_tooltip'"/>
+            <b-button variant="outline-primary" size="sm" @click="addAssignTo">Add Assign To</b-button>
+            <QuestionCircleTooltip :id="'add_assign_to_tooltip'" />
             <b-tooltip target="add_assign_to_tooltip" delay="250" triggers="hover focus">
               When adding new "assign tos", we first assign at the user level, then section level, and finally at the course level.
             </b-tooltip>
@@ -2047,7 +2160,6 @@
                      @updateShowHideRelease="updateShowHideRelease"
         />
       </div>
-
     </b-form>
   </div>
 </template>
@@ -2077,6 +2189,7 @@ import QRCodeStyling from 'qr-code-styling'
 import VueTimepicker from 'vue2-timepicker/src/vue-timepicker.vue'
 import ErrorMessage from './ErrorMessage.vue'
 import CanSubmitWorkTooltip from './CanSubmitWorkTooltip.vue'
+import QuestionCircleTooltip from './QuestionCircleTooltip.vue'
 
 const defaultFlashcardSettings = {
   autoplay: { enabled: true, student_override: false, seconds: 4 },
@@ -2088,6 +2201,7 @@ const defaultFlashcardSettings = {
 
 export default {
   components: {
+    QuestionCircleTooltip,
     CKEditorFileToLinkUploader,
     CanSubmitWorkTooltip,
     AutoRelease,
@@ -2201,6 +2315,7 @@ export default {
     ...mapGetters({
       user: 'auth/user'
     }),
+    isAdmin: () => window.config.isAdmin,
     assignTosWithGroups () {
       return this.form.assign_tos.filter(item => item.groups.length > 0)
     },

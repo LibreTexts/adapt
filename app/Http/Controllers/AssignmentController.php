@@ -1895,6 +1895,7 @@ class AssignmentController extends Controller
             $newAssignToTiming->available_from = $assignToTiming->available_from;
             $newAssignToTiming->due = $assignToTiming->due;
             $newAssignToTiming->final_submission_deadline = $assignToTiming->final_submission_deadline;
+            $newAssignToTiming->time_limit = $assignToTiming->time_limit;
             $newAssignToTiming->save();
             $assign_to_groups = $assignToTiming->assignToGroups;
             foreach ($assign_to_groups as $assign_to_group) {
@@ -2638,6 +2639,7 @@ class AssignmentController extends Controller
                             unset($data['due_time_' . $key]);
                             unset($data['final_submission_deadline_date' . $key]);
                             unset($data['final_submission_deadline_time_' . $key]);
+                            unset($data['time_limit_' . $key]);
                         }
                     }
                     $assignment->update($data);

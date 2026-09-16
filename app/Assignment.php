@@ -5,6 +5,7 @@ namespace App;
 use App\Exceptions\Handler;
 use App\Helpers\Helper;
 use Carbon\Carbon;
+use Carbon\CarbonInterval;
 use Exception;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -725,6 +726,7 @@ class Assignment extends Model
                         ?: $num_questions;
 
                     $assignments_info[$key]['available_from'] = $this->convertUTCMysqlFormattedDateToLocalDateAndTime($available_from, Auth::user()->time_zone);
+                    $assignments_info[$key]['time_limit'] = $assigned_assignments[$assignment->id]->time_limit ?? null;
                 } else {
                     $assignments_info[$key]['lms_course_name'] = $lti_launches_by_assignment_id[$assignment->id]['lms_course_name'] ?? '';
                     $assignments_info[$key]['lms_assignment_name'] = $lti_launches_by_assignment_id[$assignment->id]['lms_assignment_name'] ?? '';
@@ -791,6 +793,10 @@ class Assignment extends Model
                         $assignments_info[$key]['assign_tos'][$assign_to_key]['due'] = $this->convertUTCMysqlFormattedDateToLocalDateAndTime($due, Auth::user()->time_zone);
                         $assignments_info[$key]['assign_tos'][$assign_to_key]['due_date'] = $this->convertUTCMysqlFormattedDateToLocalDate($due, Auth::user()->time_zone);
                         $assignments_info[$key]['assign_tos'][$assign_to_key]['due_time'] = $this->convertUTCMysqlFormattedDateToLocalTime($due, Auth::user()->time_zone);
+                        if (!empty($assign_to['time_limit'])) {
+                            $time_limit_start = Carbon::now();
+                            $assignments_info[$key]['assign_tos'][$assign_to_key]['time_limit_seconds'] = $time_limit_start->copy()->add(CarbonInterval::make($assign_to['time_limit']))->getTimestamp() - $time_limit_start->getTimestamp();
+                        }
                         $assignments_info[$key]['topics'] = Auth::user()->role === 2 ? $topics_by_assignment_id[$assignment->id] : [];
 
                     }
@@ -937,7 +943,8 @@ class Assignment extends Model
                 'assign_to_groups.group_id',
                 'assign_to_timings.available_from',
                 'assign_to_timings.due',
-                'assign_to_timings.final_submission_deadline')
+                'assign_to_timings.final_submission_deadline',
+                'assign_to_timings.time_limit')
             ->where('assignments.course_id', $course->id)
             ->get();
 
@@ -971,6 +978,20 @@ class Assignment extends Model
 
 
         $assign_to_groups_by_assignment_id = [];
+
+        // Batched once for the whole course rather than per-group, matching
+        // the same "real student has started" check TimeLimitCannotBeChangedOnceStarted
+        // uses at save time - this just lets the form show the lock
+        // proactively instead of only finding out after a rejected save.
+        $locked_assign_to_timing_ids = DB::table('assign_to_timing_starts')
+            ->join('users', 'users.id', '=', 'assign_to_timing_starts.user_id')
+            ->whereIn('assign_to_timing_starts.assign_to_timing_id', $assign_to_groups_info->pluck('assign_to_timing_id')->unique())
+            ->where('users.fake_student', 0)
+            ->whereNotNull('assign_to_timing_starts.started_at')
+            ->pluck('assign_to_timing_starts.assign_to_timing_id')
+            ->unique()
+            ->toArray();
+
         foreach ($assign_to_groups_info as $assign_to_group) {
             $assignment_id = $assign_to_group->assignment_id;
             $assign_to_timing_id = $assign_to_group->assign_to_timing_id;
@@ -982,7 +1003,9 @@ class Assignment extends Model
                 $assign_to_groups_by_assignment_id[$assignment_id][$assign_to_timing_id] = [
                     'available_from' => $assign_to_group->available_from,
                     'due' => $assign_to_group->due,
-                    'final_submission_deadline' => $assign_to_group->final_submission_deadline];
+                    'final_submission_deadline' => $assign_to_group->final_submission_deadline,
+                    'time_limit' => $assign_to_group->time_limit,
+                    'time_limit_locked' => in_array($assign_to_timing_id, $locked_assign_to_timing_ids)];
                 $assign_to_groups_by_assignment_id[$assignment_id][$assign_to_timing_id]['groups'] = [];
             }
 

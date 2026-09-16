@@ -457,6 +457,39 @@ class AssignmentPolicy
 
 
     /**
+     * Determine whether the user can add/set a student's personal time
+     * limit clock for this assignment (AssignmentTimeLimitController).
+     *
+     * @param User $user
+     * @param Assignment $assignment
+     * @return Response
+     */
+    public function manageAssignmentTimeLimit(User $user, Assignment $assignment): Response
+    {
+        return $assignment->course->ownsCourseOrIsCoInstructor($user->id)
+            ? Response::allow()
+            : Response::deny('You are not allowed to manage time limits for this assignment.');
+    }
+
+    /**
+     * Determine whether the user can reset their OWN personal time limit
+     * clock for this assignment (AssignmentTimeLimitController::resetTimer).
+     * Deliberately scoped to fake students and instructors/TAs testing the
+     * timed experience - a real student can never reset their own clock,
+     * which is the whole point of the feature.
+     *
+     * @param User $user
+     * @param Assignment $assignment
+     * @return Response
+     */
+    public function resetOwnTimeLimit(User $user, Assignment $assignment): Response
+    {
+        return ($user->fake_student || in_array($user->role, [2, 5]))
+            ? Response::allow()
+            : Response::deny('You are not allowed to reset this timer.');
+    }
+
+    /**
      * Determine whether the user can delete the assignment.
      *
      * @param User $user

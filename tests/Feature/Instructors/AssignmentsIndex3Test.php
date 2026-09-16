@@ -506,4 +506,53 @@ class AssignmentsIndex3Test extends TestCase
             ->assertJson(['message'=>'You are not allowed to get the review histories for this assignment.']);
 
     }
+
+    /** @test */
+    public function updating_an_assignment_with_a_time_limit_does_not_error()
+    {
+        // Regression test: time_limit_0 was previously left in $data and passed
+        // to $assignment->update($data), which fails since `assignments` has no
+        // time_limit column - it belongs on assign_to_timings via addAssignTos().
+        $assignment_info = $this->assignment_info;
+        $assignment_info['time_limit_0'] = '2 minutes';
+        $assignment_info['assign_tos'][0]['time_limit'] = '2 minutes';
+
+        $this->actingAs($this->user)
+            ->patchJson("/api/assignments/{$this->assignment->id}", $assignment_info)
+            ->assertJson(['type' => 'success']);
+
+        $assign_to_timing = AssignToTiming::where('assignment_id', $this->assignment->id)->first();
+        $this->assertEquals('2 minutes', $assign_to_timing->time_limit);
+    }
+
+    /** @test */
+    public function updating_an_assignment_can_change_its_time_limit()
+    {
+        AssignToTiming::where('assignment_id', $this->assignment->id)->update(['time_limit' => '30 seconds']);
+
+        $assignment_info = $this->assignment_info;
+        $assignment_info['time_limit_0'] = '5 minutes';
+        $assignment_info['assign_tos'][0]['time_limit'] = '5 minutes';
+
+        $this->actingAs($this->user)
+            ->patchJson("/api/assignments/{$this->assignment->id}", $assignment_info)
+            ->assertJson(['type' => 'success']);
+
+        $assign_to_timing = AssignToTiming::where('assignment_id', $this->assignment->id)->first();
+        $this->assertEquals('5 minutes', $assign_to_timing->time_limit);
+    }
+
+    /** @test */
+    public function updating_an_assignment_can_remove_its_time_limit()
+    {
+        AssignToTiming::where('assignment_id', $this->assignment->id)->update(['time_limit' => '5 minutes']);
+
+        // $this->assignment_info never sets time_limit_0.
+        $this->actingAs($this->user)
+            ->patchJson("/api/assignments/{$this->assignment->id}", $this->assignment_info)
+            ->assertJson(['type' => 'success']);
+
+        $assign_to_timing = AssignToTiming::where('assignment_id', $this->assignment->id)->first();
+        $this->assertNull($assign_to_timing->time_limit);
+    }
 }

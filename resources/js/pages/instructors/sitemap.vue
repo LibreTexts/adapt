@@ -40,7 +40,7 @@
               </router-link>
               -
               <router-link
-                :to="{name: 'instructors.assignments.submission_overrides', params: {assignmentId: assignment.value}}"
+                :to="{name: 'instructors.assignments.overrides', params: {assignmentId: assignment.value}}"
               >
                 Submission Overrides
               </router-link>

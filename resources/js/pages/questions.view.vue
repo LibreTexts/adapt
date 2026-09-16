@@ -65,20 +65,20 @@
           </li>
           <li
             v-if="numberOfAllowedAttempts !== '1'
-              && numberOfAllowedAttemptsPenalty"
+                        && numberOfAllowedAttemptsPenalty"
           >
             <span class="font-weight-bold">Next Attempt Points:</span> {{ maximumNumberOfPointsPossible }}
             <span>
-              <QuestionCircleTooltip :id="'learning-tree-per-attempt-penalty-tooltip'"/>
-              <b-tooltip target="learning-tree-per-attempt-penalty-tooltip" delay="250"
-                         triggers="hover focus"
-              >
-                A per attempt penalty of {{ numberOfAllowedAttemptsPenalty }}% is applied after the first
-                attempt.
-                {{ getHintPenaltyMessage() }}  With the penalty, the maximum number of points possible for the next attempt is
-                {{ maximumNumberOfPointsPossible }} points.
-              </b-tooltip>
-            </span>
+                        <QuestionCircleTooltip :id="'learning-tree-per-attempt-penalty-tooltip'"/>
+                        <b-tooltip target="learning-tree-per-attempt-penalty-tooltip" delay="250"
+                                   triggers="hover focus"
+                        >
+                          A per attempt penalty of {{ numberOfAllowedAttemptsPenalty }}% is applied after the first
+                          attempt.
+                          {{ getHintPenaltyMessage() }}  With the penalty, the maximum number of points possible for the next attempt is
+                          {{ maximumNumberOfPointsPossible }} points.
+                        </b-tooltip>
+                      </span>
           </li>
           <li>
             <span class="font-weight-bold">Last submission:</span> <span
@@ -87,8 +87,7 @@
               questions[currentPage - 1].student_response
             }}</span>
           </li>
-          <li>
-            <span class="font-weight-bold">
+          <li>  <span class="font-weight-bold">
               Submitted At:</span>
             <span
               :class="{ 'text-danger': questions[currentPage - 1].last_submitted === 'N/A' }"
@@ -672,7 +671,6 @@
                                    :key="`modal-answer-1-${questions[currentPage-1].id}`"
                                    :modal-id="questions[currentPage-1].id"
                                    :qti-json="questions[currentPage-1].qti_answer_json"
-                                   :media-uploads="questions[currentPage-1].media_uploads"
                                    :preview-or-solution="true"
               />
             </span>
@@ -888,9 +886,8 @@
       </p>
     </b-modal>
     <div v-if="questions[currentPage - 1] && questions[currentPage-1].hint_exists">
-      <HintModal
-        :hint-penalty-if-shown-hint="hintPenaltyIfShownHint"
-        :hint-html="questions[currentPage - 1].hint ? questions[currentPage - 1].hint : ''"
+      <HintModal :hint-penalty-if-shown-hint="hintPenaltyIfShownHint"
+                 :hint-html="questions[currentPage - 1].hint ? questions[currentPage - 1].hint : ''"
       />
     </div>
     <b-modal id="modal-confirm-show-hint"
@@ -1822,7 +1819,8 @@
                   <b-tooltip target="fake-student-status-open-tooltip" delay="250"
                              triggers="hover focus"
                   >
-                    Assignments are always open for "fake students"
+                    Assignments are always open for "fake students", except when a personal time limit has expired -
+                    the timer is enforced even in Student View so it can be tested.
                   </b-tooltip>
                 </small>
               </b-col>
@@ -1970,6 +1968,7 @@
               </li>
               <li v-if="assessmentType !== 'clicker'
                 && user.role === 3
+                && !(timeLimit && timingStartedAt)
                 && ((!isFormative && !inIFrame && timeLeft>0)
                 || (inIFrame && showAssignmentInformation))"
               >
@@ -2438,7 +2437,37 @@
           </b-container>
         </div>
 
-        <b-container v-if="!clickerApp">
+        <div v-if="user.role === 3 && timeLimit" class="text-center my-3">
+          <b-card v-if="blockedPendingTimerStart"
+                  class="mx-auto shadow-sm"
+                  style="max-width: 480px;"
+                  border-variant="primary"
+          >
+            <b-icon-stopwatch font-scale="1.8" variant="primary" class="mb-2"/>
+            <h5 class="mb-2">Timed Assignment</h5>
+            <p class="mb-3">
+              Once you click Start, you'll have <strong>{{ formattedTimeLimit }}</strong> to finish. The clock
+              can't be paused once it begins.
+            </p>
+            <b-button variant="primary" size="lg" :disabled="startingAssignmentTimer" @click="startAssignmentTimer">
+              <b-spinner v-if="startingAssignmentTimer" small class="mr-1"/>
+              Start Assignment
+            </b-button>
+          </b-card>
+          <b-card v-else-if="timingStartedAt && !timingExpired"
+                  class="mx-auto shadow-sm"
+                  style="max-width: 420px;"
+                  border-variant="info"
+                  body-class="py-2"
+          >
+            <countdown :time="timingSecondsLeft" @end="onTimeLimitExpired">
+              <template v-slot="props">
+                <span class="font-weight-bold" v-html="getTimeLimitMessage(props)"/>
+              </template>
+            </countdown>
+          </b-card>
+        </div>
+        <b-container v-if="!clickerApp && !blockedPendingTimerStart">
           <div v-show="(!user.formative_student || (user.formative_student && !$route.params.questionId))"
                class="overflow-auto mt-2"
                :class="{ 'clicker-pagination': assessmentType === 'clicker' }"
@@ -2489,7 +2518,6 @@
               <QtiJsonAnswerViewer
                 :modal-id="questions[currentPage-1].id"
                 :qti-json="questions[currentPage-1].qti_answer_json"
-                :media-uploads="questions[currentPage-1].media_uploads"
                 :preview-or-solution="true"
               />
               <b-button size="sm"
@@ -2731,7 +2759,6 @@
                                  :key="`modal-answer-${questions[currentPage-1].id}`"
                                  :modal-id="questions[currentPage-1].id"
                                  :qti-json="questions[currentPage-1].qti_answer_json"
-                                 :media-uploads="questions[currentPage-1].media_uploads"
                                  :preview-or-solution="true"
             />
             <b-button
@@ -2994,19 +3021,20 @@
                             && showSubmissionInformation
                             && showQuestion
                             && !['flashcard','clicker'].includes(assessmentType)
-                            && !isFormative"
+                            && !isFormative
+                            && !blockedPendingTimerStart"
                           class="pb-2"
                     >
                       <b-button
                         variant="primary"
                         size="sm"
-                        @click="assessmentType === 'learning tree' ? $bvModal.show('modal-root-assessment-submission-information') : $bvModal.show('modal-submission-information')"
+                        @click="assessmentType === 'learning tree' ?  $bvModal.show('modal-root-assessment-submission-information') : $bvModal.show('modal-submission-information')"
                       >
                         {{
                           assessmentType === 'learning tree' ? 'Root Assessment Submission Information' : 'Submission Information'
                         }}
                       </b-button>
-                      <span v-if="['delayed','real time','learning tree'].includes(assessmentType)
+                      <span v-if="['real time','learning tree'].includes(assessmentType)
                         && canViewHintAtAssignmentLevel
                         && !questions[currentPage-1].answered_correctly_at_least_once
                         && questions[currentPage-1].hint_exists
@@ -3067,7 +3095,6 @@
                                              :key="`modal-answer-${questions[currentPage-1].id}`"
                                              :modal-id="questions[currentPage-1].id"
                                              :qti-json="questions[currentPage-1].qti_answer_json"
-                                             :media-uploads="questions[currentPage-1].media_uploads"
                                              :preview-or-solution="true"
                         />
                         <b-button
@@ -3124,7 +3151,8 @@
                     </b-alert>
                   </div>
                   <b-card
-                    v-show="assessmentType !== 'clicker' || (assessmentType === 'clicker' && (user.role === 2 && !presentationMode) ||(user.role === 3 && clickerStatus !== 'neither_view_nor_submit'))"
+                    v-show="(assessmentType !== 'clicker' || (assessmentType === 'clicker' && (user.role === 2 && !presentationMode) ||(user.role === 3 && clickerStatus !== 'neither_view_nor_submit')))
+                      && !blockedPendingTimerStart"
                     no-body
                     class="p-2"
                     :border-variant="user.role === 3 ? getQuestionStatusClass(true) : ''"
@@ -3374,7 +3402,6 @@
                             :key="`modal-answer-${questions[currentPage-1].id}`"
                             :modal-id="questions[currentPage-1].id"
                             :qti-json="questions[currentPage-1].qti_answer_json"
-                            :media-uploads="questions[currentPage-1].media_uploads"
                             :preview-or-solution="true"
                           />
                         </span>
@@ -3442,7 +3469,7 @@
                       :overall-comments="questions[currentPage - 1].text_feedback"
                     />
                   </b-card>
-                  <div class="pt-2 pb-2">
+                  <div class="pt-2 pb-2" v-if="!blockedPendingTimerStart">
                     <!-- todo: completely removed the button when on a page -->
                     <span v-if="!inIFrame && (((!inIFrame || showAttribution) && questions[currentPage-1].attribution !== null
                       || (questions[currentPage-1].auto_attribution && autoAttributionHTML))
@@ -3460,6 +3487,17 @@
                                  triggers="hover focus"
                       >
                         While in Student View, you can reset the submission which may aid in testing questions.
+                      </b-tooltip>
+                    </span>
+                    <span v-if="timeLimit && timingStartedAt && (user.fake_student === 1 || ([2,5].includes(user.role) && !presentationMode))">
+                      <b-button id="reset-timer-tooltip" size="sm" variant="info" @click="resetAssignmentTimer">
+                        Reset Timer
+                      </b-button>
+                      <b-tooltip target="reset-timer-tooltip" delay="500"
+                                 triggers="hover focus"
+                      >
+                        While in Student View, you can reset this assignment's timer so you can test the Start flow
+                        again.
                       </b-tooltip>
                     </span>
                     <span class="float-right d-flex align-items-center">
@@ -3668,7 +3706,7 @@
               <div v-if="questions[currentPage-1].solution_html"
                    class="mt-3 libretexts-border"
               >
-                <div id="solution-html" class="mt-3" v-html="questions[currentPage - 1].solution_html"/>
+                <div class="mt-3" id="solution-html" v-html="questions[currentPage - 1].solution_html"/>
               </div>
               <div v-if="questions[currentPage-1].hint"
                    class="mt-3 libretexts-border"
@@ -3955,7 +3993,6 @@ export default {
     iframeDomLoaded: false,
     event: {},
     submitButtonActive: true,
-    submitBlockedReason: '',
     showLeftColumn: true,
     showRightColumn: true,
     taskStartTime: 0,
@@ -4185,6 +4222,16 @@ export default {
     cutups: [],
     uploadLevel: 'assignment',
     timeLeft: 0,
+    // Personal time-limit clock (separate from timeLeft above, which is time
+    // until the assign-to group's due date). Populated by getTimeLimitStatus().
+    timeLimit: null,
+    timeLimitSeconds: null,
+    timingStartedAt: null,
+    timingExpiresAt: null,
+    timingSecondsLeft: 0,
+    timingExpired: false,
+    submitBlockedReason: '',
+    startingAssignmentTimer: false,
     totalPoints: 0,
     uploadFileType: '',
     source: 'a',
@@ -4258,6 +4305,54 @@ export default {
     ...mapGetters({
       user: 'auth/user'
     }),
+    formattedTimeLimit () {
+      if (!this.timeLimitSeconds) {
+        return this.timeLimit
+      }
+      const hours = Math.floor(this.timeLimitSeconds / 3600)
+      const minutes = Math.floor((this.timeLimitSeconds % 3600) / 60)
+      const seconds = this.timeLimitSeconds % 60
+      const parts = []
+      if (hours > 0) {
+        parts.push(`${hours} hour${hours === 1 ? '' : 's'}`)
+      }
+      if (minutes > 0) {
+        parts.push(`${minutes} minute${minutes === 1 ? '' : 's'}`)
+      }
+      if (seconds > 0 || parts.length === 0) {
+        parts.push(`${seconds} second${seconds === 1 ? '' : 's'}`)
+      }
+      return parts.join(', ')
+    },
+    // Gates question content for a student on a timed assignment who hasn't
+    // started yet. Checking timeLimit/timingStartedAt directly (rather than
+    // relying solely on questionStatus === 'not started') avoids a flash of
+    // content: those two are populated by getTimeLimitStatus(), which is
+    // awaited before question rendering ever begins, whereas questionStatus
+    // gets reset to '' synchronously at the top of every changePage() call
+    // and only reaches 'not started' after a separate canSubmit() round-trip
+    // resolves - a gap during which this used to render, then disappear.
+    // Gates the "please click Start" experience (both the Start Assignment
+    // prompt below and the question content) for a student on a timed
+    // assignment. Deliberately does NOT rely solely on questionStatus,
+    // which resets to '' synchronously at the top of every changePage()
+    // call and only reaches its real value ('not started'/'open'/'closed')
+    // after a separate canSubmit() round-trip - relying on it alone causes
+    // a visible flash. timeLimit/timingStartedAt/timingExpired/pastDue are
+    // all populated by earlier awaited calls before question rendering
+    // begins, so there's no gap to flash through here.
+    blockedPendingTimerStart () {
+      if (this.user.role !== 3 || !this.timeLimit || this.timingStartedAt || this.timingExpired) {
+        return false
+      }
+      // Once the assignment is genuinely past due, a real student falls
+      // through to the ordinary closed/late-policy experience instead (no
+      // timer at all - see GeneralSubmissionPolicy) rather than being stuck
+      // behind a Start prompt they can no longer act on. Fake students stay
+      // gated even past due, since start() deliberately still lets them
+      // begin the timer then, to test the timed-out experience.
+      return this.user.fake_student || !this.pastDue
+    },
     allFlashcards () {
       if (this.assessmentType !== 'flashcard') return []
       return this.questions
@@ -4363,6 +4458,7 @@ export default {
       await this.refreshToken()
     }
     window.addEventListener('resize', this.resizeHandler)
+    document.addEventListener('visibilitychange', this.handleVisibilityChange)
     this.isAnonymousUser = this.user.email === 'anonymous'
     this.isLoading = true
 
@@ -4384,6 +4480,9 @@ export default {
     if (!this.canView) {
       this.isLoading = false
       return false
+    }
+    if (this.user.role === 3) {
+      await this.getTimeLimitStatus()
     }
     await this.createLtiLaunchIfNeeded()
     if (this.source === 'a') {
@@ -4466,6 +4565,16 @@ export default {
         await viewClickerSubmissionsUpdated(ctx)
       }).subscribe()
     }
+    if (this.timeLimit && this.user.role === 3) {
+      if (!this.centrifuge) {
+        this.centrifuge = await initCentrifuge()
+      }
+      const timeLimitSub = this.centrifuge.newSubscription(`time-limit-update-${this.assignmentId}`)
+      const timeLimitUpdated = this.timeLimitUpdated
+      timeLimitSub.on('publication', async function (ctx) {
+        await timeLimitUpdated(ctx)
+      }).subscribe()
+    }
     if (this.inIFrame) {
       this.$refs['questionContainer'].classList.remove('container')
       $('.row').removeClass('row')
@@ -4483,11 +4592,15 @@ export default {
     if (this.user.role === 3) {
       await this.initClickerAssignmentsForEnrolledAndOpenCourses()
     }
+    if (this.user.role === 2) {
+      // await this.startClickerAssessment()
+    }
     this.previouslyUploadedAudioFile = this.questions[this.currentPage - 1].submission ? this.questions[this.currentPage - 1].submission : ''
   },
   beforeDestroy () {
     window.removeEventListener('message', this.receiveMessage)
     window.removeEventListener('resize', this.resizeHandler)
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange)
     clearInterval(this.autoSaveInterval)
     window.removeEventListener('beforeunload', this.handleBeforeUnload)
     if (this.reviewQuestionPollingSetInterval) {
@@ -4623,6 +4736,9 @@ export default {
           break
         case ('late'):
           questionStatusClass = 'text-warning'
+          break
+        case ('not started'):
+          questionStatusClass = 'text-info'
           break
       }
       if (border) {
@@ -4942,9 +5058,9 @@ export default {
         this.questions[this.currentPage - 1].can_submit_work = 1 - this.questions[this.currentPage - 1].can_submit_work
       }
     },
-    addHintHeader () {
-      if (this.questions[this.currentPage - 1].hint && !this.questions[this.currentPage - 1].hint.includes('<h2 class="editable">Hint</h2>')) {
-        this.questions[this.currentPage - 1].hint = '<h2 class="editable">Hint</h2>' + this.questions[this.currentPage - 1].hint
+    cleanHint () {
+      if (this.questions[this.currentPage - 1].hint) {
+        this.questions[this.currentPage - 1].hint = this.questions[this.currentPage - 1].hint.replace('<h2 class="editable">Hint</h2>', '')
       }
     },
     showHintModal () {
@@ -5059,6 +5175,28 @@ export default {
       if (data.assignment_id === +this.assignmentId && data.question_id !== +this.questions[this.currentPage - 1].id) {
         window.location.href = `/assignments/${this.assignmentId}/questions/view/${data.question_id}`
       }
+    },
+    // Pushed by AssignmentTimeLimitController's addTime/setTime/
+    // resetTimerForStudent. The channel is shared per assignment (same
+    // pattern as clicker-status), so every subscribed student's client
+    // filters to messages about their own user_id rather than relying on a
+    // private per-user channel.
+    async timeLimitUpdated (ctx) {
+      const data = ctx.data
+      if (data.assignment_id !== +this.assignmentId || data.user_id !== this.user.id) {
+        return
+      }
+      if (data.seconds_left === null) {
+        // Reset: back to "not started".
+        this.timingStartedAt = null
+        this.timingExpired = false
+        this.timingSecondsLeft = 0
+      } else {
+        this.timingStartedAt = this.timingStartedAt || new Date().toISOString()
+        this.timingExpired = false
+        this.timingSecondsLeft = data.seconds_left * 1000
+      }
+      await this.canSubmit()
     },
     async viewClickerSubmissionsUpdated (ctx) {
       const data = ctx.data
@@ -5385,7 +5523,9 @@ export default {
         this.submitButtonActive = data.type === 'success'
         this.submitBlockedReason = data.type === 'error' ? data.message : ''
         if (this.submitButtonActive && this.questionStatus !== 'late' || !this.submitButtonActive) {
-          this.questionStatus = this.submitButtonActive ? 'open' : 'closed'
+          this.questionStatus = this.submitButtonActive
+            ? 'open'
+            : (this.submitBlockedReason.includes('have not started the timer') ? 'not started' : 'closed')
         }
         this.canViewHint = this.submitButtonActive
         if (['h5p', 'webwork'].includes(this.questions[this.currentPage - 1]['technology'])) {
@@ -5566,7 +5706,7 @@ export default {
         this.$noty.error(error.message)
       }
     },
-    async handleShownHint (showModal = true) {
+    async handleShownHint () {
       try {
         const { data } = await axios.post(`/api/shown-hints/assignments/${this.assignmentId}/question/${this.questions[this.currentPage - 1].id}`, {
           problemJWT: this.questions[this.currentPage - 1].problem_jwt
@@ -5577,13 +5717,10 @@ export default {
         }
         this.questions[this.currentPage - 1].shown_hint = true
         this.questions[this.currentPage - 1].hint = data.hint
-        this.$nextTick(() => {
-          this.addHintHeader()
-          if (showModal) {
-            this.$bvModal.hide('modal-confirm-show-hint')
-            this.$bvModal.show('modal-hint')
-          }
-        })
+        this.cleanHint()
+        this.$bvModal.hide('modal-confirm-show-hint')
+        this.$bvModal.show('modal-hint')
+
         this.$nextTick(() => {
           this.typesetMath(document.getElementById('hint-html'))
         })
@@ -6219,6 +6356,110 @@ export default {
       }
       message += assessmentType === 'clicker' ? ` left` : '.'
       return message
+    },
+    async getTimeLimitStatus () {
+      try {
+        const { data } = await axios.get(`/api/assignments/${this.assignmentId}/time-limit/status`)
+        if (data.type === 'error') {
+          this.$noty.error(data.message)
+          return
+        }
+        this.timeLimit = data.time_limit
+        this.timeLimitSeconds = data.time_limit_seconds ?? null
+        this.timingStartedAt = data.started_at
+        this.timingExpiresAt = data.expires_at
+        this.timingSecondsLeft = (data.seconds_left || 0) * 1000
+        this.timingExpired = Boolean(this.timingStartedAt) && this.timingSecondsLeft <= 0
+      } catch (error) {
+        this.$noty.error(error.message)
+      }
+    },
+    async startAssignmentTimer () {
+      if (this.startingAssignmentTimer) {
+        return
+      }
+      this.startingAssignmentTimer = true
+      try {
+        const { data } = await axios.post(`/api/assignments/${this.assignmentId}/time-limit/start`)
+        if (data.type === 'error') {
+          this.$noty.error(data.message)
+        } else {
+          this.timingStartedAt = new Date().toISOString()
+          this.timingExpiresAt = data.expires_at
+          this.timingSecondsLeft = (data.seconds_left || 0) * 1000
+          await this.canSubmit()
+          // h5p-resizer.js only sends its 'ready' handshake to iframes
+          // present at its own one-time init (guarded by
+          // window.h5pResizerInitialized, so re-running the script is a
+          // no-op) - the H5P iframe here only mounts now that
+          // timingStartedAt is set, so it missed that handshake and needs
+          // it sent directly. $nextTick ensures the iframe is actually in
+          // the DOM first.
+          this.$nextTick(() => {
+            this.notifyH5PIframesReady()
+          })
+        }
+      } catch (error) {
+        this.$noty.error(error.message)
+      } finally {
+        this.startingAssignmentTimer = false
+      }
+    },
+    async onTimeLimitExpired () {
+      this.timingExpired = true
+      await this.canSubmit()
+    },
+    // Browsers throttle or pause JS timers (including the countdown
+    // component's internal one) on a backgrounded/inactive tab, so its @end
+    // event can fire late - the actual expiry enforcement server-side is
+    // unaffected (canSubmit() always checks real elapsed time), but the UI
+    // can be left showing a stale countdown/status until something re-checks
+    // it. Re-check as soon as the tab regains focus rather than waiting for
+    // a manual reload.
+    // Replicates the one-time "let h5p iframes know we're ready" step from
+    // h5p-resizer.js for an iframe that mounted after that script's own
+    // init already ran (it won't run again - see window.h5pResizerInitialized
+    // in that script). Its persistent message listener still handles the
+    // handshake reply/resize normally once it receives this.
+    notifyH5PIframesReady () {
+      const iframes = document.getElementsByTagName('iframe')
+      for (let i = 0; i < iframes.length; i++) {
+        if (iframes[i].src && iframes[i].src.indexOf('h5p') !== -1 && iframes[i].contentWindow) {
+          iframes[i].contentWindow.postMessage({ context: 'h5p', action: 'ready' }, '*')
+        }
+      }
+    },
+    async handleVisibilityChange () {
+      if (document.visibilityState !== 'visible' || this.user.role !== 3 || !this.timeLimit || !this.timingStartedAt || this.timingExpired) {
+        return
+      }
+      await this.canSubmit()
+    },
+    async resetAssignmentTimer () {
+      try {
+        const { data } = await axios.delete(`/api/assignments/${this.assignmentId}/time-limit/reset`)
+        if (data.type === 'error') {
+          this.$noty.error(data.message)
+          return
+        }
+        this.timingStartedAt = null
+        this.timingExpiresAt = null
+        this.timingSecondsLeft = 0
+        this.timingExpired = false
+        await this.canSubmit()
+        this.$noty.success('The timer has been reset - you can click Start Assignment again.')
+      } catch (error) {
+        this.$noty.error(error.message)
+      }
+    },
+    getTimeLimitMessage (props) {
+      const pad = (n) => String(n).padStart(2, '0')
+      const clock = props.days > 0
+        ? `${props.days}:${pad(props.hours)}:${pad(props.minutes)}:${pad(props.seconds)}`
+        : props.hours > 0
+          ? `${props.hours}:${pad(props.minutes)}:${pad(props.seconds)}`
+          : `${props.minutes}:${pad(props.seconds)}`
+      return `<span class="font-weight-bold">Time remaining:</span> <span style="font-size: 1.4rem; font-variant-numeric: tabular-nums;">${clock}</span>`
     },
     async restartTimer () {
       try {
@@ -6995,6 +7236,7 @@ export default {
               let vm = this
               this.getTechnologySrcDoc(vm, href.toString(), this.assignmentId, this.questions[this.currentPage - 1].id, 'submissions')
               if (this.questions[this.currentPage - 1].render_webwork_solution) {
+
                 if (this.user.role === 2) {
                   const url = new URL(this.questions[this.currentPage - 1].technology_iframe)
                   const problemJWT = url.searchParams.get('problemJWT')
@@ -7147,10 +7389,6 @@ export default {
             this.submitText(false)
           }
         }, 10000)
-      }
-      if (this.user.role === 2) {
-        // await this.startClickerAssessment()
-        await this.handleShownHint(false)
       }
     },
     async updateReviewQuestionTime () {

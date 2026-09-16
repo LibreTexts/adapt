@@ -800,6 +800,22 @@ Route::group(['middleware' => ['auth:api', 'analytics','rate.limit.by.user']], f
     Route::patch('/assignments/{assignment}/questions/{question}/release-solution-when-question-is-closed', 'AssignmentSyncQuestionController@updateReleaseSolutionWhenQuestionIsClosed');
     Route::get('/assignments/{assignment}/all-solutions-released-when-closed', 'AssignmentSyncQuestionController@allSolutionsReleasedWhenClosed');
 
+    Route::get('/assignments/{assignment}/time-limit/status', 'AssignmentTimeLimitController@getStatus');
+    Route::post('/assignments/{assignment}/time-limit/start', 'AssignmentTimeLimitController@start');
+
+    // Fake-student / instructor-testing only - lets you reset your own clock
+    // to retest the Start flow. Gated inside the controller, never exposed to
+    // real students.
+    Route::delete('/assignments/{assignment}/time-limit/reset', 'AssignmentTimeLimitController@resetTimer');
+
+    // Instructor-only actions - protected by the manageAssignmentTimeLimit gate
+    // inside the controller, same pattern as the clicker add-time/restart-timer
+    // routes above them.
+    Route::get('/assignments/{assignment}/time-limit/statuses', 'AssignmentTimeLimitController@getAllStatuses');
+    Route::get('/assignments/{assignment}/time-limit/{user}/status', 'AssignmentTimeLimitController@getStatusForStudent');
+    Route::post('/assignments/{assignment}/time-limit/{user}/add-time', 'AssignmentTimeLimitController@addTime');
+    Route::patch('/assignments/{assignment}/time-limit/{user}', 'AssignmentTimeLimitController@setTime');
+    Route::delete('/assignments/{assignment}/time-limit/{user}/reset', 'AssignmentTimeLimitController@resetTimerForStudent');
 
     Route::patch('/assignments/{assignment}/questions/{question}/set-current-page', 'AssignmentSyncQuestionController@setCurrentPage');
     Route::post('/assignments/{assignment}/questions/{question}/add-time', 'AssignmentSyncQuestionController@addTimeToClickerAssessment');
