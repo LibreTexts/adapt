@@ -671,6 +671,7 @@
                                    :key="`modal-answer-1-${questions[currentPage-1].id}`"
                                    :modal-id="questions[currentPage-1].id"
                                    :qti-json="questions[currentPage-1].qti_answer_json"
+                                   :media-uploads="questions[currentPage-1].media_uploads"
                                    :preview-or-solution="true"
               />
             </span>
@@ -2486,6 +2487,7 @@
               <QtiJsonAnswerViewer
                 :modal-id="questions[currentPage-1].id"
                 :qti-json="questions[currentPage-1].qti_answer_json"
+                :media-uploads="questions[currentPage-1].media_uploads"
                 :preview-or-solution="true"
               />
               <b-button size="sm"
@@ -2727,6 +2729,7 @@
                                  :key="`modal-answer-${questions[currentPage-1].id}`"
                                  :modal-id="questions[currentPage-1].id"
                                  :qti-json="questions[currentPage-1].qti_answer_json"
+                                 :media-uploads="questions[currentPage-1].media_uploads"
                                  :preview-or-solution="true"
             />
             <b-button
@@ -3062,6 +3065,7 @@
                                              :key="`modal-answer-${questions[currentPage-1].id}`"
                                              :modal-id="questions[currentPage-1].id"
                                              :qti-json="questions[currentPage-1].qti_answer_json"
+                                             :media-uploads="questions[currentPage-1].media_uploads"
                                              :preview-or-solution="true"
                         />
                         <b-button
@@ -3368,6 +3372,7 @@
                             :key="`modal-answer-${questions[currentPage-1].id}`"
                             :modal-id="questions[currentPage-1].id"
                             :qti-json="questions[currentPage-1].qti_answer_json"
+                            :media-uploads="questions[currentPage-1].media_uploads"
                             :preview-or-solution="true"
                           />
                         </span>

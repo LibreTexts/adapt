@@ -22,6 +22,10 @@ export default {
     showResponseFeedback: {
       type: Boolean,
       default: true
+    },
+    mediaUploads: {
+      type: Array,
+      default: () => []
     }
   },
   data: () => ({
@@ -53,7 +57,7 @@ export default {
             responseIndex++
           }
         }
-        return this.formatQuestionMediaPlayer(html)
+        return this.formatQuestionMediaPlayer(html, this.mediaUploads)
       }
     }
   },

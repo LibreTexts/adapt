@@ -12,6 +12,7 @@
         Answer
       </h2>
       <QtiJsonQuestionViewer :qti-json="qtiJson"
+                             :media-uploads="mediaUploads"
                              :show-qti-answer="true"
                              :show-submit="false"
                              :show-response-feedback="false"
@@ -46,6 +47,10 @@ export default {
     modalId: {
       type: Number,
       default: 0
+    },
+    mediaUploads: {
+      type: Array,
+      default: () => []
     }
   },
   methods: {

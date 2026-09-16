@@ -59,6 +59,7 @@
                             ref="fillInTheBlankViewer"
                             :key="`fill-in-the-blank-${qtiJsonCacheKey}`"
                             :qti-json="JSON.parse(qtiJson)"
+                            :media-uploads="mediaUploads.length ? mediaUploads : (question.media_uploads || [])"
                             :show-response-feedback="showResponseFeedback"
       />
       <AccountingJournalEntryViewer v-if="questionType === 'accounting_journal_entry'"
