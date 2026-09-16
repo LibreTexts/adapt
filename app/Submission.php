@@ -1829,6 +1829,51 @@ class Submission extends Model
             $assignment_file_submissions[$value->assignment_id][] = $value->question_id;
         }
 
+        // Discuss-it questions only get a submission_files row when they're auto-graded
+        // (see DiscussionComment::updateScore()). A manually-graded discuss-it question can be
+        // fully satisfied and still have no submission_files row, so give discuss-it questions a
+        // second, independent way to count as submitted: satisfiedRequirements(), computed live
+        // from discussion_comments.
+        $all_question_ids = [];
+        foreach ($assignment_questions as $question_ids) {
+            foreach ($question_ids as $question_id) {
+                $all_question_ids[$question_id] = true;
+            }
+        }
+        $discuss_it_question_ids = Question::whereIn('id', array_keys($all_question_ids))
+            ->where('technology', 'qti')
+            ->get()
+            ->filter(function ($question) {
+                return $question->isDiscussIt();
+            })
+            ->pluck('id')
+            ->toArray();
+
+        if (!empty($discuss_it_question_ids)) {
+            $discussionComment = new DiscussionComment();
+            $assignmentSyncQuestion = new AssignmentSyncQuestion();
+            foreach ($assignments as $assignment) {
+                $discuss_it_question_ids_for_assignment = array_intersect(
+                    $assignment_questions[$assignment->id] ?? [],
+                    $discuss_it_question_ids
+                );
+                foreach ($discuss_it_question_ids_for_assignment as $discuss_it_question_id) {
+                    $already_counted = in_array($discuss_it_question_id, $assignment_file_submissions[$assignment->id] ?? []);
+                    if (!$already_counted) {
+                        $satisfied_requirements = $discussionComment->satisfiedRequirements(
+                            $assignment,
+                            $discuss_it_question_id,
+                            $user->id,
+                            $assignmentSyncQuestion
+                        );
+                        if ($satisfied_requirements['satisfied_all_requirements']) {
+                            $assignment_file_submissions[$assignment->id][] = $discuss_it_question_id;
+                        }
+                    }
+                }
+            }
+        }
+
 
         $submissions_count_by_assignment_id = [];
 
