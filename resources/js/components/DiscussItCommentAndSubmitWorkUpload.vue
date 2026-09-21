@@ -40,47 +40,52 @@ Use your phone to record and upload your {{ submissionType === 'discuss-it' ? 'a
           </file-upload>
           from your computer into ADAPT.
         </span>
-      </b-modal>
-      <b-row class="upload mt-3 ml-1">
-        <div v-if="files.length && (preSignedURL !== '')">
-          <div v-for="file in files" :key="file.id">
-            File to upload:
-            <span :class="file.success ? 'text-success font-weight-bold' : ''">{{
-                file.name
-              }}</span>
-            <b-button
-              v-if="(preSignedURL !== '')"
-              variant="info"
-              size="sm"
-              style="vertical-align: top"
-              :disabled="disableStartUpload"
-              @click.prevent="initStartUpload()"
-            >
-              Upload
-            </b-button>
-            <span v-else-if="file.active" class="ml-2 text-info">
-              <b-spinner small type="grow"/>
-              Uploading File...
-            </span>
-            <b-button size="sm"
-                      style="vertical-align: top"
-                      :disabled="disableStartUpload"
-                      @click.prevent="cancelUpload()"
-            >
-              Cancel
-            </b-button>
-            <div v-if="file.error" class="text-danger">
-              Error: {{ file.error }}
+        <b-row class="upload mt-3 ml-1">
+          <div v-if="files.length && (preSignedURL !== '' || savingComment)">
+            <div v-for="file in files" :key="file.id">
+              File to upload:
+              <span :class="file.success ? 'text-success font-weight-bold' : ''">{{
+                  file.name
+                }}</span>
+              <b-button
+                v-if="(preSignedURL !== '') && !savingComment"
+                variant="info"
+                size="sm"
+                style="vertical-align: top"
+                :disabled="disableStartUpload"
+                @click.prevent="initStartUpload()"
+              >
+                Upload
+              </b-button>
+              <span v-else-if="file.active" class="ml-2 text-info">
+                <b-spinner small type="grow"/>
+                Uploading File...
+              </span>
+              <span v-if="savingComment" class="ml-2 text-info">
+                <b-spinner small type="grow"/>
+                Saving your comment...
+              </span>
+              <b-button v-if="!savingComment"
+                        size="sm"
+                        style="vertical-align: top"
+                        :disabled="disableStartUpload"
+                        @click.prevent="cancelUpload()"
+              >
+                Cancel
+              </b-button>
+              <div v-if="file.error" class="text-danger">
+                Error: {{ file.error }}
+              </div>
             </div>
           </div>
-        </div>
-      </b-row>
-      <b-progress v-if="preSignedURL" max="100" class="mt-2 mb-3">
-        <b-progress-bar :value="progress" :label="`${Number(progress).toFixed(0)}%`" show-progress animated/>
-      </b-progress>
-      <b-row v-show="uploadFileErrorMessage" class="mb-3">
-        <ErrorMessage :message="uploadFileErrorMessage"/>
-      </b-row>
+        </b-row>
+        <b-progress v-if="preSignedURL" max="100" class="mt-2 mb-3">
+          <b-progress-bar :value="progress" :label="`${Number(progress).toFixed(0)}%`" show-progress animated/>
+        </b-progress>
+        <b-row v-show="uploadFileErrorMessage" class="mb-3">
+          <ErrorMessage :message="uploadFileErrorMessage"/>
+        </b-row>
+      </b-modal>
     </b-container>
   </div>
 </template>
@@ -119,6 +124,7 @@ export default {
     progress: 0,
     uploadFileErrorMessage: '',
     disableStartUpload: false,
+    savingComment: false,
     files: [],
     preSignedURL: '',
     modalId: '',
@@ -225,17 +231,35 @@ export default {
     async handleOK (newFile) {
       this.preSignedURL = ''
       this.disableStartUpload = false
+      this.savingComment = true
       switch (this.submissionType) {
         case ('discuss-it'):
-          const fileRequirementSatisfied = await this.fileRequirementSatisfied(newFile.discuss_it_comments_filename)
+          // The audio-video-satisfied PATCH below is often near-instant for
+          // short recordings, so pairing it with a fixed minimum wait keeps
+          // "Saving your comment..." on screen long enough to actually read,
+          // instead of flashing by faster than a student can register it.
+          const [fileRequirementSatisfied] = await Promise.all([
+            this.fileRequirementSatisfied(newFile.discuss_it_comments_filename),
+            this.wait(1000)
+          ])
           this.$emit('saveUploadedAudioVideoComment', newFile.discuss_it_comments_filename, fileRequirementSatisfied)
           break
         case ('submit-work'):
+          await this.wait(1000)
           this.$emit('saveUploadedAudioVideoSubmittedWork', this.s3Key)
           break
         default:
           alert(`${this.submissionType} is not a valid submission type for audio/video upload.`)
       }
+      // The parent still has its own network calls to run (posting the
+      // comment, checking satisfied requirements) before it shows the
+      // "Submission Accepted" modal - those aren't awaited here since
+      // they're triggered by an emitted event, not a returned promise.
+      // Leaving our own modal open with this spinner up to this point,
+      // instead of hiding it the instant the S3 upload finished, at
+      // least closes the gap this component is responsible for.
+      this.savingComment = false
+      this.$bvModal.hide(this.instructionsModalId)
     },
     async fileRequirementSatisfied (discussItCommentsFilename) {
       try {
@@ -256,6 +280,9 @@ export default {
       this.preSignedURL = ''
       this.progress = 0
       this.$noty.info('The upload has been canceled.')
+    },
+    wait (milliseconds) {
+      return new Promise(resolve => setTimeout(resolve, milliseconds))
     }
   }
 }

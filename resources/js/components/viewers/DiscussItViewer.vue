@@ -1178,27 +1178,27 @@
                         />
                         <span class="text-muted">{{ comment.created_at }}</span>
                         <div v-show="comment.text" v-html="comment.text" />
-                        <span v-show="comment.file">
+                        <div v-show="comment.file" class="mt-1">
                           <b-button size="sm" variant="outline-info" @click="listenOrViewComment(comment)">{{ listenOrViewCommentText(comment) }}</b-button>
-                        </span>
-                        <a :id="getTooltipTarget('editComment',comment.id)"
-                           href=""
-                           :aria-label="`Edit comment by ${ comment.created_by_name }, created on ${comment.created_at }`"
-                           @click.prevent="initEditComment(comment)"
-                        >
+                          <a :id="getTooltipTarget('editComment',comment.id)"
+                             href=""
+                             :aria-label="`Edit comment by ${ comment.created_by_name }, created on ${comment.created_at }`"
+                             @click.prevent="initEditComment(comment)"
+                          >
                           <span v-if="showAction('editComment',comment.created_by_user_id)"><b-icon-pencil
                             class="font-weight-bold"
                           /></span>
-                        </a>
-                        <a :id="getTooltipTarget('deleteComment',comment.id)"
-                           href=""
-                           :aria-label="`Delete comment by ${ comment.created_by_name }, created on ${comment.created_at }`"
-                           @click.prevent="initDeleteComment(comment)"
-                        >
+                          </a>
+                          <a :id="getTooltipTarget('deleteComment',comment.id)"
+                             href=""
+                             :aria-label="`Delete comment by ${ comment.created_by_name }, created on ${comment.created_at }`"
+                             @click.prevent="initDeleteComment(comment)"
+                          >
                           <span v-if="showAction('deleteComment',comment.created_by_user_id)"><b-icon-trash
                             class="font-weight-bold"
                           /></span>
-                        </a>
+                          </a>
+                        </div>
                         <b-tooltip :target="getTooltipTarget('deleteComment',comment.id)"
                                    delay="500"
                                    triggers="hover"
