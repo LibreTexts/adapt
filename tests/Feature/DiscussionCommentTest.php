@@ -39,7 +39,7 @@ class DiscussionCommentTest extends TestCase
         $assignment_question_id = DB::table('assignment_question')->insertGetId([
             'assignment_id' => $this->assignment->id,
             'question_id' => $this->question->id,
-            'discuss_it_settings' => '{"students_can_edit_comments":"1","students_can_delete_comments":"1","min_number_of_discussion_threads":"2","min_number_of_comments":"1","min_number_of_words":"4","min_length_of_audio_video":"5 seconds","auto_grade":1}',
+            'discuss_it_settings' => '{"students_can_edit_comments":"1","students_can_delete_comments":"1","min_number_of_initiated_discussion_threads":"2","min_number_of_replies":"1","min_number_of_initiate_or_reply_in_threads":"1","min_number_of_comments":"1","min_number_of_words":"4","min_length_of_audio_video":"5 seconds","auto_grade":1,"completion_criteria":1,"response_modes":["text", "audio", "video"]}',
             'points' => 10,
             'order' => 1,
             'open_ended_submission_type' => 'file'
@@ -219,6 +219,99 @@ class DiscussionCommentTest extends TestCase
                 'message' => "No responses will be saved since you were not assigned to this assignment."]);
 
 
+    }
+
+    /** @test */
+    public function number_of_participated_threads_counts_distinct_threads_not_total_comments()
+    {
+        // the seeded comment satisfies the requirement
+        $this->discussion_comment->satisfied_requirement = 1;
+        $this->discussion_comment->save();
+
+        // the same student posts a second satisfying comment in the SAME thread
+        DiscussionComment::create([
+            'discussion_id' => $this->discussion_id,
+            'user_id' => $this->student_user->id,
+            'text' => 'a second satisfying comment in the same thread',
+            'satisfied_requirement' => 1
+        ]);
+
+        $discussionComment = new DiscussionComment();
+        $number_of_threads = $discussionComment->numberOfInitiateOrReplyInThreadsThatSatisfiedTheRequirements(
+            $this->assignment->id,
+            $this->question->id,
+            $this->student_user->id
+        );
+
+        // two satisfying comments, but only one distinct thread participated in
+        $this->assertEquals(1, $number_of_threads);
+    }
+
+    /** @test */
+    public function number_of_participated_threads_counts_each_distinct_thread_once()
+    {
+        $this->discussion_comment->satisfied_requirement = 1;
+        $this->discussion_comment->save();
+
+        $second_discussion_id = DB::table('discussions')->insertGetId([
+            'assignment_id' => $this->assignment->id,
+            'question_id' => $this->question->id,
+            'media_upload_id' => $this->questionMediaUpload->id,
+            'user_id' => $this->user->id]);
+
+        DiscussionComment::create([
+            'discussion_id' => $second_discussion_id,
+            'user_id' => $this->student_user->id,
+            'text' => 'a satisfying reply in a second thread',
+            'satisfied_requirement' => 1
+        ]);
+
+        $discussionComment = new DiscussionComment();
+        $number_of_threads = $discussionComment->numberOfInitiateOrReplyInThreadsThatSatisfiedTheRequirements(
+            $this->assignment->id,
+            $this->question->id,
+            $this->student_user->id
+        );
+
+        $this->assertEquals(2, $number_of_threads);
+    }
+
+    /** @test */
+    public function satisfied_requirements_response_includes_satisfied_min_number_of_comments_requirement()
+    {
+        // the fixture's discuss_it_settings has min_number_of_comments = 1, and the
+        // seeded comment does not yet satisfy the per-comment requirement (word
+        // count/audio length), so the student has 0 satisfying comments.
+        $discussionComment = new DiscussionComment();
+        $result = $discussionComment->satisfiedRequirements(
+            $this->assignment,
+            $this->question->id,
+            $this->student_user->id,
+            $this->assignment_question
+        );
+
+        // satisfiedRequirements() computes this value internally and folds it into
+        // satisfied_all_requirements, but previously never exposed it in the
+        // response array -- the front-end had no correct signal to render the
+        // "Submit at least N comment(s)" checkmark from.
+        $this->assertArrayHasKey('satisfied_min_number_of_comments_requirement', $result);
+        $this->assertFalse($result['satisfied_min_number_of_comments_requirement']);
+        $this->assertEquals(0, $result['number_of_comments_submitted']);
+
+        // once the student has a comment that satisfies the per-comment
+        // requirement, the flag should flip to true
+        $this->discussion_comment->satisfied_requirement = 1;
+        $this->discussion_comment->save();
+
+        $result = $discussionComment->satisfiedRequirements(
+            $this->assignment,
+            $this->question->id,
+            $this->student_user->id,
+            $this->assignment_question
+        );
+
+        $this->assertTrue($result['satisfied_min_number_of_comments_requirement']);
+        $this->assertEquals(1, $result['number_of_comments_submitted']);
     }
 
 

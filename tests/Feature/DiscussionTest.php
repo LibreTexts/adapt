@@ -35,7 +35,7 @@ class DiscussionTest extends TestCase
         DB::table('assignment_question')->insertGetId([
             'assignment_id' => $this->assignment->id,
             'question_id' => $this->question->id,
-            'discuss_it_settings' => '{"students_can_edit_comments":"1","students_can_delete_comments":"1","min_number_of_discussion_threads":"2","min_number_of_comments":"1","min_number_of_words":"4","min_length_of_audio_video":"5 seconds","auto_grade":1}',
+            'discuss_it_settings' => '{"students_can_edit_comments":"1","students_can_delete_comments":"1","min_number_of_initiated_discussion_threads":"2","min_number_of_replies":"1","min_number_of_initiate_or_reply_in_threads":"1","min_number_of_comments":"1","min_number_of_words":"4","min_length_of_audio_video":"5 seconds","auto_grade":1,"completion_criteria":1,"response_modes":["text", "audio", "video"]}',
             'points' => 10,
             'order' => 1,
             'open_ended_submission_type' => 'file'

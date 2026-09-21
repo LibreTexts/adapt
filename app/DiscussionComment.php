@@ -151,6 +151,7 @@ class DiscussionComment extends Model
         $response['satisfied_min_number_of_initiated_discussion_threads_requirement'] = $satisfied_min_number_of_initiated_discussion_threads_requirement;
         $response['satisfied_min_number_of_replies_requirement'] = $satisfied_min_number_of_replies_requirement;
         $response['satisfied_min_number_of_initiate_or_reply_in_threads_requirement'] = $satisfied_min_number_of_initiate_or_reply_in_threads_requirement;
+        $response['satisfied_min_number_of_comments_requirement'] = $satisfied_min_number_of_comments_requirement;
 
 
         $response['number_of_initiated_discussion_threads'] = $number_of_initiated_discussion_threads_that_satisfied_the_requirements;
@@ -283,6 +284,12 @@ class DiscussionComment extends Model
     }
 
     /**
+     * Counts the number of DISTINCT discussion threads (initiated or replied
+     * to) in which this student has at least one comment that satisfied the
+     * requirements. This must count distinct threads, not total comments --
+     * a student who posts multiple satisfying comments in the same thread has
+     * only participated in that one thread.
+     *
      * @param $assignment_id
      * @param $question_id
      * @param $user_id
@@ -295,7 +302,8 @@ class DiscussionComment extends Model
             ->where('discussions.question_id', $question_id)
             ->where('discussion_comments.user_id', $user_id)
             ->where('discussion_comments.satisfied_requirement', 1)
-            ->count();
+            ->distinct('discussion_comments.discussion_id')
+            ->count('discussion_comments.discussion_id');
 
     }
 

@@ -5,7 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
-class MergeForgeSubmissions extends Command
+class mergeForgeSubmissions extends Command
 {
     protected $signature = 'submissions:merge-forge {assignment_id} {--dry-run : Preview changes without modifying the database}';
     protected $description = 'Merge duplicate submission_files where both a "forge" and "q" entry exist for the same user/question. Copies the q data into the forge row, then deletes the q row.';

@@ -894,6 +894,15 @@
                       >
                         {{ numberOfInitiateOrReplyInThreadsMessage }}
                       </b-tooltip></span>
+                    <span v-if="completionRequirement.key === 'min_number_of_comments'">   <QuestionCircleTooltip
+                      id="min-number-of-comments-tooltip"
+                    />
+                      <b-tooltip target="min-number-of-comments-tooltip"
+                                 delay="250"
+                                 triggers="hover focus"
+                      >
+                        {{ numberOfCommentsSubmittedMessage }}
+                      </b-tooltip></span>
                   </span>
                 </li>
               </ul>
@@ -1794,6 +1803,10 @@ export default {
           if (this.completionRequirements.find(item => item.key === 'min_number_of_initiate_or_reply_in_threads')) {
             this.completionRequirements.find(item => item.key === 'min_number_of_initiate_or_reply_in_threads').requirement_satisfied = satisfiedRequirements.satisfied_min_number_of_initiate_or_reply_in_threads_requirement
             this.numberOfInitiateOrReplyInThreadsMessage = satisfiedRequirements.number_of_initiate_or_reply_in_threads_message
+          }
+          if (this.completionRequirements.find(item => item.key === 'min_number_of_comments')) {
+            this.completionRequirements.find(item => item.key === 'min_number_of_comments').requirement_satisfied = satisfiedRequirements.satisfied_min_number_of_comments_requirement
+            this.numberOfCommentsSubmittedMessage = satisfiedRequirements.number_of_comments_submitted_message
           }
           this.discussionCommentSubmissionResults = satisfiedRequirements
         }

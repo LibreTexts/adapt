@@ -6,27 +6,29 @@ use Illuminate\Contracts\Validation\Rule;
 
 class IsValidMinNumberForDiscussIt implements Rule
 {
-    private $min_number_of_initiated_discussion_threads;
-    private $min_number_of_initiate_or_reply_in_threads;
     /**
      * @var string
      */
     private $message;
-
 
     /**
      * Create a new rule instance.
      *
      * @return void
      */
-    public function __construct($min_number_of_initiated_discussion_threads, $min_number_of_initiate_or_reply_in_threads)
+    public function __construct()
     {
-        $this->min_number_of_initiated_discussion_threads = $min_number_of_initiated_discussion_threads;
-        $this->min_number_of_initiate_or_reply_in_threads = $min_number_of_initiate_or_reply_in_threads;
     }
 
     /**
      * Determine if the validation rule passes.
+     *
+     * min_number_of_initiated_discussion_threads, min_number_of_replies, and
+     * min_number_of_initiate_or_reply_in_threads are independent completion
+     * criteria: DiscussionComment::numberOfRepliesThatSatisfiedTheRequirements()
+     * explicitly excludes the comment that initiated a thread, so a thread-starting
+     * comment is never also counted as a "reply". There is no requirement that one
+     * of these minimums be greater than or equal to another.
      *
      * @param string $attribute
      * @param mixed $value
@@ -35,11 +37,6 @@ class IsValidMinNumberForDiscussIt implements Rule
     public function passes($attribute, $value)
     {
         $options = ["options" => ["min_range" => 0]];
-        if ((filter_var($this->min_number_of_initiated_discussion_threads, FILTER_VALIDATE_INT, $options) === false)
-            || (filter_var($this->min_number_of_initiate_or_reply_in_threads, FILTER_VALIDATE_INT, $options) === false)
-        ) {
-            return true;
-        }
         $this->message = '';
 
         if (filter_var($value, FILTER_VALIDATE_INT, $options) === false) {
@@ -47,15 +44,6 @@ class IsValidMinNumberForDiscussIt implements Rule
             return false;
         }
 
-        if ($value && $this->min_number_of_initiated_discussion_threads > $value) {
-            $this->message = "The min number of initiated discussion threads can't be greater than the number of submitted comments. Each time a student initiates a thread they are also submitting a comment.";
-            return false;
-        }
-
-        if ($value && $this->min_number_of_initiate_or_reply_in_threads > $value) {
-            $this->message = "The min number of threads that a student needs to participate in (initiate or reply) shouldn't be more than the number of comments that they need to submit.";
-            return false;
-        }
         return true;
     }
 

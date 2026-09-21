@@ -38,7 +38,7 @@ class UpdateDiscussItSettingsRequest extends FormRequest
             "students_can_delete_comments" => ['required', Rule::in([0, 1])],
             "min_number_of_initiated_discussion_threads" => ['required', 'integer', 'min:0'],
             "min_number_of_comments" => ['integer', 'min:0'],
-            "min_number_of_replies" => ['required', new IsValidMinNumberForDiscussIt($this->min_number_of_initiated_discussion_threads, $this->min_number_of_initiate_or_reply_in_threads)],
+            "min_number_of_replies" => ['required', new IsValidMinNumberForDiscussIt()],
             "min_number_of_initiate_or_reply_in_threads" => ['required', 'integer', 'min:0'],
             "min_number_of_words" => in_array('text', $response_modes) ? ['required', 'integer', 'min:1'] : '',
             'min_length_of_audio_video' => in_array('audio', $response_modes) || in_array('video', $response_modes) ? ['required', new IsValidPeriodOfTime()] : '',

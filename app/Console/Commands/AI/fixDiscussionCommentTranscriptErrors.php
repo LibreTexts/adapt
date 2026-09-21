@@ -7,7 +7,7 @@ use App\Exceptions\Handler;
 use Exception;
 use Illuminate\Console\Command;
 
-class FixDiscussionCommentTranscriptErrors extends Command
+class fixDiscussionCommentTranscriptErrors extends Command
 {
     protected $signature = 'fix:DiscussionCommentTranscriptErrors {--limit=5 : Maximum number of records to process}';
 

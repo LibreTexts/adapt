@@ -39,7 +39,7 @@ class DiscussItTest extends TestCase
         DB::table('assignment_question')->insertGetId([
             'assignment_id' => $this->assignment->id,
             'question_id' => $this->question->id,
-            'discuss_it_settings' => '{"students_can_edit_comments":"1","students_can_delete_comments":"1","min_number_of_discussion_threads":"2","min_number_of_comments":"1","min_number_of_words":"4","min_length_of_audio_video":"5 seconds","auto_grade":1,"response_modes":["text", "audio", "video"]}',
+            'discuss_it_settings' => '{"students_can_edit_comments":"1","students_can_delete_comments":"1","min_number_of_initiated_discussion_threads":"2","min_number_of_replies":"1","min_number_of_initiate_or_reply_in_threads":"1","min_number_of_comments":"1","min_number_of_words":"4","min_length_of_audio_video":"5 seconds","auto_grade":1,"completion_criteria":1,"response_modes":["text", "audio", "video"]}',
             'points' => 10,
             'order' => 1,
             'open_ended_submission_type' => 'file'
@@ -142,6 +142,51 @@ class DiscussItTest extends TestCase
                 "response_modes",
                 "completion_criteria",
                 'auto_grade']);
+    }
+
+    /** @test */
+    public function min_number_of_replies_can_be_independent_of_the_other_completion_criteria()
+    {
+        // min_number_of_replies (2) is intentionally lower than both
+        // min_number_of_initiated_discussion_threads (3) and
+        // min_number_of_initiate_or_reply_in_threads (5). This is valid: each is
+        // scored from a disjoint set of comments (see
+        // DiscussionComment::numberOfRepliesThatSatisfiedTheRequirements, which
+        // excludes the comment that initiated a thread), so none of these
+        // minimums needs to be greater than or equal to another.
+        $info = ["students_can_edit_comments" => 1,
+            "students_can_delete_comments" => 1,
+            "min_number_of_initiated_discussion_threads" => 3,
+            "min_number_of_initiate_or_reply_in_threads" => 5,
+            "min_number_of_replies" => 2,
+            "min_number_of_words" => 1,
+            'min_length_of_audio_video' => '2 minutes',
+            "response_modes" => ["text", "audio", "video"],
+            'auto_grade' => 1,
+            "completion_criteria" => 1,
+            'language' => 'en'];
+        $this->actingAs($this->user)
+            ->patchJson("/api/assignments/{$this->assignment->id}/question/{$this->question->id}/discuss-it-settings", $info)
+            ->assertJsonMissingValidationErrors(['min_number_of_replies']);
+    }
+
+    /** @test */
+    public function min_number_of_replies_must_still_be_a_non_negative_integer()
+    {
+        $info = ["students_can_edit_comments" => 1,
+            "students_can_delete_comments" => 1,
+            "min_number_of_initiated_discussion_threads" => 1,
+            "min_number_of_initiate_or_reply_in_threads" => 1,
+            "min_number_of_replies" => -1,
+            "min_number_of_words" => 1,
+            'min_length_of_audio_video' => '2 minutes',
+            "response_modes" => ["text", "audio", "video"],
+            'auto_grade' => 1,
+            "completion_criteria" => 1,
+            'language' => 'en'];
+        $this->actingAs($this->user)
+            ->patchJson("/api/assignments/{$this->assignment->id}/question/{$this->question->id}/discuss-it-settings", $info)
+            ->assertJsonValidationErrors(['min_number_of_replies']);
     }
 
 }

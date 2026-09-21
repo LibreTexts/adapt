@@ -8,7 +8,7 @@ use Faker\Factory as FakerFactory;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
-class AnonymizeDatabase extends Command
+class anonymizeDatabase extends Command
 {
     /**
      * The name and signature of the console command.
