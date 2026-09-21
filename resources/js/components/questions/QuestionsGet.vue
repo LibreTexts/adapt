@@ -996,6 +996,12 @@
                         <b-form-radio value="basic">
                           Basic
                         </b-form-radio>
+                        <b-form-radio value="accounting">
+                          Accounting
+                        </b-form-radio>
+                        <b-form-radio value="discuss_it" @click="setFormattedQuestionType('discuss_it')">
+                          Discuss-it
+                        </b-form-radio>
                         <b-form-radio value="nursing">
                           Nursing
                           <QuestionCircleTooltip id="nursing-questions-tooltip" class="pl-1"/>
@@ -1011,16 +1017,14 @@
                         <b-form-radio value="sketcher">
                           Sketcher
                         </b-form-radio>
-                        <b-form-radio value="accounting">
-                          Accounting
-                        </b-form-radio>
-                        <b-form-radio value="discuss_it" @click="setFormattedQuestionType('discuss_it')">
-                          Discuss-it
+                        <b-form-radio value="3d_model">
+                          3D Model
                         </b-form-radio>
                         <b-form-radio value="all">
                           All
                         </b-form-radio>
                       </b-form-radio-group>
+                      </b-tooltip>
                       <label v-if="['h5p','imathas'].includes(allQuestionsTechnology)" class="ml-4"
                              style="font-size:14px;margin-right:11px"
                       >Technology ID</label>
@@ -1891,6 +1895,10 @@ export default {
       if (this.allQuestionsTechnology === 'text') {
         this.formattedQuestionType = null
       }
+      if (this.allQuestionsTechnology === 'qti') {
+        this.qtiContentType = 'basic'
+        this.formattedQuestionType = null
+      }
       this.getSubjectsByTechnology()
     },
     async getSubjectsByTechnology () {
@@ -1938,26 +1946,26 @@ export default {
       }
       const accountingDisplayLabels = {
         'Accounting Journal Entry': 'Journal Entry',
-        'Accounting Report': 'Report',
-        'Accounting Multi Part Computation': 'Multi-part Computation'
+        'Accounting Multi Part Computation': 'Multi-part Computation',
+        'Accounting Report': 'Report'
       }
       return accountingDisplayLabels[formattedQuestionType] || formattedQuestionType
     },
     nursingFormattedQuestionTypes () {
       return ['Bow Tie',
-        'Multiple Choice',
-        'Matrix Multiple Choice',
-        'Multiple Response Select N',
-        'Multiple Response Select All That Apply',
+        'Drag and Drop Cloze',
+        'Drop-Down Cloze',
+        'Drop-Down Dyad',
+        'Drop-Down Table',
+        'Drop-Down Triad',
         'Highlight Table',
         'Highlight Text',
-        'Multiple Response Grouping',
-        'Drop-Down Table',
-        'Drop-Down Dyad',
-        'Drop-Down Triad',
-        'Drop-Down Cloze',
+        'Matrix Multiple Choice',
         'Matrix Multiple Response',
-        'Drag and Drop Cloze'
+        'Multiple Choice',
+        'Multiple Response Grouping',
+        'Multiple Response Select All That Apply',
+        'Multiple Response Select N'
       ]
     },
     initChooseType () {
@@ -1973,13 +1981,13 @@ export default {
           switch (this.qtiContentType) {
             case ('basic'):
               options = [
-                'Multiple Choice', 'True/False', 'Single Numerical', 'Multi Numerical', 'Multiple Answer', 'Fill-in-the-blank', 'Select Choice', 'Matching', 'Flashcard']
+                'Fill-in-the-blank', 'Flashcard', 'Matching', 'Multi Numerical', 'Multiple Answer', 'Multiple Choice', 'Select Choice', 'Single Numerical', 'True/False']
               break
             case ('sketcher'):
-              options = ['Submit Molecule', 'Marker']
+              options = ['Marker', 'Submit Molecule']
               break
             case ('accounting'):
-              options = ['Accounting Journal Entry', 'Accounting Report', 'Accounting Multi Part Computation']
+              options = ['Accounting Journal Entry', 'Accounting Multi Part Computation', 'Accounting Report']
               break
             case ('nursing'):
               options = this.nursingFormattedQuestionTypes()

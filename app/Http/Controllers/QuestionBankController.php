@@ -379,6 +379,9 @@ class QuestionBankController extends Controller
                         $question_ids = $question_ids->whereIn('qti_json_type', ['marker', 'submit_molecule']);
                     } else if ($request->qti_content_type === 'accounting') {
                         $question_ids = $question_ids->whereIn('qti_json_type', ['accounting_journal_entry', 'accounting_report', 'accounting_multi_part_computation']);
+                    } else if ($request->qti_content_type === '3d_model') {
+                        // Only "Multiple Choice" is implemented for 3D Model questions so far.
+                        $question_ids = $question_ids->where('qti_json_type', 'three_d_model_multiple_choice');
                     } else {
                         $basic_types = ['multiple_choice', 'true_false', 'numerical', 'multi_numerical','multiple_answers', 'fill_in_the_blank', 'select_choice', 'matching', 'flashcard'];
                         switch ($qti_question_type) {
@@ -505,6 +508,9 @@ class QuestionBankController extends Controller
                 }
                 if ($questions[$key]->qti_json_type === 'accounting_multi_part_computation') {
                     $questions[$key]->question_type = 'Accounting Multi Part Computation';
+                }
+                if ($questions[$key]->qti_json_type === 'three_d_model_multiple_choice') {
+                    $questions[$key]->question_type = '3D Model - Multiple Choice';
                 }
                 if (!$value->technology_id) {
                     $questions[$key]->technology_id = 'None';

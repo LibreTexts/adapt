@@ -1601,27 +1601,12 @@
                         </div>
                       </b-tooltip>
                     </b-form-radio>
-                    <b-form-radio value="nursing">
-                      Nursing
-                      <QuestionCircleTooltip id="nursing-questions-tooltip"/>
-                      <b-tooltip target="nursing-questions-tooltip"
-                                 delay="250"
-                                 triggers="hover focus"
-                      >
-                        Nursing questions are question types specifically written to prepare nursing students for the
-                        NCLEX
-                        exam.
-                      </b-tooltip>
-                    </b-form-radio>
-                    <b-form-radio value="sketcher">
-                      Sketcher <ConsultInsight
-                      id="consult-insight-sketcher"
-                      :url="'https://commons.libretexts.org/insight/adapt-sketcher'"
+                    <b-form-radio value="accounting">
+                      Accounting <ConsultInsight
+                      id="consult-insight-accounting"
+                      :url="'https://commons.libretexts.org/insight/adapt-accounting'"
                       :formatting-class="''"
                     />
-                    </b-form-radio>
-                    <b-form-radio value="3d_model">
-                      3D Model
                     </b-form-radio>
                     <b-modal id="modal-discuss-it"
                              title="Explanation of Discuss-it Questions"
@@ -1650,17 +1635,34 @@
                     </b-modal>
                     <b-form-radio value="discuss_it">
                       Discuss-it
-                      <QuestionCircleTooltipModal :aria-label="'Explanation of Discuss-it'"
-                                                  :modal-id="'modal-discuss-it'"
-                                                  :color-class="'font-bold'"
-                      />
+                      <span style="font-size: 1.15rem;">
+                        <QuestionCircleTooltipModal :aria-label="'Explanation of Discuss-it'"
+                                                    :modal-id="'modal-discuss-it'"
+                                                    :color-class="'font-bold'"
+                        />
+                      </span>
                     </b-form-radio>
-                    <b-form-radio value="accounting">
-                      Accounting <ConsultInsight
-                      id="consult-insight-accounting"
-                      :url="'https://commons.libretexts.org/insight/adapt-accounting'"
+                    <b-form-radio value="nursing">
+                      Nursing
+                      <QuestionCircleTooltip id="nursing-questions-tooltip"/>
+                      <b-tooltip target="nursing-questions-tooltip"
+                                 delay="250"
+                                 triggers="hover focus"
+                      >
+                        Nursing questions are question types specifically written to prepare nursing students for the
+                        NCLEX
+                        exam.
+                      </b-tooltip>
+                    </b-form-radio>
+                    <b-form-radio value="sketcher">
+                      Sketcher <ConsultInsight
+                      id="consult-insight-sketcher"
+                      :url="'https://commons.libretexts.org/insight/adapt-sketcher'"
                       :formatting-class="''"
                     />
+                    </b-form-radio>
+                    <b-form-radio value="3d_model">
+                      3D Model
                     </b-form-radio>
                     <b-form-radio value="all">
                       All
@@ -1669,34 +1671,34 @@
                 </b-form-group>
                 <b-form-group>
                   <div v-if="nativeType === 'sketcher'">
-                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="submit_molecule"
-                                  @change="initQTIQuestionType($event)"
-                    >
-                      Submit Molecule <ConsultInsight :url="'https://commons.libretexts.org/insight/sketcher---submit-molecule'"/>
-                    </b-form-radio>
                     <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="marker"
                                   @change="initQTIQuestionType($event)"
                     >
                       Marker <ConsultInsight :url="'https://commons.libretexts.org/insight/sketcher---mark-atom-or-bond'"/>
                     </b-form-radio>
-                    <b-form-radio v-show="false" v-model="qtiQuestionType" name="qti-question-type" value="marker"
+                    <b-form-radio v-show="false" v-model="qtiQuestionType" name="qti-question-type-pushing-arrows-placeholder" value="marker"
                                   @change="initQTIQuestionType($event)"
                     >
                       Pushing Arrows <ConsultInsight :url="'https://commons.libretexts.org/insight/sketcher---pushing-arrows'"/>
                     </b-form-radio>
-                  </div>
-                  <div v-if="nativeType === '3d_model'" v-show="false">
-                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type"
-                                  value="three_d_model_multiple_choice"
+                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="submit_molecule"
                                   @change="initQTIQuestionType($event)"
                     >
-                      Multiple Choice
+                      Submit Molecule <ConsultInsight :url="'https://commons.libretexts.org/insight/sketcher---submit-molecule'"/>
                     </b-form-radio>
+                  </div>
+                  <div v-if="nativeType === '3d_model'" v-show="false">
                     <b-form-radio v-model="qtiQuestionType" name="qti-question-type"
                                   value="three_d_model_multiple_answer"
                                   @change="initQTIQuestionType($event)"
                     >
                       Multiple Answer
+                    </b-form-radio>
+                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type"
+                                  value="three_d_model_multiple_choice"
+                                  @change="initQTIQuestionType($event)"
+                    >
+                      Multiple Choice
                     </b-form-radio>
                   </div>
                   <div v-if="nativeType === 'accounting'">
@@ -1706,12 +1708,6 @@
                     >
                       Journal Entry  <ConsultInsight :url="'https://commons.libretexts.org/insight/accounting---journal-entry'"/>
                     </b-form-radio>
-                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type"
-                                  value="accounting_report"
-                                  @change="initQTIQuestionType($event)"
-                    >
-                      Report  <ConsultInsight :url="'https://commons.libretexts.org/insight/accounting---report'"/>
-                    </b-form-radio>
                     <b-form-radio v-model="qtiQuestionType"
                                   name="qti-question-type"
                                   value="accounting_multi_part_computation"
@@ -1719,23 +1715,33 @@
                     >
                       Multi-part Computation  <ConsultInsight :url="'https://commons.libretexts.org/insight/accounting---multi-part-computation'"/>
                     </b-form-radio>
+                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type"
+                                  value="accounting_report"
+                                  @change="initQTIQuestionType($event)"
+                    >
+                      Report  <ConsultInsight :url="'https://commons.libretexts.org/insight/accounting---report'"/>
+                    </b-form-radio>
 
                   </div>
                   <div v-if="['all','basic'].includes(nativeType)">
-                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="multiple_choice"
+                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="fill_in_the_blank"
                                   @change="initQTIQuestionType($event)"
                     >
-                      Multiple Choice
+                      Fill-in-the-blank
                     </b-form-radio>
-                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="true_false"
+                    <b-form-radio v-model="qtiQuestionType"
+                                  name="qti-question-type"
+                                  value="flashcard"
                                   @change="initQTIQuestionType($event)"
                     >
-                      True/False
+                      Flashcard <ConsultInsight :url="'https://commons.libretexts.org/insight/flashcard'"/>
                     </b-form-radio>
-                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="numerical"
+                    <b-form-radio v-model="qtiQuestionType"
+                                  name="qti-question-type"
+                                  value="matching"
                                   @change="initQTIQuestionType($event)"
                     >
-                      Single Numerical
+                      Matching
                     </b-form-radio>
                     <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="multi_numerical"
                                   @change="initQTIQuestionType($event)"
@@ -1747,29 +1753,25 @@
                     >
                       Multiple Answer
                     </b-form-radio>
-                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="fill_in_the_blank"
+                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="multiple_choice"
                                   @change="initQTIQuestionType($event)"
                     >
-                      Fill-in-the-blank
+                      Multiple Choice
                     </b-form-radio>
                     <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="select_choice"
                                   @change="initQTIQuestionType($event)"
                     >
                       Select Choice
                     </b-form-radio>
-                    <b-form-radio v-model="qtiQuestionType"
-                                  name="qti-question-type"
-                                  value="matching"
+                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="numerical"
                                   @change="initQTIQuestionType($event)"
                     >
-                      Matching
+                      Single Numerical
                     </b-form-radio>
-                    <b-form-radio v-model="qtiQuestionType"
-                                  name="qti-question-type"
-                                  value="flashcard"
+                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="true_false"
                                   @change="initQTIQuestionType($event)"
                     >
-                      Flashcard <ConsultInsight :url="'https://commons.libretexts.org/insight/flashcard'"/>
+                      True/False
                     </b-form-radio>
                   </div>
                   <div v-if="['all','nursing'].includes(nativeType)">
@@ -1778,27 +1780,30 @@
                     >
                       Bow Tie
                     </b-form-radio>
-                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="multiple_choice"
+                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="drag_and_drop_cloze"
                                   @change="initQTIQuestionType($event)"
                     >
-                      Multiple Choice
+                      Drag and Drop Cloze
                     </b-form-radio>
-                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="matrix_multiple_choice"
+                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="select_choice"
                                   @change="initQTIQuestionType($event)"
                     >
-                      Matrix Multiple Choice
+                      Drop-Down Cloze
                     </b-form-radio>
-                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type"
-                                  value="multiple_response_select_n"
+                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="drop_down_rationale_dyad"
                                   @change="initQTIQuestionType($event)"
                     >
-                      Multiple Response Select N
+                      Drop-Down Dyad
                     </b-form-radio>
-                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type"
-                                  value="multiple_response_select_all_that_apply"
+                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="drop_down_table"
                                   @change="initQTIQuestionType($event)"
                     >
-                      Multiple Response Select All That Apply
+                      Drop-Down Table
+                    </b-form-radio>
+                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="drop_down_rationale_triad"
+                                  @change="initQTIQuestionType($event)"
+                    >
+                      Drop-Down Triad
                     </b-form-radio>
                     <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="highlight_table"
                                   @change="initQTIQuestionType($event)"
@@ -1810,41 +1815,38 @@
                     >
                       Highlight Text
                     </b-form-radio>
-                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type"
-                                  value="multiple_response_grouping"
+                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="matrix_multiple_choice"
                                   @change="initQTIQuestionType($event)"
                     >
-                      Multiple Response Grouping
-                    </b-form-radio>
-                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="drop_down_table"
-                                  @change="initQTIQuestionType($event)"
-                    >
-                      Drop-Down Table
-                    </b-form-radio>
-                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="drop_down_rationale_dyad"
-                                  @change="initQTIQuestionType($event)"
-                    >
-                      Drop-Down Dyad
-                    </b-form-radio>
-                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="drop_down_rationale_triad"
-                                  @change="initQTIQuestionType($event)"
-                    >
-                      Drop-Down Triad
-                    </b-form-radio>
-                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="select_choice"
-                                  @change="initQTIQuestionType($event)"
-                    >
-                      Drop-Down Cloze
+                      Matrix Multiple Choice
                     </b-form-radio>
                     <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="matrix_multiple_response"
                                   @change="initQTIQuestionType($event)"
                     >
                       Matrix Multiple Response
                     </b-form-radio>
-                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="drag_and_drop_cloze"
+                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type" value="multiple_choice"
                                   @change="initQTIQuestionType($event)"
                     >
-                      Drag and Drop Cloze
+                      Multiple Choice
+                    </b-form-radio>
+                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type"
+                                  value="multiple_response_grouping"
+                                  @change="initQTIQuestionType($event)"
+                    >
+                      Multiple Response Grouping
+                    </b-form-radio>
+                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type"
+                                  value="multiple_response_select_all_that_apply"
+                                  @change="initQTIQuestionType($event)"
+                    >
+                      Multiple Response Select All That Apply
+                    </b-form-radio>
+                    <b-form-radio v-model="qtiQuestionType" name="qti-question-type"
+                                  value="multiple_response_select_n"
+                                  @change="initQTIQuestionType($event)"
+                    >
+                      Multiple Response Select N
                     </b-form-radio>
                   </div>
                   <div v-if="['all'].includes(nativeType)">
@@ -4013,7 +4015,8 @@ export default {
         case ('numerical'):
           document.querySelector('input[type="radio"][name="question-type"][value="qti"]').click()
           window.setTimeout(() => {
-              document.querySelector('input[type="radio"][name="native-question-type"][value="basic"]').click()
+              this.nativeType = 'basic'
+              this.initNativeType('basic')
             }
             , 250
           )
@@ -4026,7 +4029,8 @@ export default {
         case ('multi_numerical'):
           document.querySelector('input[type="radio"][name="question-type"][value="qti"]').click()
           window.setTimeout(() => {
-              document.querySelector('input[type="radio"][name="native-question-type"][value="basic"]').click()
+              this.nativeType = 'basic'
+              this.initNativeType('basic')
             }
             , 250
           )
@@ -4039,7 +4043,8 @@ export default {
         case ('accounting_multi_part_computation'):
           document.querySelector('input[type="radio"][name="question-type"][value="qti"]').click()
           window.setTimeout(() => {
-              document.querySelector('input[type="radio"][name="native-question-type"][value="accounting"]').click()
+              this.nativeType = 'accounting'
+              this.initNativeType('accounting')
             }, 250
           )
           window.setTimeout(() => {
@@ -4050,7 +4055,8 @@ export default {
         case ('accounting_report'):
           document.querySelector('input[type="radio"][name="question-type"][value="qti"]').click()
           window.setTimeout(() => {
-              document.querySelector('input[type="radio"][name="native-question-type"][value="accounting"]').click()
+              this.nativeType = 'accounting'
+              this.initNativeType('accounting')
             }
             , 250
           )
@@ -4063,7 +4069,8 @@ export default {
         case ('accounting_journal_entry'):
           document.querySelector('input[type="radio"][name="question-type"][value="qti"]').click()
           window.setTimeout(() => {
-              document.querySelector('input[type="radio"][name="native-question-type"][value="accounting"]').click()
+              this.nativeType = 'accounting'
+              this.initNativeType('accounting')
             }
             , 250
           )
@@ -4076,7 +4083,8 @@ export default {
         case ('three_d_model_multiple_choice'):
           document.querySelector('input[type="radio"][name="question-type"][value="qti"]').click()
           window.setTimeout(() => {
-              document.querySelector('input[type="radio"][name="native-question-type"][value="3d_model"]').click()
+              this.nativeType = '3d_model'
+              this.initNativeType('3d_model')
             }
             , 250
           )
@@ -4089,7 +4097,8 @@ export default {
         case ('flashcard'):
           document.querySelector('input[type="radio"][name="question-type"][value="qti"]').click()
           window.setTimeout(() => {
-              document.querySelector('input[type="radio"][name="native-question-type"][value="basic"]').click()
+              this.nativeType = 'basic'
+              this.initNativeType('basic')
             }
             , 250
           )
@@ -4102,7 +4111,8 @@ export default {
         case ('marker'):
           document.querySelector('input[type="radio"][name="question-type"][value="qti"]').click()
           window.setTimeout(() => {
-              document.querySelector('input[type="radio"][name="native-question-type"][value="sketcher"]').click()
+              this.nativeType = 'sketcher'
+              this.initNativeType('sketcher')
             }
             , 250
           )
@@ -5219,8 +5229,8 @@ export default {
         this.nativeType = type
         this.initNonBasicQTIQuestion()
       } else {
-        this.qtiQuestionType = 'multiple_choice'
-        this.initQTIQuestionType('multiple_choice')
+        this.qtiQuestionType = 'fill_in_the_blank'
+        this.initQTIQuestionType('fill_in_the_blank')
       }
     },
     async deleteWebworkAttachment () {
@@ -5406,7 +5416,7 @@ export default {
           questionType = 'bow_tie'
           break
         case ('sketcher'):
-          questionType = 'submit_molecule'
+          questionType = 'marker'
           break
         case ('accounting'):
           questionType = 'accounting_journal_entry'
@@ -5587,7 +5597,7 @@ export default {
         } else {
           this.editorGroups.find(editorGroup => editorGroup.id === 'non_technology_text').expanded = false
           this.questionForm.technology = 'qti'
-          this.qtiQuestionType = 'multiple_choice'
+          this.qtiQuestionType = 'fill_in_the_blank'
           this.initQTIQuestionType(this.qtiQuestionType)
         }
       } else {
@@ -6070,8 +6080,8 @@ export default {
           }
           this.questionForm.technology = 'qti'
           this.nativeType = 'basic'
-          this.qtiQuestionType = 'multiple_choice'
-          this.initQTIQuestionType('multiple_choice')
+          this.qtiQuestionType = 'fill_in_the_blank'
+          this.initQTIQuestionType('fill_in_the_blank')
           this.editorGroups.find(group => group.id === 'non_technology_text').expanded = false
           break
         case ('h5p'):
