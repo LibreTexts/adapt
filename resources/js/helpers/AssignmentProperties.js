@@ -281,7 +281,9 @@ export async function editAssignmentProperties (assignmentProperties, vm) {
     vm.form.number_of_allowed_attempts_penalty = '0%'
   }
 
-  vm.form.can_view_hint = parseInt(assignmentProperties.can_view_hint)
+  vm.form.can_view_hint = assignmentProperties.can_view_hint !== null
+    ? parseInt(assignmentProperties.can_view_hint)
+    : 0
   vm.form.hint_penalty = assignmentProperties.hint_penalty !== null
     ? `${assignmentProperties.hint_penalty}%`
     : ''

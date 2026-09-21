@@ -1438,7 +1438,7 @@
             </b-tooltip>
           </template>
           <b-form-radio-group id="can_view_hint"
-                              v-model="form.can_view_hint"
+                              v-model="canViewHint"
                               :disabled="isLocked(hasSubmissionsOrFileSubmissions) || isBetaAssignment"
                               required
                               stacked
@@ -2206,6 +2206,15 @@ export default {
     },
     assignTosSnapshot () {
       return this.form.assign_tos.map(i => JSON.stringify(i))
+    },
+    canViewHint: {
+      get () {
+        const value = this.form.can_view_hint
+        return (value === null || value === undefined || value === '') ? '0' : String(value)
+      },
+      set (value) {
+        this.form.can_view_hint = String(value)
+      }
     }
   },
   watch: {
@@ -2267,7 +2276,7 @@ export default {
     initTooltips(this)
     this.$nextTick(() => {
       this.showDefaultPointsPerQuestion = this.form.points_per_question === 'number of points'
-      this.showHintPenalty = this.form.can_view_hint === 1
+      this.showHintPenalty = this.canViewHint === '1'
       if (this.isFormativeAssignment) {
         this.form.formative = '1'
       }
@@ -2363,7 +2372,7 @@ export default {
     },
     updateHintPenaltyView (event) {
       this.showHintPenalty = parseInt(event) === 1
-      this.form.can_view_hint = parseInt(event)
+      this.form.can_view_hint = String(event)
       this.form.errors.clear('hint_penalty')
     },
     initPointsPerQuestionSwitch (event) {
@@ -2557,12 +2566,12 @@ export default {
           this.form.randomizations = 0
           this.checkSourceAndLatePolicy()
           this.form.notifications = 0
-          this.form.can_view_hint = 0
+          this.form.can_view_hint = '0'
           this.form.number_of_allowed_attempts = '1'
           break
         case ('flashcard'):
           this.form.number_of_allowed_attempts = 'unlimited'
-          this.form.can_view_hint = 0
+          this.form.can_view_hint = '0'
           this.form.randomizations = 0
           this.form.can_submit_work = 0
           if (!this.form.flashcard_settings) {
