@@ -135,7 +135,7 @@ export default {
         }
       }
       if (this.renderMathJax) {
-        this.typesetMath()
+        await this.typesetMath()
       }
     },
     async getSubmissionHistory () {

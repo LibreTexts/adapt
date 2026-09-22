@@ -65,20 +65,20 @@
           </li>
           <li
             v-if="numberOfAllowedAttempts !== '1'
-                        && numberOfAllowedAttemptsPenalty"
+              && numberOfAllowedAttemptsPenalty"
           >
             <span class="font-weight-bold">Next Attempt Points:</span> {{ maximumNumberOfPointsPossible }}
             <span>
-                        <QuestionCircleTooltip :id="'learning-tree-per-attempt-penalty-tooltip'"/>
-                        <b-tooltip target="learning-tree-per-attempt-penalty-tooltip" delay="250"
-                                   triggers="hover focus"
-                        >
-                          A per attempt penalty of {{ numberOfAllowedAttemptsPenalty }}% is applied after the first
-                          attempt.
-                          {{ getHintPenaltyMessage() }}  With the penalty, the maximum number of points possible for the next attempt is
-                          {{ maximumNumberOfPointsPossible }} points.
-                        </b-tooltip>
-                      </span>
+              <QuestionCircleTooltip :id="'learning-tree-per-attempt-penalty-tooltip'"/>
+              <b-tooltip target="learning-tree-per-attempt-penalty-tooltip" delay="250"
+                         triggers="hover focus"
+              >
+                A per attempt penalty of {{ numberOfAllowedAttemptsPenalty }}% is applied after the first
+                attempt.
+                {{ getHintPenaltyMessage() }}  With the penalty, the maximum number of points possible for the next attempt is
+                {{ maximumNumberOfPointsPossible }} points.
+              </b-tooltip>
+            </span>
           </li>
           <li>
             <span class="font-weight-bold">Last submission:</span> <span
@@ -87,7 +87,8 @@
               questions[currentPage - 1].student_response
             }}</span>
           </li>
-          <li>  <span class="font-weight-bold">
+          <li>
+            <span class="font-weight-bold">
               Submitted At:</span>
             <span
               :class="{ 'text-danger': questions[currentPage - 1].last_submitted === 'N/A' }"
@@ -887,8 +888,9 @@
       </p>
     </b-modal>
     <div v-if="questions[currentPage - 1] && questions[currentPage-1].hint_exists">
-      <HintModal :hint-penalty-if-shown-hint="hintPenaltyIfShownHint"
-                 :hint-html="questions[currentPage - 1].hint ? questions[currentPage - 1].hint : ''"
+      <HintModal
+        :hint-penalty-if-shown-hint="hintPenaltyIfShownHint"
+        :hint-html="questions[currentPage - 1].hint ? questions[currentPage - 1].hint : ''"
       />
     </div>
     <b-modal id="modal-confirm-show-hint"
@@ -2998,13 +3000,13 @@
                       <b-button
                         variant="primary"
                         size="sm"
-                        @click="assessmentType === 'learning tree' ?  $bvModal.show('modal-root-assessment-submission-information') : $bvModal.show('modal-submission-information')"
+                        @click="assessmentType === 'learning tree' ? $bvModal.show('modal-root-assessment-submission-information') : $bvModal.show('modal-submission-information')"
                       >
                         {{
                           assessmentType === 'learning tree' ? 'Root Assessment Submission Information' : 'Submission Information'
                         }}
                       </b-button>
-                      <span v-if="['real time','learning tree'].includes(assessmentType)
+                      <span v-if="['delayed','real time','learning tree'].includes(assessmentType)
                         && canViewHintAtAssignmentLevel
                         && !questions[currentPage-1].answered_correctly_at_least_once
                         && questions[currentPage-1].hint_exists
@@ -3666,7 +3668,7 @@
               <div v-if="questions[currentPage-1].solution_html"
                    class="mt-3 libretexts-border"
               >
-                <div class="mt-3" id="solution-html" v-html="questions[currentPage - 1].solution_html"/>
+                <div id="solution-html" class="mt-3" v-html="questions[currentPage - 1].solution_html"/>
               </div>
               <div v-if="questions[currentPage-1].hint"
                    class="mt-3 libretexts-border"
@@ -4481,9 +4483,6 @@ export default {
     if (this.user.role === 3) {
       await this.initClickerAssignmentsForEnrolledAndOpenCourses()
     }
-    if (this.user.role === 2) {
-      // await this.startClickerAssessment()
-    }
     this.previouslyUploadedAudioFile = this.questions[this.currentPage - 1].submission ? this.questions[this.currentPage - 1].submission : ''
   },
   beforeDestroy () {
@@ -4943,9 +4942,9 @@ export default {
         this.questions[this.currentPage - 1].can_submit_work = 1 - this.questions[this.currentPage - 1].can_submit_work
       }
     },
-    cleanHint () {
-      if (this.questions[this.currentPage - 1].hint) {
-        this.questions[this.currentPage - 1].hint = this.questions[this.currentPage - 1].hint.replace('<h2 class="editable">Hint</h2>', '')
+    addHintHeader () {
+      if (this.questions[this.currentPage - 1].hint && !this.questions[this.currentPage - 1].hint.includes('<h2 class="editable">Hint</h2>')) {
+        this.questions[this.currentPage - 1].hint = '<h2 class="editable">Hint</h2>' + this.questions[this.currentPage - 1].hint
       }
     },
     showHintModal () {
@@ -5567,7 +5566,7 @@ export default {
         this.$noty.error(error.message)
       }
     },
-    async handleShownHint () {
+    async handleShownHint (showModal = true) {
       try {
         const { data } = await axios.post(`/api/shown-hints/assignments/${this.assignmentId}/question/${this.questions[this.currentPage - 1].id}`, {
           problemJWT: this.questions[this.currentPage - 1].problem_jwt
@@ -5578,10 +5577,13 @@ export default {
         }
         this.questions[this.currentPage - 1].shown_hint = true
         this.questions[this.currentPage - 1].hint = data.hint
-        this.cleanHint()
-        this.$bvModal.hide('modal-confirm-show-hint')
-        this.$bvModal.show('modal-hint')
-
+        this.$nextTick(() => {
+          this.addHintHeader()
+          if (showModal) {
+            this.$bvModal.hide('modal-confirm-show-hint')
+            this.$bvModal.show('modal-hint')
+          }
+        })
         this.$nextTick(() => {
           this.typesetMath(document.getElementById('hint-html'))
         })
@@ -6993,7 +6995,6 @@ export default {
               let vm = this
               this.getTechnologySrcDoc(vm, href.toString(), this.assignmentId, this.questions[this.currentPage - 1].id, 'submissions')
               if (this.questions[this.currentPage - 1].render_webwork_solution) {
-
                 if (this.user.role === 2) {
                   const url = new URL(this.questions[this.currentPage - 1].technology_iframe)
                   const problemJWT = url.searchParams.get('problemJWT')
@@ -7146,6 +7147,10 @@ export default {
             this.submitText(false)
           }
         }, 10000)
+      }
+      if (this.user.role === 2) {
+        // await this.startClickerAssessment()
+        await this.handleShownHint(false)
       }
     },
     async updateReviewQuestionTime () {
