@@ -3034,7 +3034,7 @@
                           assessmentType === 'learning tree' ? 'Root Assessment Submission Information' : 'Submission Information'
                         }}
                       </b-button>
-                      <span v-if="['real time','learning tree'].includes(assessmentType)
+                      <span v-if="['delayed','real time','learning tree'].includes(assessmentType)
                         && canViewHintAtAssignmentLevel
                         && !questions[currentPage-1].answered_correctly_at_least_once
                         && questions[currentPage-1].hint_exists
@@ -3489,7 +3489,9 @@
                         While in Student View, you can reset the submission which may aid in testing questions.
                       </b-tooltip>
                     </span>
-                    <span v-if="timeLimit && timingStartedAt && (user.fake_student === 1 || ([2,5].includes(user.role) && !presentationMode))">
+                    <span
+                      v-if="timeLimit && timingStartedAt && (user.fake_student === 1 || ([2,5].includes(user.role) && !presentationMode))"
+                    >
                       <b-button id="reset-timer-tooltip" size="sm" variant="info" @click="resetAssignmentTimer">
                         Reset Timer
                       </b-button>
@@ -5058,9 +5060,9 @@ export default {
         this.questions[this.currentPage - 1].can_submit_work = 1 - this.questions[this.currentPage - 1].can_submit_work
       }
     },
-    cleanHint () {
-      if (this.questions[this.currentPage - 1].hint) {
-        this.questions[this.currentPage - 1].hint = this.questions[this.currentPage - 1].hint.replace('<h2 class="editable">Hint</h2>', '')
+    addHintHeader () {
+      if (this.questions[this.currentPage - 1].hint && !this.questions[this.currentPage - 1].hint.includes('<h2 class="editable">Hint</h2>')) {
+        this.questions[this.currentPage - 1].hint = '<h2 class="editable">Hint</h2>' + this.questions[this.currentPage - 1].hint
       }
     },
     showHintModal () {
@@ -5706,7 +5708,7 @@ export default {
         this.$noty.error(error.message)
       }
     },
-    async handleShownHint () {
+    async handleShownHint (showModal = true) {
       try {
         const { data } = await axios.post(`/api/shown-hints/assignments/${this.assignmentId}/question/${this.questions[this.currentPage - 1].id}`, {
           problemJWT: this.questions[this.currentPage - 1].problem_jwt
@@ -5717,9 +5719,13 @@ export default {
         }
         this.questions[this.currentPage - 1].shown_hint = true
         this.questions[this.currentPage - 1].hint = data.hint
-        this.cleanHint()
-        this.$bvModal.hide('modal-confirm-show-hint')
-        this.$bvModal.show('modal-hint')
+        this.$nextTick(() => {
+          this.addHintHeader()
+          if (showModal) {
+            this.$bvModal.hide('modal-confirm-show-hint')
+            this.$bvModal.show('modal-hint')
+          }
+        })
 
         this.$nextTick(() => {
           this.typesetMath(document.getElementById('hint-html'))
@@ -7389,6 +7395,9 @@ export default {
             this.submitText(false)
           }
         }, 10000)
+      }
+      if (this.user.role === 2) {
+        await this.handleShownHint(false)
       }
     },
     async updateReviewQuestionTime () {
