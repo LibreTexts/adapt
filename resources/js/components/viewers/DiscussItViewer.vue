@@ -74,7 +74,7 @@
           <th>{{ discussionCommentSubmissionResults.number_of_initiated_discussion_threads }}</th>
           <th>
             {{
-            discussionCommentSubmissionResults.satisfied_min_number_of_initiated_discussion_threads_requirement ? 'Yes' : 'No'
+              discussionCommentSubmissionResults.satisfied_min_number_of_initiated_discussion_threads_requirement ? 'Yes' : 'No'
             }}
           </th>
         </tr>
@@ -85,13 +85,13 @@
           <th>Reply to Thread</th>
           <th>
             {{
-            discussionCommentSubmissionResults.min_number_of_replies
+              discussionCommentSubmissionResults.min_number_of_replies
             }}
           </th>
           <th>{{ discussionCommentSubmissionResults.number_of_replies_that_satisfied_the_requirements }}</th>
           <th>
             {{
-            discussionCommentSubmissionResults.satisfied_min_number_of_replies_requirement ? 'Yes' : 'No'
+              discussionCommentSubmissionResults.satisfied_min_number_of_replies_requirement ? 'Yes' : 'No'
             }}
           </th>
         </tr>
@@ -102,17 +102,17 @@
           <th>Participate (Initiate/Reply)</th>
           <th>
             {{
-            discussionCommentSubmissionResults.min_number_of_initiate_or_reply_in_threads
+              discussionCommentSubmissionResults.min_number_of_initiate_or_reply_in_threads
             }}
           </th>
           <th>
             {{
-            discussionCommentSubmissionResults.number_of_initiate_or_reply_in_threads_that_satisfied_the_requirements
+              discussionCommentSubmissionResults.number_of_initiate_or_reply_in_threads_that_satisfied_the_requirements
             }}
           </th>
           <th>
             {{
-            discussionCommentSubmissionResults.satisfied_min_number_of_initiate_or_reply_in_threads_requirement ? 'Yes' : 'No'
+              discussionCommentSubmissionResults.satisfied_min_number_of_initiate_or_reply_in_threads_requirement ? 'Yes' : 'No'
             }}
           </th>
         </tr>
@@ -555,8 +555,8 @@
                   />
                   <div class="col-form-label col-form-label-sm text-right pl-2">
                     {{
-                    +discussItSettingsForm.min_number_of_initiated_discussion_threads === 1
-                    ? 'discussion thread with new comment(s)' : 'discussion threads with new comment(s)'
+                      +discussItSettingsForm.min_number_of_initiated_discussion_threads === 1
+                        ? 'discussion thread with new comment(s)' : 'discussion threads with new comment(s)'
                     }}
                     <QuestionCircleTooltip :id="'discussion-thread-tooltip'" />
                     <b-tooltip target="discussion-thread-tooltip" triggers="hover focus" delay="500">
@@ -592,8 +592,8 @@
                   />
                   <div class="col-form-label col-form-label-sm text-right pl-2">
                     {{
-                    +discussItSettingsForm.min_number_of_replies === 1
-                    ? 'reply to comments in existing threads' : 'replies to comments in existing threads'
+                      +discussItSettingsForm.min_number_of_replies === 1
+                        ? 'reply to comments in existing threads' : 'replies to comments in existing threads'
                     }}
                     <QuestionCircleTooltip :id="'min-number-of-min-replies-tooltip'" />
                     <b-tooltip target="min-number-of-min-replies-tooltip" triggers="hover focus" delay="500">
@@ -626,8 +626,8 @@
                   />
                   <div class="col-form-label col-form-label-sm text-right pl-2">
                     {{
-                    +discussItSettingsForm.min_number_of_initiate_or_reply_in_threads === 1
-                    ? 'thread' : 'different threads'
+                      +discussItSettingsForm.min_number_of_initiate_or_reply_in_threads === 1
+                        ? 'thread' : 'different threads'
                     }}
                     <QuestionCircleTooltip :id="'initiate-or-reply-tooltip'" />
                     <b-tooltip target="initiate-or-reply-tooltip" triggers="hover focus" delay="500">
@@ -854,7 +854,7 @@
             >
               <p>
                 To count towards completion credit: {{
-                completionRequirementsToolTipText
+                  completionRequirementsToolTipText
                 }}
               </p>
               <ul style="list-style: none;padding:0">
@@ -921,7 +921,7 @@
                        target="”_blank”"
                     >
                       {{
-                      discussionCommentSubmissionResults.submission_summary.file_feedback_type === 'Audio' ? 'Listen To Feedback' : 'View Feedback'
+                        discussionCommentSubmissionResults.submission_summary.file_feedback_type === 'Audio' ? 'Listen To Feedback' : 'View Feedback'
                       }}
                     </a>
                   </strong>
@@ -1178,32 +1178,37 @@
                         />
                         <span class="text-muted">{{ comment.created_at }}</span>
                         <div v-show="comment.text" v-html="comment.text" />
-                        <div v-show="comment.file" class="mt-1">
-                          <b-button size="sm" variant="outline-info" @click="listenOrViewComment(comment)">{{ listenOrViewCommentText(comment) }}</b-button>
-                          <a :id="getTooltipTarget('editComment',comment.id)"
+                        <div class="mt-1">
+                          <b-button v-if="comment.file"
+                                    size="sm"
+                                    variant="outline-info"
+                                    @click="listenOrViewComment(comment)"
+                          >
+                            {{ listenOrViewCommentText(comment) }}
+                          </b-button>
+                          <a v-if="showAction('editComment',comment.created_by_user_id)"
+                             :id="getTooltipTarget('editComment',comment.id)"
                              href=""
                              :aria-label="`Edit comment by ${ comment.created_by_name }, created on ${comment.created_at }`"
                              @click.prevent="initEditComment(comment)"
                           >
-                          <span v-if="showAction('editComment',comment.created_by_user_id)"><b-icon-pencil
-                            class="font-weight-bold"
-                          /></span>
+                            <b-icon-pencil class="font-weight-bold" />
                           </a>
-                          <a :id="getTooltipTarget('deleteComment',comment.id)"
+                          <a v-if="showAction('deleteComment',comment.created_by_user_id)"
+                             :id="getTooltipTarget('deleteComment',comment.id)"
                              href=""
                              :aria-label="`Delete comment by ${ comment.created_by_name }, created on ${comment.created_at }`"
                              @click.prevent="initDeleteComment(comment)"
                           >
-                          <span v-if="showAction('deleteComment',comment.created_by_user_id)"><b-icon-trash
-                            class="font-weight-bold"
-                          /></span>
+                            <b-icon-trash class="font-weight-bold" />
                           </a>
                         </div>
-                        <b-tooltip :target="getTooltipTarget('deleteComment',comment.id)"
+                        <b-tooltip v-if="showAction('deleteComment',comment.created_by_user_id)"
+                                   :target="getTooltipTarget('deleteComment',comment.id)"
                                    delay="500"
                                    triggers="hover"
                         >
-                          Delete comment by {{ comment.user_id === user.id ? 'you' : comment.created_by_name }}, created
+                          Delete comment by {{ comment.created_by_user_id === user.id ? 'you' : comment.created_by_name }}, created
                           on {{ comment.created_at }}
                         </b-tooltip>
                         <hr>
@@ -1799,8 +1804,17 @@ export default {
     initEditComment (comment) {
       this.activeDiscussionComment = comment
       if (comment.text) {
-        this.commentForm.text = comment.text
-        this.commentForm.type = 'text'
+        // Fresh form so no stale file/recording fields from a previous
+        // audio/video comment get sent along with the text edit.
+        this.commentForm = new Form({
+          text: comment.text
+        })
+        // saveComment() uses this.commentType (not commentForm.type), so
+        // make sure it is 'text' even if the last compose was audio/video.
+        this.commentType = 'text'
+        // saveComment() silently bails out if currentFile is still set from
+        // an earlier recording upload.
+        this.currentFile = ''
         this.$bvModal.show('modal-update-text-comment')
       } else {
         this.listenOrViewComment(comment)
