@@ -290,11 +290,25 @@ class Helper
             ->where('question_id', $question_id)
             ->delete();
         $questionMediaUpload = new QuestionMediaUpload();
+        //with linked (daisy-chained) questions, comments may have been made in this assignment on threads started elsewhere
+        $other_discussion_ids = DiscussionComment::join('discussions', 'discussion_comments.discussion_id', '=', 'discussions.id')
+            ->where('discussion_comments.posted_in_assignment_id', $assignment_id)
+            ->where('discussions.question_id', $question_id)
+            ->where('discussions.assignment_id', '<>', $assignment_id)
+            ->pluck('discussions.id')
+            ->unique()
+            ->toArray();
         $discussions = Discussion::where('assignment_id', $assignment_id)
             ->where('question_id', $question_id)
             ->get();
-        foreach ($discussions as $discussion) {
-            $discussion_comments = DiscussionComment::where('discussion_id', $discussion->id)->get();
+        $other_discussions = Discussion::whereIn('id', $other_discussion_ids)->get();
+        foreach ($discussions->merge($other_discussions) as $discussion) {
+            $is_other_discussion = in_array($discussion->id, $other_discussion_ids);
+            $discussion_comments = DiscussionComment::where('discussion_id', $discussion->id)
+                ->when($is_other_discussion, function ($query) use ($assignment_id) {
+                    return $query->where('posted_in_assignment_id', $assignment_id);
+                })
+                ->get();
             foreach ($discussion_comments as $discussion_comment) {
                 $file = $discussion_comment->file;
                 if ($file) {
@@ -308,7 +322,9 @@ class Helper
                 }
                 $discussion_comment->delete();
             }
-            $discussion->delete();
+            if (!$is_other_discussion || !DiscussionComment::where('discussion_id', $discussion->id)->exists()) {
+                $discussion->delete();
+            }
         }
     }
 
@@ -397,7 +413,80 @@ class Helper
 
     public static function defaultDiscussItSettings(): string
     {
-        return '{"number_of_groups":"1","auto_grade":"0","response_modes":[],"completion_criteria":"1","students_can_edit_comments":"1","students_can_delete_comments":"0","min_number_of_initiated_discussion_threads":"1","min_number_of_replies":"1","min_number_of_initiate_or_reply_in_threads":"1","min_number_of_words":"","min_length_of_audio_video":""}';
+        return '{"number_of_groups":"1","auto_grade":"0","response_modes":[],"completion_criteria":"1","students_can_edit_comments":"1","students_can_delete_comments":"0","students_can_start_threads":"1","students_can_reply_to_threads":"1","min_number_of_initiated_discussion_threads":"1","min_number_of_replies":"1","min_number_of_initiate_or_reply_in_threads":"1","min_number_of_words":"","min_length_of_audio_video":""}';
+    }
+
+    /**
+     * Whether students may start new threads / reply in existing threads.  Settings saved before these options
+     * existed don't have the keys, and both are allowed by default.
+     *
+     * @param array|object|null $discuss_it_settings
+     * @param string $setting students_can_start_threads | students_can_reply_to_threads
+     * @return bool
+     */
+    public static function discussItStudentActionAllowed($discuss_it_settings, string $setting): bool
+    {
+        $discuss_it_settings = (array)$discuss_it_settings;
+        return !isset($discuss_it_settings[$setting]) || +$discuss_it_settings[$setting] !== 0;
+    }
+
+    /**
+     * Why a student can't post this comment, or null if they can.
+     *
+     * @param array|object|null $discuss_it_settings
+     * @param bool $is_new_thread
+     * @return string|null
+     */
+    public static function discussItStudentCommentBlockedMessage($discuss_it_settings, bool $is_new_thread): ?string
+    {
+        if ($is_new_thread && !self::discussItStudentActionAllowed($discuss_it_settings, 'students_can_start_threads')) {
+            return "Your instructor has turned off starting new threads for this question in this assignment.";
+        }
+        if (!$is_new_thread && !self::discussItStudentActionAllowed($discuss_it_settings, 'students_can_reply_to_threads')) {
+            return "Your instructor has turned off replying to threads for this question in this assignment.";
+        }
+        return null;
+    }
+
+    /**
+     * Completion criteria that students couldn't meet with new threads and/or replies turned off,
+     * keyed by the setting that causes the problem.  This is allowed (for example, to close an earlier linked
+     * assignment), but the instructor is warned and must confirm.
+     *
+     * @param array $discuss_it_settings
+     * @return array
+     */
+    public static function discussItParticipationConflicts(array $discuss_it_settings): array
+    {
+        $conflicts = [];
+        if (!+($discuss_it_settings['completion_criteria'] ?? 0)) {
+            return $conflicts;
+        }
+        $can_start_threads = self::discussItStudentActionAllowed($discuss_it_settings, 'students_can_start_threads');
+        $can_reply = self::discussItStudentActionAllowed($discuss_it_settings, 'students_can_reply_to_threads');
+        $min = function (string $key) use ($discuss_it_settings): int {
+            return (int)($discuss_it_settings[$key] ?? 0);
+        };
+        if (!$can_start_threads && !$can_reply) {
+            $participation_keys = ['min_number_of_initiated_discussion_threads',
+                'min_number_of_replies',
+                'min_number_of_initiate_or_reply_in_threads',
+                'min_number_of_comments'];
+            foreach ($participation_keys as $key) {
+                if ($min($key) > 0) {
+                    $conflicts['students_can_reply_to_threads'] = "Students can't start new threads or reply, but the completion criteria require them to participate.";
+                    break;
+                }
+            }
+            return $conflicts;
+        }
+        if (!$can_start_threads && $min('min_number_of_initiated_discussion_threads') > 0) {
+            $conflicts['students_can_start_threads'] = "Students can't start new threads, but the completion criteria require them to start {$min('min_number_of_initiated_discussion_threads')} " . ($min('min_number_of_initiated_discussion_threads') === 1 ? 'thread' : 'threads') . ".";
+        }
+        if (!$can_reply && $min('min_number_of_replies') > 0) {
+            $conflicts['students_can_reply_to_threads'] = "Students can't reply to threads, but the completion criteria require them to reply {$min('min_number_of_replies')} " . ($min('min_number_of_replies') === 1 ? 'time' : 'times') . ".";
+        }
+        return $conflicts;
     }
 
     /**

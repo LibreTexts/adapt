@@ -2,6 +2,53 @@
   <div>
     <AllFormErrors :modal-id="'modal-form-errors-comments'" :all-form-errors="allFormErrors" />
     <AllFormErrors :modal-id="'modal-form-errors-discussion-settings'" :all-form-errors="allFormErrors" />
+    <b-modal id="modal-discuss-it-participation-warnings"
+             title="Confirm Settings"
+             no-close-on-backdrop
+    >
+      <p v-if="participationWarnings.length === 1">
+        {{ participationWarnings[0] }}
+      </p>
+      <ul v-else class="pl-3">
+        <li v-for="(warning, warningIndex) in participationWarnings" :key="`participation-warning-${warningIndex}`">
+          {{ warning }}
+        </li>
+      </ul>
+      <p class="mb-0">
+        Students who haven't met the completion criteria yet won't be able to complete this question. Anyone who
+        already has credit keeps it.
+      </p>
+      <template #modal-footer>
+        <b-button size="sm" @click="$bvModal.hide('modal-discuss-it-participation-warnings')">
+          Cancel
+        </b-button>
+        <b-button size="sm" variant="primary" @click="saveDiscussItSettingsAnyway">
+          Save Anyway
+        </b-button>
+      </template>
+    </b-modal>
+    <b-modal id="modal-linked-discussion-notice"
+             title="This Discussion Is Shared"
+             no-close-on-backdrop
+    >
+      <p>
+        This discussion is shared with other assignments in your course, so you'll see comments from those
+        assignments here.
+      </p>
+      <p class="mb-0">
+        The comment you're about to write will count toward
+        <strong>{{ assignmentName || 'this assignment' }}</strong> only. If you meant to get credit in a different
+        assignment, open the question from that assignment instead.
+      </p>
+      <template #modal-footer>
+        <b-button size="sm" @click="$bvModal.hide('modal-linked-discussion-notice')">
+          Cancel
+        </b-button>
+        <b-button size="sm" variant="primary" @click="acknowledgeLinkedDiscussionNotice">
+          Continue
+        </b-button>
+      </template>
+    </b-modal>
     <b-modal id="modal-cannot-delete-comment"
              title="Cannot delete comment"
              size="lg"
@@ -288,7 +335,7 @@
       </div>
       <template #modal-footer>
         <span v-show="commentType === 'video' || !reRecording || (commentType === 'audio' && !stoppedAudioRecording)">
-          <b-button v-if="showAction('editComment', activeDiscussionComment.created_by_user_id)" variant="danger"
+          <b-button v-if="showAction('editComment', activeDiscussionComment.created_by_user_id, activeDiscussionComment)" variant="danger"
                     size="sm"
                     @click="reRecording=true"
           >
@@ -334,6 +381,39 @@
              @shown="initDiscussItSettings"
     >
       <b-container>
+        <b-card v-if="linkedDiscussItSettings.length" class="mb-3">
+          <template #header>
+            <h2 class="h7">
+              Copy Settings
+              <QuestionCircleTooltip id="copy-settings-tooltip" />
+              <b-tooltip target="copy-settings-tooltip" triggers="hover focus" delay="500">
+                Fills in the form with this question's settings from the chosen assignment. Nothing is saved until
+                you click Save. The new-thread and reply options aren't copied, so each assignment can open or close
+                commenting on its own.
+              </b-tooltip>
+            </h2>
+          </template>
+          <b-card-text>
+            <p class="small">
+              Start from this question's settings in another linked assignment.
+            </p>
+            <div class="d-inline-flex">
+              <b-form-select v-model="copyFromAssignmentId"
+                             :options="copyFromOptions"
+                             size="sm"
+                             style="width:250px"
+                             class="mr-2"
+              />
+              <b-button size="sm"
+                        variant="outline-primary"
+                        :disabled="!copyFromAssignmentId"
+                        @click="copyDiscussItSettingsFrom"
+              >
+                Copy
+              </b-button>
+            </div>
+          </b-card-text>
+        </b-card>
         <b-card header="default" header-html="<h2 class='h7'>General</h2>" class="mb-3">
           <b-card-text>
             <b-form-group
@@ -451,6 +531,85 @@
             <ErrorMessage :message="discussItSettingsForm.errors.get('response_modes')" />
           </div>
         </b-card>
+        <b-card class="mb-3">
+          <template #header>
+            <h2 class="h7">
+              Linking This Question
+              <QuestionCircleTooltip id="linking-this-question-tooltip" />
+              <b-tooltip target="linking-this-question-tooltip" triggers="hover focus" delay="500">
+                Linking shares this question's discussion with the same question in other assignments. Only this
+                question is linked, not the whole assignment. Each assignment keeps its own settings and dates, and
+                only comments made in an assignment count toward it.
+              </b-tooltip>
+            </h2>
+          </template>
+          <b-card-text>
+            <div v-if="discussItLinks.is_beta_assignment">
+              <b-alert show variant="info" class="small">
+                This is a Beta assignment, so linking for this question is managed by the Alpha course.
+              </b-alert>
+              <p v-if="discussItLinks.is_linked" class="small">
+                This question is linked with the same question in:
+                {{ discussItLinks.linked_assignments.map(item => item.name).join(', ') }}
+              </p>
+            </div>
+            <div v-else>
+              <div v-if="discussItLinks.is_linked" class="mb-2">
+                <p class="small mb-1">
+                  This question is linked with the same question in:
+                  <strong>{{ discussItLinks.linked_assignments.map(item => item.name).join(', ') }}</strong>
+                </p>
+                <b-button size="sm"
+                          variant="outline-danger"
+                          :disabled="!discussItLinks.can_unlink"
+                          @click="unlinkDiscussItQuestion"
+                >
+                  Unlink This Question
+                </b-button>
+                <span v-if="!discussItLinks.can_unlink" class="small text-muted ml-2">
+                  Students have already commented, so this question can no longer be unlinked.
+                </span>
+              </div>
+              <div v-if="!discussItLinks.is_linked && discussItLinks.chain_exists" class="mb-2">
+                <p class="small mb-1">
+                  This question is already linked in other assignments:
+                  <strong>{{ discussItLinks.linked_assignments.map(item => item.name).join(', ') }}</strong>
+                </p>
+                <b-button size="sm" variant="outline-primary" @click="linkDiscussItQuestion">
+                  Link This Question With Them
+                </b-button>
+              </div>
+              <div v-if="discussItLinks.unlinked_assignments.length">
+                <b-form-group
+                  :label="discussItLinks.is_linked || discussItLinks.chain_exists ? 'Also link this question with the same question in:' : 'Link this question with the same question in:'"
+                  label-size="sm"
+                  class="mb-1"
+                >
+                  <b-form-checkbox-group
+                    v-model="assignmentIdsToLink"
+                    :options="discussItLinks.unlinked_assignments"
+                    value-field="id"
+                    text-field="name"
+                    stacked
+                    size="sm"
+                  />
+                </b-form-group>
+                <b-button size="sm"
+                          variant="outline-primary"
+                          :disabled="!assignmentIdsToLink.length"
+                          @click="linkDiscussItQuestion"
+                >
+                  Link Question
+                </b-button>
+              </div>
+              <p v-if="!discussItLinks.is_linked && !discussItLinks.chain_exists && !discussItLinks.unlinked_assignments.length"
+                 class="small text-muted mb-0"
+              >
+                This question is not in any other assignment in this course.
+              </p>
+            </div>
+          </b-card-text>
+        </b-card>
         <b-card header="default" header-html="<h2 class='h7'>Student Actions</h2>">
           <b-card-text>
             <b-form-group
@@ -524,6 +683,73 @@
               </b-form-radio-group>
               <ErrorMessage :message="discussItSettingsForm.errors.get('students_can_delete_comments')" />
               <has-error :form="discussItSettingsForm" field="students_can_delete_comments" />
+            </b-form-group>
+            <b-form-group
+              label-cols-sm="5"
+              label-cols-lg="4"
+              label-for="students_can_start_threads"
+              label-size="sm"
+              label-align="right"
+            >
+              <template #label>
+                Students can start new threads
+                <QuestionCircleTooltip id="start-threads-tooltip" />
+                <b-tooltip target="start-threads-tooltip"
+                           delay="250"
+                           triggers="hover focus"
+                >
+                  Applies to this assignment only. Turning this off is useful when the question is linked in other
+                  assignments and students should now be commenting in a different one. If the completion criteria
+                  require initiating threads, you'll be asked to confirm.
+                </b-tooltip>
+              </template>
+              <b-form-radio-group
+                id="students_can_start_threads"
+                v-model="discussItSettingsForm.students_can_start_threads"
+                class="pt-1"
+                @change="clearStudentActionErrors"
+              >
+                <b-form-radio name="students_can_start_threads" value="1">
+                  Yes
+                </b-form-radio>
+                <b-form-radio name="students_can_start_threads" value="0">
+                  No
+                </b-form-radio>
+              </b-form-radio-group>
+              <ErrorMessage :message="discussItSettingsForm.errors.get('students_can_start_threads')" />
+            </b-form-group>
+            <b-form-group
+              label-cols-sm="5"
+              label-cols-lg="4"
+              label-for="students_can_reply_to_threads"
+              label-size="sm"
+              label-align="right"
+            >
+              <template #label>
+                Students can reply to threads
+                <QuestionCircleTooltip id="reply-to-threads-tooltip" />
+                <b-tooltip target="reply-to-threads-tooltip"
+                           delay="250"
+                           triggers="hover focus"
+                >
+                  Applies to this assignment only. If the completion criteria require replies, you'll be asked to
+                  confirm.
+                </b-tooltip>
+              </template>
+              <b-form-radio-group
+                id="students_can_reply_to_threads"
+                v-model="discussItSettingsForm.students_can_reply_to_threads"
+                class="pt-1"
+                @change="clearStudentActionErrors"
+              >
+                <b-form-radio name="students_can_reply_to_threads" value="1">
+                  Yes
+                </b-form-radio>
+                <b-form-radio name="students_can_reply_to_threads" value="0">
+                  No
+                </b-form-radio>
+              </b-form-radio-group>
+              <ErrorMessage :message="discussItSettingsForm.errors.get('students_can_reply_to_threads')" />
             </b-form-group>
           </b-card-text>
         </b-card>
@@ -749,6 +975,39 @@
             </b-card-text>
           </b-card>
         </div>
+        <b-card v-if="linkedDiscussItSettings.length" class="mt-3 mb-3">
+          <template #header>
+            <h2 class="h7">
+              Apply to Linked Assignments
+              <QuestionCircleTooltip id="apply-to-linked-tooltip" />
+              <b-tooltip target="apply-to-linked-tooltip" triggers="hover focus" delay="500">
+                Also saves these settings in each checked assignment, all or none. Assignments where students have
+                commented can't be changed here. The new-thread and reply options aren't changed, so each assignment
+                can open or close commenting on its own.
+              </b-tooltip>
+            </h2>
+          </template>
+          <b-card-text>
+            <p class="small">
+              Also save these settings for this question in:
+            </p>
+            <b-form-checkbox-group v-model="discussItSettingsForm.apply_to_assignment_ids"
+                                   stacked
+                                   size="sm"
+            >
+              <b-form-checkbox v-for="linkedAssignment in linkedDiscussItSettings"
+                               :key="`apply-to-${linkedAssignment.id}`"
+                               :value="linkedAssignment.id"
+                               :disabled="linkedAssignment.has_real_student_comments"
+              >
+                {{ linkedAssignment.name }}
+                <span v-if="linkedAssignment.has_real_student_comments" class="text-muted">
+                  (Students have already commented. Change this assignment's settings directly.)
+                </span>
+              </b-form-checkbox>
+            </b-form-checkbox-group>
+          </b-card-text>
+        </b-card>
       </b-container>
       <template #modal-footer="{ ok }">
         <b-button size="sm"
@@ -806,6 +1065,15 @@
         </b-alert>
       </div>
 
+      <div v-if="!previewingQuestion && user.role === 2 && discussItLinks.is_linked" class="small text-muted mb-2">
+        <b-icon-link45deg aria-hidden="true" />
+        This question is linked with the same question in
+        <span v-for="(linkedAssignment, linkedAssignmentIndex) in discussItLinks.linked_assignments"
+              :key="`linked-assignment-${linkedAssignment.id}`"
+        ><a :href="`/assignments/${linkedAssignment.id}/questions/view/${questionId}`">{{ linkedAssignment.name }}</a><span
+          v-if="linkedAssignmentIndex < discussItLinks.linked_assignments.length - 1"
+        >, </span></span>
+      </div>
       <div v-html="qtiJson.prompt" />
       <hr>
       <b-row>
@@ -848,6 +1116,10 @@
           />
         </b-col>
         <b-col v-if="!previewingQuestion" class="border p-2 border-dark discuss-it-sticky-col" style="font-size:small">
+          <b-alert v-if="user.role === 3 && isLinked" show variant="info" class="p-2 mb-2">
+            This discussion is shared with other assignments in your course. Comments from those assignments appear
+            here, but only the comments you make in this assignment count toward it.
+          </b-alert>
           <div class="mb-2">
             <b-card v-if="+discussItSettingsForm.completion_criteria" header="default"
                     header-html="<h2 class='h7'>Submission Information</h2>"
@@ -961,12 +1233,18 @@
               />
             </span>
             <b-button
+              v-if="studentsCanStartThreads"
               variant="success"
               size="sm"
               @click="startDiscussion"
             >
               New Thread
             </b-button>
+            <span v-if="user.role === 3 && (!studentsCanStartThreads || !studentsCanReplyToThreads)"
+                  class="small text-muted"
+            >
+              {{ studentActionsClosedMessage }}
+            </span>
             <span v-show="discussions.length > 1" class="float-right">
               <b-button variant="outline-info" size="sm" @click="showAllDiscussions">Show All</b-button> <b-button
               size="sm" @click="hideAllDiscussions"
@@ -1186,6 +1464,12 @@
                           style="cursor: pointer"
                         />
                         <span class="text-muted">{{ comment.created_at }}</span>
+                        <b-badge v-if="isFromAnotherLinkedAssignment(comment)"
+                                 variant="light"
+                                 class="ml-1 border"
+                        >
+                          {{ comment.assignment_name }}
+                        </b-badge>
                         <div v-show="comment.text" v-html="comment.text" />
                         <div class="mt-1">
                           <b-button v-if="comment.file"
@@ -1195,7 +1479,7 @@
                           >
                             {{ listenOrViewCommentText(comment) }}
                           </b-button>
-                          <a v-if="showAction('editComment',comment.created_by_user_id)"
+                          <a v-if="showAction('editComment', comment.created_by_user_id, comment)"
                              :id="getTooltipTarget('editComment',comment.id)"
                              href=""
                              :aria-label="`Edit comment by ${ comment.created_by_name }, created on ${comment.created_at }`"
@@ -1203,7 +1487,7 @@
                           >
                             <b-icon-pencil class="font-weight-bold" />
                           </a>
-                          <a v-if="showAction('deleteComment',comment.created_by_user_id)"
+                          <a v-if="showAction('deleteComment', comment.created_by_user_id, comment)"
                              :id="getTooltipTarget('deleteComment',comment.id)"
                              href=""
                              :aria-label="`Delete comment by ${ comment.created_by_name }, created on ${comment.created_at }`"
@@ -1212,7 +1496,7 @@
                             <b-icon-trash class="font-weight-bold" />
                           </a>
                         </div>
-                        <b-tooltip v-if="showAction('deleteComment',comment.created_by_user_id)"
+                        <b-tooltip v-if="showAction('deleteComment', comment.created_by_user_id, comment)"
                                    :target="getTooltipTarget('deleteComment',comment.id)"
                                    delay="500"
                                    triggers="hover"
@@ -1222,7 +1506,7 @@
                         </b-tooltip>
                         <hr>
                       </div>
-                      <b-button v-if="canStartDiscussionOrAddComments"
+                      <b-button v-if="canStartDiscussionOrAddComments && studentsCanReplyToThreads"
                                 size="sm"
                                 class="mb-3"
                                 @click="newComment(discussion)"
@@ -1557,10 +1841,28 @@ export default {
         language: null,
         min_number_of_comments: '',
         students_can_edit_comments: '',
-        students_can_delete_comments: ''
+        students_can_delete_comments: '',
+        students_can_start_threads: '1',
+        students_can_reply_to_threads: '1'
       }),
       activeDiscussionComment: {},
       activeDiscussionCommentId: 0,
+      discussItLinks: {
+        is_linked: false,
+        chain_exists: false,
+        linked_assignments: [],
+        unlinked_assignments: [],
+        can_unlink: true,
+        is_beta_assignment: false
+      },
+      assignmentIdsToLink: [],
+      linkedDiscussItSettings: [],
+      copyFromAssignmentId: null,
+      isLinked: false,
+      assignmentName: '',
+      participationWarnings: [],
+      linkedDiscussionNoticeAcknowledged: false,
+      discussionAwaitingNotice: null,
       audioHeaders: {},
       discussionCommentAudio: false,
       stoppedAudioRecording: false,
@@ -1583,7 +1885,26 @@ export default {
   computed: {
     ...mapGetters({
       user: 'auth/user'
-    })
+    }),
+    // instructors can always start threads and reply
+    studentsCanStartThreads () {
+      return this.user.role !== 3 || +this.discussItSettingsForm.students_can_start_threads !== 0
+    },
+    studentsCanReplyToThreads () {
+      return this.user.role !== 3 || +this.discussItSettingsForm.students_can_reply_to_threads !== 0
+    },
+    copyFromOptions () {
+      return [{ value: null, text: 'Choose a linked assignment' }]
+        .concat(this.linkedDiscussItSettings.map(item => ({ value: item.id, text: item.name })))
+    },
+    studentActionsClosedMessage () {
+      if (!this.studentsCanStartThreads && !this.studentsCanReplyToThreads) {
+        return 'New threads and replies are closed in this assignment.'
+      }
+      return !this.studentsCanStartThreads
+        ? 'New threads are closed in this assignment, but you can still reply.'
+        : 'Replies are closed in this assignment, but you can still start a new thread.'
+    }
   },
   watch: {
     'discussItSettingsForm.auto_grade': {
@@ -1817,17 +2138,8 @@ export default {
     initEditComment (comment) {
       this.activeDiscussionComment = comment
       if (comment.text) {
-        // Fresh form so no stale file/recording fields from a previous
-        // audio/video comment get sent along with the text edit.
-        this.commentForm = new Form({
-          text: comment.text
-        })
-        // saveComment() uses this.commentType (not commentForm.type), so
-        // make sure it is 'text' even if the last compose was audio/video.
-        this.commentType = 'text'
-        // saveComment() silently bails out if currentFile is still set from
-        // an earlier recording upload.
-        this.currentFile = ''
+        this.commentForm.text = comment.text
+        this.commentForm.type = 'text'
         this.$bvModal.show('modal-update-text-comment')
       } else {
         this.listenOrViewComment(comment)
@@ -1835,7 +2147,8 @@ export default {
     },
     async deleteComment () {
       try {
-        const { data } = await axios.delete(`/api/discussion-comments/${this.activeDiscussionComment.id}`)
+        const { data } = await axios.delete(`/api/discussion-comments/${this.activeDiscussionComment.id}`,
+          { params: { viewing_assignment_id: this.assignmentId } })
         this.$noty[data.type](data.message)
         if (data.type !== 'error') {
           this.$bvModal.hide('modal-confirm-delete-comment')
@@ -1874,7 +2187,8 @@ export default {
     },
     async deletingWillMakeRequirementsNotSatisfied (discussionComment) {
       try {
-        const { data } = await axios.get(`/api/discussion-comments/${discussionComment.id}/deleting-will-make-requirements-not-satisfied`)
+        const { data } = await axios.get(`/api/discussion-comments/${discussionComment.id}/deleting-will-make-requirements-not-satisfied`,
+          { params: { viewing_assignment_id: this.assignmentId } })
         if (data.type === 'error') {
           this.$noty.error(data.message)
           return false
@@ -1885,9 +2199,16 @@ export default {
       }
       return false
     },
-    showAction (action, userId) {
+    isFromAnotherLinkedAssignment (comment) {
+      return Boolean(comment.assignment_id && comment.assignment_name && +comment.assignment_id !== +this.assignmentId)
+    },
+    showAction (action, userId, comment = {}) {
       let showAction
       showAction = false
+      if (this.user.role === 3 && this.isFromAnotherLinkedAssignment(comment)) {
+        // students can only change comments made in the assignment they're working in
+        return false
+      }
       switch (action) {
         case ('editComment'):
           showAction = (this.canStartDiscussionOrAddComments && this.user.role === 3 && userId === this.user.id && this.discussItSettingsForm.students_can_edit_comments) ||
@@ -1900,6 +2221,34 @@ export default {
       }
       return showAction
     },
+    async linkDiscussItQuestion () {
+      try {
+        const { data } = await axios.post(`/api/assignments/${this.assignmentId}/question/${this.questionId}/discuss-it-link`,
+          { assignment_ids: this.assignmentIdsToLink })
+        this.$noty[data.type](data.message)
+        if (data.type === 'success') {
+          await this.refreshAfterLinkChange()
+        }
+      } catch (error) {
+        this.$noty.error(error.message)
+      }
+    },
+    async unlinkDiscussItQuestion () {
+      try {
+        const { data } = await axios.delete(`/api/assignments/${this.assignmentId}/question/${this.questionId}/discuss-it-link`)
+        this.$noty[data.type](data.message)
+        if (data.type === 'success') {
+          await this.refreshAfterLinkChange()
+        }
+      } catch (error) {
+        this.$noty.error(error.message)
+      }
+    },
+    async refreshAfterLinkChange () {
+      // linking can change the number of groups and which discussions show
+      await this.getDiscussItSettings()
+      await this.getDiscussionsByMediaUploadId()
+    },
     initDiscussItSettings () {
       this.discussItSettingsForm.errors.clear()
       this.getDiscussItSettings()
@@ -1909,7 +2258,24 @@ export default {
         const { data } = await axios.get(`/api/assignments/${this.assignmentId}/question/${this.questionId}/discuss-it-settings`)
         if (data.type === 'success') {
           this.discussionCommentsExist = data.discussion_comments_exist
-          this.discussItSettingsForm = new Form(JSON.parse(data.discuss_it_settings))
+          this.isLinked = Boolean(data.is_linked)
+          if (data.discuss_it_links) {
+            this.discussItLinks = data.discuss_it_links
+            this.assignmentIdsToLink = []
+          }
+          // settings saved before these options existed don't have them; both default to allowed
+          this.discussItSettingsForm = new Form({
+            students_can_start_threads: '1',
+            students_can_reply_to_threads: '1',
+            ...JSON.parse(data.discuss_it_settings),
+            // other linked assignments to save the same settings in (not a setting itself)
+            apply_to_assignment_ids: [],
+            // set only after the instructor confirms the participation warnings
+            confirm_participation_warnings: false
+          })
+          this.linkedDiscussItSettings = data.linked_discuss_it_settings || []
+          this.copyFromAssignmentId = null
+          this.assignmentName = data.assignment_name || ''
           if (this.user.role === 2) {
             this.updateNumberOfGroups()
           }
@@ -1984,6 +2350,12 @@ export default {
     async saveDiscussItSettings () {
       try {
         const { data } = await this.discussItSettingsForm.patch(`/api/assignments/${this.assignmentId}/question/${this.questionId}/discuss-it-settings`)
+        if (data.type === 'confirm') {
+          // nothing was saved; keep the form as it is so the instructor can confirm or go back and adjust
+          this.participationWarnings = data.participation_warnings
+          this.$bvModal.show('modal-discuss-it-participation-warnings')
+          return
+        }
         this.$noty[data.type](data.message)
         if (data.type === 'success') {
           this.$bvModal.hide('modal-discuss-it-settings')
@@ -1996,6 +2368,15 @@ export default {
           this.allFormErrors = this.discussItSettingsForm.errors.flatten()
           this.$bvModal.show('modal-form-errors-discussion-settings')
         }
+      }
+    },
+    async saveDiscussItSettingsAnyway () {
+      this.$bvModal.hide('modal-discuss-it-participation-warnings')
+      this.discussItSettingsForm.confirm_participation_warnings = true
+      try {
+        await this.saveDiscussItSettings()
+      } finally {
+        this.discussItSettingsForm.confirm_participation_warnings = false
       }
     },
     async updateTranscriptInMedia () {
@@ -2121,10 +2502,49 @@ export default {
       this.openComposePanel()
     },
     startDiscussion () {
-      this.initCommentOrDiscussion()
+      this.initCommentOrDiscussionAfterNotice()
     },
     newComment (discussion) {
+      this.initCommentOrDiscussionAfterNotice(discussion)
+    },
+    initCommentOrDiscussionAfterNotice (discussion = {}) {
+      // for linked questions, remind students (once per visit) which assignment the comment counts toward
+      if (this.user.role === 3 && this.isLinked && !this.linkedDiscussionNoticeAcknowledged) {
+        this.discussionAwaitingNotice = discussion
+        this.$bvModal.show('modal-linked-discussion-notice')
+        return
+      }
       this.initCommentOrDiscussion(discussion)
+    },
+    acknowledgeLinkedDiscussionNotice () {
+      this.linkedDiscussionNoticeAcknowledged = true
+      this.$bvModal.hide('modal-linked-discussion-notice')
+      const discussion = this.discussionAwaitingNotice || {}
+      this.discussionAwaitingNotice = null
+      this.initCommentOrDiscussion(discussion)
+    },
+    copyDiscussItSettingsFrom () {
+      const linkedAssignment = this.linkedDiscussItSettings.find(item => item.id === this.copyFromAssignmentId)
+      if (!linkedAssignment) {
+        return
+      }
+      // a deep copy, so editing the form doesn't change the linked assignment's stored settings
+      const copiedSettings = JSON.parse(JSON.stringify(linkedAssignment.discuss_it_settings || {}))
+      // these stay per assignment
+      delete copiedSettings.students_can_start_threads
+      delete copiedSettings.students_can_reply_to_threads
+      this.discussItSettingsForm = new Form({
+        ...this.discussItSettingsForm.data(),
+        ...copiedSettings,
+        apply_to_assignment_ids: this.discussItSettingsForm.apply_to_assignment_ids
+      })
+      this.copyFromAssignmentId = null
+      this.$noty.info(`The settings from ${linkedAssignment.name} are in the form. Click Save to keep them.`)
+    },
+    clearStudentActionErrors () {
+      // a conflict with the completion criteria can be fixed from either setting
+      this.discussItSettingsForm.errors.clear('students_can_start_threads')
+      this.discussItSettingsForm.errors.clear('students_can_reply_to_threads')
     },
     getMediaUploadId () {
       return this.questionMediaUploads.find(mediaUpload => mediaUpload.order === this.currentMediaUploadOrder).id
@@ -2145,6 +2565,7 @@ export default {
         ? `/api/discussion-comments/${this.activeDiscussionComment.id}`
         : `/api/discussions/assignment/${this.assignmentId}/question/${this.questionId}/${mediaUploadId}/${discussionId}/${group}`
       this.commentForm.type = this.commentType
+      this.commentForm.viewing_assignment_id = this.assignmentId
       if (this.commentForm.type === 'text') {
         this.commentForm.pasted_comment = +this.pastedContent
       }
@@ -2197,7 +2618,7 @@ export default {
         }
         this.discussions = data.discussions.filter(item => item.group === this.group)
 
-        this.typesetMath()
+        await this.typesetMath()
         if (resetOpenStates) {
           for (let i = 0; i < this.discussions.length; i++) {
             this.openStates[i] = i === 0

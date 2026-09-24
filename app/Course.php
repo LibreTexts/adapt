@@ -365,8 +365,10 @@ class Course extends Model
                 }
                 $imported_course->save();
             }
+            $new_assignment_id_by_old_assignment_id = [];
             foreach ($this->assignments as $assignment) {
                 $imported_assignment = $this->cloneAssignment($assignmentGroup, $imported_course, $assignment, $assignmentGroupWeight, $this);
+                $new_assignment_id_by_old_assignment_id[$assignment->id] = $imported_assignment->id;
                 if ($request->import_as_beta) {
                     BetaAssignment::create([
                         'id' => $imported_assignment->id,
@@ -396,6 +398,10 @@ class Course extends Model
 
                 $assignmentSyncQuestion->importAssignmentQuestionsAndLearningTrees($assignment->id, $imported_assignment->id, $reset_discuss_it_settings_to_default, $reset_clicker_settings_to_default, $remove_open_ended_questions_from_real_time_assignments);
             }
+            //linked (daisy-chained) Discuss-it questions stay linked in the copy, without the students or their comments
+            DiscussItChain::copyChainsToCourse($new_assignment_id_by_old_assignment_id, $imported_course->id);
+            //no students come over, so Discuss-it questions start with one group
+            DiscussItChain::resetToOneGroupForCourse($imported_course->id);
 
             $this->prepareNewCourse($user, $section, $imported_course, $this, $enrollment, $finalGrade, $courseOrder);
             $fake_user = DB::table('enrollments')

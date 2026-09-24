@@ -12,6 +12,7 @@ use App\AssignToUser;
 use App\AutoRelease;
 use App\BetaAssignment;
 use App\BetaCourse;
+use App\DiscussItChain;
 use App\CaseStudyNote;
 use App\Course;
 use App\Exceptions\Handler;
@@ -1324,6 +1325,10 @@ class AssignmentController extends Controller
                 $reset_clicker_settings_to_default = +$request->reset_clicker_settings_to_default === 1;
                 $remove_open_ended_questions_in_real_time_assignment = +$request->remove_open_ended_questions_in_real_time_assignment === 1;
                 $assignmentSyncQuestion->importAssignmentQuestionsAndLearningTrees($assignment->id, $new_assignment->id, $reset_discuss_it_settings_to_default, $reset_clicker_settings_to_default, $remove_open_ended_questions_in_real_time_assignment);
+                //same course, so the copy's Discuss-it questions can be linked (daisy-chained) with the original's
+                if (+$request->link_discuss_it_questions === 1 && !$assignment->isBetaAssignment()) {
+                    $discuss_it_link_messages = $this->_linkCopiedDiscussItQuestions($assignment, $new_assignment);
+                }
             }
 
 
@@ -1349,6 +1354,9 @@ class AssignmentController extends Controller
 
             DB::commit();
             $response['message'] = "<strong>$new_assignment->name</strong> is using the same template as <strong>$assignment->name</strong>. Don't forget to add questions and update the assignment's dates.";
+            if (!empty($discuss_it_link_messages)) {
+                $response['message'] .= ' ' . implode(' ', $discuss_it_link_messages);
+            }
             $response['type'] = 'success';
         } catch (Exception $e) {
             DB::rollback();
@@ -1357,6 +1365,37 @@ class AssignmentController extends Controller
             $response['message'] = "There was an error creating an assignment from $assignment->name.  Please try again or contact us for assistance.";
         }
         return $response;
+    }
+
+    /**
+     * Links each Discuss-it question in the copy with the same question in the original assignment
+     * (joining the original's existing link if there is one).
+     *
+     * @param Assignment $original_assignment
+     * @param Assignment $new_assignment
+     * @return array messages for anything that couldn't be linked
+     * @throws Exception
+     */
+    private
+    function _linkCopiedDiscussItQuestions(Assignment $original_assignment, Assignment $new_assignment): array
+    {
+        $messages = [];
+        $discuss_it_question_ids = DB::table('assignment_question')
+            ->where('assignment_id', $new_assignment->id)
+            ->whereNotNull('discuss_it_settings')
+            ->pluck('question_id');
+        foreach ($discuss_it_question_ids as $question_id) {
+            $question = Question::find($question_id);
+            if (!$question || !$question->isDiscussIt()) {
+                continue;
+            }
+            //the original comes first so that the copy takes on its number of groups and question revision
+            $link_response = DiscussItChain::link($original_assignment->course_id, $question->id, [$original_assignment->id, $new_assignment->id]);
+            if ($link_response['type'] === 'error') {
+                $messages[] = "The Discuss-it question \"$question->title\" could not be linked: {$link_response['message']}";
+            }
+        }
+        return $messages;
     }
 
     /**
@@ -2714,7 +2753,8 @@ class AssignmentController extends Controller
      * @throws Exception
      */
     public
-    function destroy(Assignment     $assignment,
+    function destroy(Request        $request,
+                     Assignment     $assignment,
                      AssignToTiming $assignToTiming,
                      BetaAssignment $betaAssignment): array
     {
@@ -2729,6 +2769,16 @@ class AssignmentController extends Controller
         //temporary fix for one assignment
         if ($assignment->id !== 1389 && $betaAssignment->where('alpha_assignment_id', $assignment->id)->first()) {
             $response['message'] = "You cannot delete an Alpha assignment with tethered Beta assignments.";
+            return $response;
+        }
+        //checked again here since students may have commented after the instructor confirmed
+        $removed_comments = DiscussItChain::commentsRemovedByDeletingAssignment($assignment->id);
+        if ($removed_comments['scored_assignment_names']) {
+            $response['message'] = $this->_linkedDiscussItCommentsScoredMessage($removed_comments['scored_assignment_names']);
+            return $response;
+        }
+        if ($removed_comments['number_of_comments'] !== (int)$request->input('confirmed_number_of_linked_discuss_it_comments', 0)) {
+            $response['message'] = "Student comments on this assignment's linked Discuss-it questions have changed since you opened this window, so nothing was deleted.  Please try again.";
             return $response;
         }
         $beta_assignments = $betaAssignment->where('alpha_assignment_id', $assignment->id)->get();
@@ -2777,6 +2827,7 @@ class AssignmentController extends Controller
             DB::commit();
             $response['type'] = 'success';
             $response['message'] = "The assignment <strong>$assignment->name</strong> has been deleted.";
+            $response['student_emails_associated_with_removed_comments'] = $removed_comments['student_emails'];
         } catch (Exception $e) {
             DB::rollBack();
             $h = new Handler(app());
@@ -2786,6 +2837,51 @@ class AssignmentController extends Controller
         return $response;
     }
 
+
+    /**
+     * What deleting this assignment would do to student comments on its linked Discuss-it questions, so the
+     * delete window can explain it (and ask for confirmation) before anything is deleted.
+     *
+     * @param Assignment $assignment
+     * @return array
+     * @throws Exception
+     */
+    public
+    function linkedDiscussItDeleteCheck(Assignment $assignment): array
+    {
+        $response['type'] = 'error';
+        $authorized = Gate::inspect('delete', $assignment);
+        if (!$authorized->allowed()) {
+            $response['message'] = $authorized->message();
+            return $response;
+        }
+        try {
+            $removed_comments = DiscussItChain::commentsRemovedByDeletingAssignment($assignment->id);
+            $response['number_of_comments'] = $removed_comments['number_of_comments'];
+            $response['number_of_students'] = $removed_comments['number_of_students'];
+            $response['assignment_names'] = $removed_comments['assignment_names'];
+            $response['can_delete'] = !$removed_comments['scored_assignment_names'];
+            $response['cannot_delete_message'] = $removed_comments['scored_assignment_names']
+                ? $this->_linkedDiscussItCommentsScoredMessage($removed_comments['scored_assignment_names'])
+                : '';
+            $response['type'] = 'success';
+        } catch (Exception $e) {
+            $h = new Handler(app());
+            $h->report($e);
+            $response['message'] = "We were unable to check this assignment's Discuss-it comments.  Please try again or contact us for assistance.";
+        }
+        return $response;
+    }
+
+    /**
+     * @param array $scored_assignment_names
+     * @return string
+     */
+    private function _linkedDiscussItCommentsScoredMessage(array $scored_assignment_names): string
+    {
+        return "You cannot delete this assignment.  Deleting it would remove student comments on its linked Discuss-it questions, and some of those comments have already been scored in: "
+            . implode(', ', $scored_assignment_names) . ".";
+    }
 
     /**
      * @param Assignment $assignment

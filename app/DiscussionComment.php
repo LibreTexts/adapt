@@ -18,6 +18,33 @@ class DiscussionComment extends Model
 
     protected $guarded = [];
 
+    protected static function boot()
+    {
+        parent::boot();
+        //safety net: the assignment the comment was made in defaults to the assignment of its thread
+        static::creating(function (DiscussionComment $discussionComment) {
+            if (!$discussionComment->posted_in_assignment_id && $discussionComment->discussion_id) {
+                $discussionComment->posted_in_assignment_id = DB::table('discussions')
+                    ->where('id', $discussionComment->discussion_id)
+                    ->value('assignment_id');
+            }
+        });
+    }
+
+    /**
+     * The assignment whose settings, dates, and completion this comment belongs to.
+     * For linked (daisy-chained) questions this can differ from the thread's assignment.
+     *
+     * @return int
+     */
+    public function postedInAssignmentId(): int
+    {
+        if ($this->posted_in_assignment_id) {
+            return (int)$this->posted_in_assignment_id;
+        }
+        return (int)DB::table('discussions')->where('id', $this->discussion_id)->value('assignment_id');
+    }
+
     /**
      * @param null $value
      * @return string
@@ -138,8 +165,8 @@ class DiscussionComment extends Model
         $satisfied_requirements = DB::table('discussion_comments')
             ->where('discussion_comments.user_id', $user_id)
             ->join('discussions', 'discussion_comments.discussion_id', '=', 'discussions.id')
-            ->where('assignment_id', $assignment_id)
-            ->where('question_id', $question_id)
+            ->where('discussion_comments.posted_in_assignment_id', $assignment_id)
+            ->where('discussions.question_id', $question_id)
             ->select('discussion_comments.id AS discussion_comment_id', 'satisfied_requirement')
             ->get();
         foreach ($satisfied_requirements as $satisfied_requirement) {
@@ -234,6 +261,7 @@ class DiscussionComment extends Model
     {
         return $this->join('discussions', 'discussion_comments.discussion_id', '=', 'discussions.id')
             ->where('discussions.assignment_id', $assignment_id)
+            ->where('discussion_comments.posted_in_assignment_id', $assignment_id)
             ->where('discussions.question_id', $question_id)
             ->where('discussions.user_id', $user_id)
             ->where('discussion_comments.user_id', $user_id)
@@ -252,7 +280,7 @@ class DiscussionComment extends Model
     function numberOfRepliesThatSatisfiedTheRequirements(int $assignment_id, int $question_id, int $user_id)
     {
         return $this->join('discussions', 'discussion_comments.discussion_id', '=', 'discussions.id')
-            ->where('discussions.assignment_id', $assignment_id)
+            ->where('discussion_comments.posted_in_assignment_id', $assignment_id)
             ->where('discussions.question_id', $question_id)
             ->where('discussion_comments.user_id', $user_id)
             ->where('discussion_comments.satisfied_requirement', 1)
@@ -276,7 +304,7 @@ class DiscussionComment extends Model
     function numberOfCommentsThatSatisfiedTheRequirements(int $assignment_id, int $question_id, int $user_id)
     {
         return $this->join('discussions', 'discussion_comments.discussion_id', '=', 'discussions.id')
-            ->where('discussions.assignment_id', $assignment_id)
+            ->where('discussion_comments.posted_in_assignment_id', $assignment_id)
             ->where('discussions.question_id', $question_id)
             ->where('discussion_comments.user_id', $user_id)
             ->where('discussion_comments.satisfied_requirement', 1)
@@ -298,7 +326,7 @@ class DiscussionComment extends Model
     public function numberOfInitiateOrReplyInThreadsThatSatisfiedTheRequirements($assignment_id, $question_id, $user_id)
     {
         return $this->join('discussions', 'discussion_comments.discussion_id', '=', 'discussions.id')
-            ->where('discussions.assignment_id', $assignment_id)
+            ->where('discussion_comments.posted_in_assignment_id', $assignment_id)
             ->where('discussions.question_id', $question_id)
             ->where('discussion_comments.user_id', $user_id)
             ->where('discussion_comments.satisfied_requirement', 1)

@@ -142,6 +142,8 @@ class Assignment extends Model
      */
     public function removeAllAssociatedInformation(AssignToTiming $assignToTiming)
     {
+        //leave any linked (daisy-chained) Discuss-it questions before the assignment questions go
+        DiscussItChain::detachAssignment($this->id);
         $assignment_question_ids = DB::table('assignment_question')
             ->where('assignment_id', $this->id)
             ->get()

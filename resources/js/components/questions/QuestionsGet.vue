@@ -49,6 +49,56 @@
         </b-button>
       </template>
     </b-modal>
+    <b-modal id="modal-discuss-it-links"
+             title="Link Discuss-it Questions?"
+             no-close-on-esc
+             no-close-on-backdrop
+             size="lg"
+    >
+      <p>
+        The Discuss-it question<span v-show="discussItLinkOptions.length > 1">s</span> below
+        <span v-show="discussItLinkOptions.length > 1">are</span><span v-show="discussItLinkOptions.length === 1">is</span>
+        already in other assignments in this course. If you link a question, all comments will show in every linked
+        assignment and students will stay in the same group. Each assignment keeps its own settings and dates, and
+        completion is based only on the comments made in that assignment. You can also link or unlink later from the
+        question's Discuss-it settings.
+      </p>
+      <b-card v-for="linkOption in discussItLinkOptions"
+              :key="`discuss-it-link-option-${linkOption.question_id}`"
+              class="mb-2"
+      >
+        <b-card-text>
+          <p class="font-weight-bold mb-1">
+            {{ linkOption.title }}
+          </p>
+          <p v-if="linkOption.chain_exists" class="small mb-1">
+            Already linked in: {{ linkOption.linked_assignments.map(item => item.name).join(', ') }}.
+            Linking will also link it in this assignment.
+          </p>
+          <b-form-checkbox-group
+            v-model="discussItLinkSelections[linkOption.question_id]"
+            :options="getDiscussItLinkCheckboxOptions(linkOption)"
+            stacked
+            size="sm"
+          />
+        </b-card-text>
+      </b-card>
+      <template #modal-footer>
+        <b-button
+          size="sm"
+          @click="skipDiscussItLinks"
+        >
+          Don't Link
+        </b-button>
+        <b-button
+          variant="primary"
+          size="sm"
+          @click="addQuestions(questionsToAdd)"
+        >
+          Submit
+        </b-button>
+      </template>
+    </b-modal>
     <b-modal id="modal-formatted-question-types"
              title="Choose Type"
              size="xl"
@@ -1562,6 +1612,9 @@ export default {
     questionSectionId: null,
     questionSectionIdOptions: [],
     checkedForDiscussItQuestions: false,
+    checkedForDiscussItLinks: false,
+    discussItLinkOptions: [],
+    discussItLinkSelections: {},
     resetDiscussItSettingsToDefault: '1',
     questionsToAdd: [],
     interactiveH5PFormattedTypes: [
@@ -2599,6 +2652,72 @@ export default {
         this.$noty.error(error.message)
       }
     },
+    async checkForDiscussItLinks (questionsToAdd) {
+      // returns true if the instructor is being asked whether to link (daisy-chain) Discuss-it questions
+      this.checkedForDiscussItLinks = true
+      this.discussItLinkOptions = []
+      this.discussItLinkSelections = {}
+      if (!this.assignmentId) {
+        return false
+      }
+      try {
+        const { data } = await axios.post(`/api/assignments/${this.assignmentId}/discuss-it-link-options`,
+          { question_ids: questionsToAdd.map(question => question.question_id) })
+        if (data.type === 'error') {
+          this.$noty.error(data.message)
+          return false
+        }
+        if (!data.discuss_it_link_options.length) {
+          return false
+        }
+        const selections = {}
+        for (const linkOption of data.discuss_it_link_options) {
+          selections[linkOption.question_id] = []
+        }
+        this.discussItLinkSelections = selections
+        this.discussItLinkOptions = data.discuss_it_link_options
+        this.questionsToAdd = questionsToAdd
+        this.$bvModal.show('modal-discuss-it-links')
+        return true
+      } catch (error) {
+        this.$noty.error(error.message)
+      }
+      return false
+    },
+    getDiscussItLinkCheckboxOptions (linkOption) {
+      const options = []
+      if (linkOption.chain_exists) {
+        options.push({
+          value: 'linked',
+          text: `Link with ${linkOption.linked_assignments.map(item => item.name).join(', ')}`
+        })
+      }
+      for (const assignment of linkOption.unlinked_assignments) {
+        options.push({ value: assignment.id, text: linkOption.chain_exists ? `Also link ${assignment.name}` : `Link with ${assignment.name}` })
+      }
+      return options
+    },
+    getDiscussItLinks () {
+      // { question_id: [assignment ids to link with] }
+      const discussItLinks = {}
+      for (const linkOption of this.discussItLinkOptions) {
+        const selections = this.discussItLinkSelections[linkOption.question_id] || []
+        if (!selections.length) {
+          continue
+        }
+        let assignmentIds = selections.filter(selection => selection !== 'linked')
+        // there's at most one link per question in a course, so any choice joins the existing one
+        if (linkOption.chain_exists) {
+          assignmentIds = assignmentIds.concat(linkOption.linked_assignments.map(item => item.id))
+        }
+        discussItLinks[linkOption.question_id] = assignmentIds
+      }
+      return discussItLinks
+    },
+    skipDiscussItLinks () {
+      this.discussItLinkSelections = {}
+      this.addQuestions(this.questionsToAdd)
+    },
     async addQuestions (questionsToAdd) {
       this.$root.$emit('bv::hide::tooltip')
       if (['commons', 'my_courses', 'all_public_courses'].includes(this.questionSource)) {
@@ -2614,12 +2733,21 @@ export default {
         }
         this.$bvModal.hide('modal-discussion-questions-exist')
       }
+      if (!this.checkedForDiscussItLinks) {
+        const askingAboutLinks = await this.checkForDiscussItLinks(questionsToAdd)
+        if (askingAboutLinks) {
+          // Submit in the modal calls addQuestions again
+          return
+        }
+      }
+      this.$bvModal.hide('modal-discuss-it-links')
       try {
         const { data } = await axios.patch(`/api/assignments/${this.assignmentId}/remix-assignment-with-chosen-questions`,
           {
             'chosen_questions': questionsToAdd,
             'question_source': this.questionSource,
-            'reset_discuss_it_settings_to_default': this.resetDiscussItSettingsToDefault
+            'reset_discuss_it_settings_to_default': this.resetDiscussItSettingsToDefault,
+            'discuss_it_links': this.getDiscussItLinks()
           })
         if (data.type === 'error') {
           this.$noty.error(data.message, {
@@ -2627,6 +2755,10 @@ export default {
           })
         }
         if (data.type === 'success') {
+          // questions that were added but couldn't be linked (daisy-chained); the success message isn't otherwise shown
+          if (data.discuss_it_link_messages && data.discuss_it_link_messages.length) {
+            this.$noty.info(data.discuss_it_link_messages.join(' '), { timeout: 12000 })
+          }
           for (let i = 0; i < questionsToAdd.length; i++) {
             this.assignmentQuestions.find(question => question.question_id === questionsToAdd[i].question_id).in_current_assignment = true
             this.$forceUpdate()
@@ -2644,6 +2776,9 @@ export default {
         this.$noty.error(error.message)
       }
       this.checkedForDiscussItQuestions = false
+      this.checkedForDiscussItLinks = false
+      this.discussItLinkOptions = []
+      this.discussItLinkSelections = {}
       await this.getQuestionWarningInfo()
 
       if (this.typeOfRemixer === 'saved-questions') {

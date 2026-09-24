@@ -1,8 +1,8 @@
 <template>
   <div>
-    <AllFormErrors :all-form-errors="allFormErrors" :modal-id="'modal-form-errors-assignment-form'"/>
-    <AllFormErrors :all-form-errors="allFormErrors" :modal-id="'modal-form-errors-link-course-to-lms-form'"/>
-    <AllFormErrors :all-form-errors="allFormErrors" :modal-id="'modal-form-errors-canvas-url-form'"/>
+    <AllFormErrors :all-form-errors="allFormErrors" :modal-id="'modal-form-errors-assignment-form'" />
+    <AllFormErrors :all-form-errors="allFormErrors" :modal-id="'modal-form-errors-link-course-to-lms-form'" />
+    <AllFormErrors :all-form-errors="allFormErrors" :modal-id="'modal-form-errors-canvas-url-form'" />
 
     <PageTitle v-if="canViewAssignments"
                :consult-insight-url="user && user.role === 2 ? 'https://commons.libretexts.org/insight/creating-a-new-adapt-assignment' :''"
@@ -78,7 +78,7 @@
           :class="{ 'is-invalid': errorMessage }"
           @keydown="errorMessage = ''"
         />
-        <ErrorMessage :message="errorMessage"/>
+        <ErrorMessage :message="errorMessage" />
       </b-form-group>
       <template #modal-footer>
         <b-button size="sm"
@@ -295,8 +295,7 @@
         title="Link Course to LMS"
       >
         <b-alert show variant="success">
-          The course has been successfully linked. <span v-if="assignments.length"
-        >Assignments are now being linked.</span>
+          The course has been successfully linked. <span v-if="assignments.length">Assignments are now being linked.</span>
         </b-alert>
         <table v-if="assignments.length" :key="`link-to-lms-${updateKey}`" class="table table-striped">
           <thead>
@@ -431,7 +430,7 @@
             Save
           </b-button>
           <span v-show="savingAssignment" class="pl-2">
-            <b-spinner small type="grow"/>
+            <b-spinner small type="grow" />
             Saving...processing
           </span>
         </template>
@@ -442,7 +441,7 @@
         title="Assigned To"
         size="lg"
       >
-        <AssignTosToView ref="assignTosModal" :assign-tos-to-view="assignTosToView"/>
+        <AssignTosToView ref="assignTosModal" :assign-tos-to-view="assignTosToView" />
       </b-modal>
 
       <b-modal
@@ -454,7 +453,8 @@
         <b-form-group
           id="create_assignment_from_template_level"
           label-cols-sm="3"
-          label-cols-lg="2"
+          label-cols-lg="3"
+          label-class="pt-0"
           label="Level"
           label-for="Level"
         >
@@ -484,7 +484,8 @@
         <b-form-group
           id="create_assignment_from_template_assign_to_groups"
           label-cols-sm="3"
-          label-cols-lg="2"
+          label-cols-lg="3"
+          label-class="pt-0"
           label="Assign To's"
           label-for="Assign To's"
         >
@@ -505,7 +506,8 @@
           v-if="discussItQuestionsExist && createAssignmentFromTemplateForm.level === 'properties_and_questions'"
           id="reset_discuss_it_settings_to_default"
           label-cols-sm="3"
-          label-cols-lg="2"
+          label-cols-lg="3"
+          label-class="pt-0"
           label="Discuss-it Settings"
         >
           <b-form-radio-group
@@ -521,10 +523,40 @@
           </b-form-radio-group>
         </b-form-group>
         <b-form-group
+          v-if="discussItQuestionsExist && createAssignmentFromTemplateForm.level === 'properties_and_questions'"
+          id="link_discuss_it_questions"
+          label-cols-sm="3"
+          label-cols-lg="3"
+          label-class="pt-0"
+        >
+          <template #label>
+            <span class="text-nowrap">Link Discuss-it
+              <QuestionCircleTooltip id="link-discuss-it-questions-tooltip" /></span>
+            <b-tooltip target="link-discuss-it-questions-tooltip" triggers="hover focus" delay="500">
+              Linked Discuss-it questions share one discussion: all comments show in every linked assignment and
+              students stay in the same group. Each assignment keeps its own settings and dates, and completion is
+              based only on the comments made in that assignment. The copy will use the original's number of groups
+              and question revision. You can link or unlink later from the question's Discuss-it settings.
+            </b-tooltip>
+          </template>
+          <b-form-radio-group
+            v-model="createAssignmentFromTemplateForm.link_discuss_it_questions"
+            stacked
+          >
+            <b-form-radio value="1">
+              Link Discuss-it questions with the same questions in the original assignment
+            </b-form-radio>
+            <b-form-radio value="0">
+              Don't link them
+            </b-form-radio>
+          </b-form-radio-group>
+        </b-form-group>
+        <b-form-group
           v-if="clickerQuestionsExist && createAssignmentFromTemplateForm.level === 'properties_and_questions'"
           id="reset_clicker_settings_to_default"
           label-cols-sm="3"
-          label-cols-lg="2"
+          label-cols-lg="3"
+          label-class="pt-0"
           label="Clicker Settings"
         >
           <b-form-radio-group
@@ -543,7 +575,8 @@
           v-if="openEndedQuestionsInRealTimeAssignmentExist && createAssignmentFromTemplateForm.level === 'properties_and_questions'"
           id="remove_open_ended_questions_in_real_time_assignment_in_real_time_assignment"
           label-cols-sm="3"
-          label-cols-lg="2"
+          label-cols-lg="3"
+          label-class="pt-0"
           label="Open-ended Questions"
         >
           <b-form-radio-group
@@ -637,7 +670,7 @@
         >
           <template v-slot:label>
             LMS Grade Passback*
-            <QuestionCircleTooltip :id="'lms_grade_passback_tooltip'"/>
+            <QuestionCircleTooltip :id="'lms_grade_passback_tooltip'" />
             <b-tooltip target="lms_grade_passback_tooltip"
                        delay="250"
                        triggers="hover focus"
@@ -722,18 +755,35 @@
       <b-modal
         id="modal-delete-assignment"
         ref="modal"
-        :title="tetheredBetaAssignmentExists ? 'Cannot Delete Assignment' :'Confirm Delete Assignment'"
-        :hide-footer="tetheredBetaAssignmentExists"
+        :title="cannotDeleteAssignment ? 'Cannot Delete Assignment' :'Confirm Delete Assignment'"
+        :hide-footer="cannotDeleteAssignment"
       >
-        <div v-show="!tetheredBetaAssignmentExists">
+        <b-alert :show="!tetheredBetaAssignmentExists && !linkedDiscussItDeleteCheck.can_delete" variant="danger">
+          {{ linkedDiscussItDeleteCheck.cannot_delete_message }}
+          You can always hide this assignment from your students instead.
+        </b-alert>
+        <div v-show="!cannotDeleteAssignment">
           <p>
             By deleting the assignment, you will also delete all student scores associated with the assignment.
           </p>
-          <b-alert :show="hasLmsAssignmentId(assignmentId)" variant="danger">
-            Please note that the assignment and all associated scores on your LMS will be deleted as
-            well.
+          <b-alert variant="danger" show>
+            Once an assignment is deleted, it cannot be retrieved.
+            <span v-if="hasLmsAssignmentId(assignmentId)">
+              Please note that the assignment and all associated scores on your LMS will be deleted as well.
+            </span>
+            <template v-if="linkedDiscussItDeleteCheck.number_of_comments > 0">
+              <p class="mt-2 mb-1">
+                It will also remove {{ linkedDiscussItDeleteCheck.number_of_comments }} linked Discuss-it
+                {{ linkedDiscussItDeleteCheck.number_of_comments === 1 ? 'comment' : 'comments' }} by
+                {{ linkedDiscussItDeleteCheck.number_of_students }}
+                {{ linkedDiscussItDeleteCheck.number_of_students === 1 ? 'student' : 'students' }}
+                ({{ linkedDiscussItDeleteCheck.assignment_names.join(', ') }}).
+              </p>
+              <b-form-checkbox v-model="understandLinkedDiscussItCommentsRemoved">
+                I understand these comments will be removed.
+              </b-form-checkbox>
+            </template>
           </b-alert>
-          <p><strong>Once an assignment is deleted, it can not be retrieved!</strong></p>
         </div>
         <div v-show="tetheredBetaAssignmentExists">
           <p>
@@ -755,11 +805,36 @@
             variant="primary"
             size="sm"
             class="float-right"
+            :disabled="linkedDiscussItDeleteCheck.number_of_comments > 0 && !understandLinkedDiscussItCommentsRemoved"
             @click="handleDeleteAssignment"
           >
             Yes, delete assignment!
           </b-button>
         </template>
+      </b-modal>
+
+      <b-modal
+        id="modal-removed-discuss-it-comment-emails"
+        title="Let Your Students Know"
+        size="lg"
+        ok-only
+        ok-title="OK"
+        button-size="sm"
+      >
+        <p>
+          Discuss-it comments by these students were removed along with the assignment. You may want to let them
+          know.
+        </p>
+        <p class="mb-0">
+          Emails of students whose comments were removed:
+          <span id="removed-discuss-it-comment-emails">{{ removedDiscussItCommentEmails.join(', ') }}</span>
+          <a href=""
+             aria-label="Copy student emails"
+             @click.prevent="doCopy('removed-discuss-it-comment-emails')"
+          >
+            <font-awesome-icon :icon="copyIcon" />
+          </a>
+        </p>
       </b-modal>
 
       <b-container v-if="canViewAssignments">
@@ -813,9 +888,9 @@
                                                                                                 aria-label="Copy LTI URL"
                                                                                                 @click.prevent="doCopy('lti-url')"
               >
-                <font-awesome-icon :icon="copyIcon"/>
+                <font-awesome-icon :icon="copyIcon" />
               </a>
-                <QuestionCircleTooltip :id="`lti-url-tooltip`"/>
+                <QuestionCircleTooltip :id="`lti-url-tooltip`" />
                 <b-tooltip :target="`lti-url-tooltip`"
                            delay="250"
                            triggers="hover focus"
@@ -827,8 +902,7 @@
               <div v-if="course.lms_has_api_key && enableCanvasAPI">
                 <div v-if="course.lms_course_id">
                   <div>
-                    This course is directly linked to the LMS course <span class="font-weight-bold"
-                  >{{ course.lms_course_name }}</span>.
+                    This course is directly linked to the LMS course <span class="font-weight-bold">{{ course.lms_course_name }}</span>.
                     <span class="pr-2"><b-button
                       v-b-tooltip="{ title: 'You can use this option if you accidentally linked your ADAPT course to an incorrect Canvas course.',delay: '500'}"
                       size="sm"
@@ -846,7 +920,7 @@
                       @click="reSyncLMSCourse"
                     >
                       <span v-show="processingResync">
-                        <b-spinner small type="grow"/>
+                        <b-spinner small type="grow" />
                         Re-syncing Course
                       </span> <span v-show="!processingResync">
                         Re-sync Course
@@ -966,10 +1040,10 @@
                       </b-form-group>
                     </div>
                     <span v-if="processingLinkCourseToLMS" class="pl-2">
-                      <b-spinner small type="grow"/>
+                      <b-spinner small type="grow" />
                       Processing...
                     </span>
-                    <has-error :form="linkCourseToLMSForm" field="lms_course_id"/>
+                    <has-error :form="linkCourseToLMSForm" field="lms_course_id" />
                   </div>
                 </div>
               </div>
@@ -1071,15 +1145,15 @@
               >
                 New Assignment
               </b-button>
-                <b-button v-if="(user && user.role === 2)"
-                          class="mr-1"
-                          size="sm"
-                          variant="outline-primary"
-                          @click="addAssignmentIsImport=true;confirmInitImportAssignment()"
-                >
-                  Import Assignment
-                </b-button>
-                <span v-if="!course.formative">
+              <b-button v-if="(user && user.role === 2)"
+                        class="mr-1"
+                        size="sm"
+                        variant="outline-primary"
+                        @click="addAssignmentIsImport=true;confirmInitImportAssignment()"
+              >
+                Import Assignment
+              </b-button>
+              <span v-if="!course.formative">
                 <b-button
                   v-if="[2,4].includes(user.role)"
                   :class="(user && user.role === 4) ? 'float-right' : ''"
@@ -1131,12 +1205,12 @@
             </th>
             <th v-if="view === 'control panel'" scope="col" style="width:110px">
               Scores
-              <QuestionCircleTooltip :id="`auto-release-scores-tooltip`"/>
+              <QuestionCircleTooltip :id="`auto-release-scores-tooltip`" />
               <b-tooltip :target="`auto-release-scores-tooltip`"
                          delay="250"
                          triggers="hover focus"
               >
-                <div v-html="getAutoReleaseTooltip('releasing your scores')"/>
+                <div v-html="getAutoReleaseTooltip('releasing your scores')" />
               </b-tooltip>
             </th>
             <th v-if="view === 'control panel'" scope="col" style="width:85px">
@@ -1144,12 +1218,12 @@
             </th>
             <th v-if="view === 'control panel'" scope="col" style="width:120px">
               Solutions
-              <QuestionCircleTooltip :id="`auto-release-solutions-tooltip`"/>
+              <QuestionCircleTooltip :id="`auto-release-solutions-tooltip`" />
               <b-tooltip :target="`auto-release-solutions-tooltip`"
                          delay="250"
                          triggers="hover focus"
               >
-                <div v-html="getAutoReleaseTooltip('showing the solutions')"/>
+                <div v-html="getAutoReleaseTooltip('showing the solutions')" />
               </b-tooltip>
             </th>
             <th v-if="view === 'control panel'" scope="col" style="width:85px">
@@ -1157,12 +1231,12 @@
             </th>
             <th v-if="view === 'control panel'" scope="col" style="width:120px">
               Statistics
-              <QuestionCircleTooltip :id="`auto-release-statistics-tooltip`"/>
+              <QuestionCircleTooltip :id="`auto-release-statistics-tooltip`" />
               <b-tooltip :target="`auto-release-statistics-tooltip`"
                          delay="250"
                          triggers="hover focus"
               >
-                <div v-html="getAutoReleaseTooltip('showing the assignment statistics')"/>
+                <div v-html="getAutoReleaseTooltip('showing the assignment statistics')" />
               </b-tooltip>
             </th>
             <th v-if="view === 'control panel'" scope="col" style="width:85px">
@@ -1175,7 +1249,7 @@
                 style="width:100px"
             >
               Student<br>Names
-              <QuestionCircleTooltip :id="'viewable-by-graders-tooltip'"/>
+              <QuestionCircleTooltip :id="'viewable-by-graders-tooltip'" />
               <b-tooltip target="viewable-by-graders-tooltip"
                          delay="500"
                          triggers="hover focus"
@@ -1186,7 +1260,7 @@
             </th>
             <th v-if="view === 'control panel' && user.role ===2" scope="col">
               Question URL View
-              <QuestionCircleTooltip id="question-url-view-tooltip"/>
+              <QuestionCircleTooltip id="question-url-view-tooltip" />
               <b-tooltip target="question-url-view-tooltip"
                          delay="500"
                          triggers="hover focus"
@@ -1198,12 +1272,12 @@
             </th>
             <th v-if="view === 'main view' && [2,4].includes(user.role)" scope="col" style="width:115px">
               Released Status
-              <QuestionCircleTooltip :id="`auto-release-shown-tooltip`"/>
+              <QuestionCircleTooltip :id="`auto-release-shown-tooltip`" />
               <b-tooltip :target="`auto-release-shown-tooltip`"
                          delay="250"
                          triggers="hover focus"
               >
-                <div v-html="getAutoReleaseTooltip('showing the assignment')"/>
+                <div v-html="getAutoReleaseTooltip('showing the assignment')" />
               </b-tooltip>
             </th>
             <th v-if="view === 'main view' && [2,4].includes(user.role)" scope="col">
@@ -1221,7 +1295,7 @@
             <th v-show="view === 'main view' && [2,4].includes(user.role)" scope="col" style="width:100px">
               Submission Status
               <span @mouseover="showAssignmentStatusModal()" @mouseout="mouseOverAssignmentStatus = false">
-                  <QuestionCircleTooltip/>
+                  <QuestionCircleTooltip />
                 </span>
             </th>
             <th v-if="view === 'main view'" scope="col" :style="lms ? 'width: 175px' :'width: 125px'">
@@ -1242,7 +1316,7 @@
             :style="getAssignmentRowStyle(assignment)"
           >
             <th scope="row">
-              <b-icon icon="list" class="handle"/>
+              <b-icon icon="list" class="handle" />
               <a v-show="assignment.is_beta_assignment"
                  :id="getTooltipTarget('betaAssignment',assignment.id)"
                  href="#"
@@ -1284,29 +1358,30 @@
                 icon="tree"
                 variant="success"
               />
-              <span v-if="assignmentTimeLimits(assignment).length" :id="`time-limit-tooltip-${assignment.id}`" class="mr-1" style="color: #0f6674;" aria-label="This assignment has a time limit">
-                <b-icon icon="stopwatch" font-scale="1.1"/>
-              </span>
+              <span v-if="assignmentTimeLimits(assignment).length" :id="`time-limit-tooltip-${assignment.id}`"
+                    class="mr-1" style="color: #0f6674;" aria-label="This assignment has a time limit"
+              >
+                  <b-icon icon="stopwatch" font-scale="1.1" />
+                </span>
               <b-tooltip v-if="assignmentTimeLimits(assignment).length" :target="`time-limit-tooltip-${assignment.id}`"
                          delay="250"
                          triggers="hover focus"
                          custom-class="time-limit-tooltip"
               >
-                <span v-if="assignmentTimeLimitSecondsList(assignment).length === 1">
-                  Time limit: {{ formatSecondsAsHms(assignmentTimeLimitSecondsList(assignment)[0]) }}.
-                </span>
+                  <span v-if="assignmentTimeLimitSecondsList(assignment).length === 1">
+                    Time limit: {{ formatSecondsAsHms(assignmentTimeLimitSecondsList(assignment)[0]) }}.
+                  </span>
                 <span v-else>
-                  Time limit varies by assign-to group - click View for each group's timing.
-                </span>
+                    Time limit varies by assign-to group - click View for each group's timing.
+                  </span>
               </b-tooltip>
               <router-link v-if="assignment.source !== 'x'"
                            :to="{ name: 'instructors.assignments.questions',params:{assignmentId:assignment.id}}"
               >
                 {{ assignment.name }}
               </router-link>
-              <a v-if="assignment.source === 'x'" href="" @click.prevent="showExternalAssignmentNoty()"
-              >{{ assignment.name }}</a> <span v-show="!assignment.include_in_weighted_average"
-                                               :id="`not-shown-assignment-tooltip-${assignment.id}`" class="text-danger"
+              <a v-if="assignment.source === 'x'" href="" @click.prevent="showExternalAssignmentNoty()">{{ assignment.name }}</a> <span v-show="!assignment.include_in_weighted_average"
+                                                                                                                                        :id="`not-shown-assignment-tooltip-${assignment.id}`" class="text-danger"
             >*</span>
               <b-tooltip :target="`not-shown-assignment-tooltip-${assignment.id}`"
                          delay="250"
@@ -1319,7 +1394,7 @@
                              delay="500"
                              triggers="hover focus"
                   >
-                    <div v-html="getLockedQuestionsMessage(assignment)"/>
+                    <div v-html="getLockedQuestionsMessage(assignment)" />
                   </b-tooltip>
 
                 </span>
@@ -1341,7 +1416,7 @@
                     :id="getTooltipTarget('formative-assignment',assignment.id)"
                     href="#"
                     class="text-muted"
-                  ><b-icon-question-circle/></a>
+                  ><b-icon-question-circle /></a>
                 </span>
               <span v-show="assignment.assessment_type === 'clicker'">
                   <b-tooltip :target="getTooltipTarget('clicker-assignment',assignment.id)"
@@ -1355,7 +1430,7 @@
                     :id="getTooltipTarget('clicker-assignment',assignment.id)"
                     href="#"
                     class="text-muted"
-                  ><b-icon-question-circle/></a>
+                  ><b-icon-question-circle /></a>
                 </span>
             </th>
             <td v-if="view === 'control panel'">
@@ -1516,7 +1591,7 @@
                   <span v-if="assignment.assign_tos.length === 1"
                         :class="getStatusTextClass(assignment.assign_tos[0].status)"
                   >{{ assignment.assign_tos[0].status }}</span>
-                <span v-if="assignment.assign_tos.length > 1" v-html="assignment.overall_status"/>
+                <span v-if="assignment.assign_tos.length > 1" v-html="assignment.overall_status" />
               </div>
             </td>
             <td v-if="view === 'main view'">
@@ -1646,7 +1721,7 @@
                        href=""
                        @click.prevent="deleteAssignment(assignment)"
                     >
-                      <b-icon icon="trash" class="assignment-icon" :aria-label="`Delete ${assignment.name}`"/>
+                      <b-icon icon="trash" class="assignment-icon" :aria-label="`Delete ${assignment.name}`" />
                     </a>
                   </span>
               </div>
@@ -1673,7 +1748,6 @@ import axios from 'axios'
 import Form from 'vform'
 import { mapGetters } from 'vuex'
 import { ToggleButton } from 'vue-js-toggle-button'
-import { getTooltipTarget, initTooltips } from '~/helpers/Tooptips'
 import { getStatusTextClass } from '~/helpers/AssignTosStatus'
 import {
   isLocked,
@@ -1716,10 +1790,13 @@ import ErrorMessage from '../../components/ErrorMessage.vue'
 import ConsultInsight from '~/components/ConsultInsight.vue'
 import { doCopy } from '../../helpers/Copy'
 import consultInsight from '../../components/ConsultInsight.vue'
+import QuestionCircleTooltip from '../../components/QuestionCircleTooltip.vue'
+import { getTooltipTarget, initTooltips } from '../../helpers/Tooptips'
 
 export default {
   middleware: 'auth',
   components: {
+    QuestionCircleTooltip,
     ConsultInsight,
     ErrorMessage,
     AutoReleaseDate,
@@ -1778,6 +1855,9 @@ export default {
     ownsAllQuestions: false,
     isFormativeAssignment: false,
     tetheredBetaAssignmentExists: false,
+    linkedDiscussItDeleteCheck: { can_delete: true, number_of_comments: 0, number_of_students: 0, assignment_names: [], cannot_delete_message: '' },
+    understandLinkedDiscussItCommentsRemoved: false,
+    removedDiscussItCommentEmails: [],
     atLeastOneAssignmentNotIncludedInWeightedAverage: false,
     importableAssignment: null,
     importableAssignmentOptions: [{ value: null, text: 'Please choose an assignment' }],
@@ -1810,7 +1890,8 @@ export default {
     assignmentGroupOptions: [],
     createAssignmentFromTemplateForm: new Form({
       level: 'properties_and_questions',
-      assign_to_groups: 1
+      assign_to_groups: 1,
+      link_discuss_it_questions: '1'
     }),
     createAssignmentFromTemplateAssignmentId: 0,
     course: '',
@@ -1845,6 +1926,9 @@ export default {
     showNoAssignmentsAlert: false
   }),
   computed: {
+    cannotDeleteAssignment () {
+      return this.tetheredBetaAssignmentExists || !this.linkedDiscussItDeleteCheck.can_delete
+    },
     consultInsight () {
       return consultInsight
     },
@@ -1885,7 +1969,6 @@ export default {
     this.initAddAssignment = initAddAssignment
     this.editAssignmentProperties = editAssignmentProperties
     this.prepareForm = prepareForm
-    this.getTooltipTarget = getTooltipTarget
     initTooltips(this)
     this.isLoading = true
     if (!await this.getCourseInfo()) {
@@ -1916,6 +1999,8 @@ export default {
     }
   },
   methods: {
+    initTooltips,
+    getTooltipTarget,
     doCopy,
     getAssignments,
     isMobile,
@@ -2488,6 +2573,7 @@ What assignment parameters??? */
         const { data } = await axios.get(`/api/assignment-sync-question/discuss-it-clicker-or-open-ended-questions-by-course-or-assignment/assignment/${assignmentId}`)
         if (data.type === 'success') {
           this.createAssignmentFromTemplateForm.reset_discuss_it_settings_to_default = '0'
+          this.createAssignmentFromTemplateForm.link_discuss_it_questions = '1'
           this.discussItQuestionsExist = data.discuss_it_questions_exist
           this.createAssignmentFromTemplateForm.reset_clicker_settings_to_default = '0'
           this.clickerQuestionsExist = data.clicker_questions_exist
@@ -2569,20 +2655,49 @@ What assignment parameters??? */
     },
     async handleDeleteAssignment () {
       try {
-        const { data } = await axios.delete(`/api/assignments/${this.assignmentId}`)
+        // the server checks again that these are still the comments that will be removed
+        const { data } = await axios.delete(`/api/assignments/${this.assignmentId}`, {
+          params: { confirmed_number_of_linked_discuss_it_comments: this.linkedDiscussItDeleteCheck.number_of_comments }
+        })
         this.$noty[data.type](data.message)
+        if (data.type === 'error') {
+          // show what's true now (new comments, or comments that have since been scored)
+          await this.getLinkedDiscussItDeleteCheck()
+          return false
+        }
         await this.resetAll('modal-delete-assignment')
+        if (data.student_emails_associated_with_removed_comments && data.student_emails_associated_with_removed_comments.length) {
+          this.removedDiscussItCommentEmails = data.student_emails_associated_with_removed_comments
+          this.$bvModal.show('modal-removed-discuss-it-comment-emails')
+        }
       } catch (error) {
         this.$noty.error(error.message)
       }
     },
-    deleteAssignment (assignment) {
+    async getLinkedDiscussItDeleteCheck () {
+      this.understandLinkedDiscussItCommentsRemoved = false
+      const { data } = await axios.get(`/api/assignments/${this.assignmentId}/linked-discuss-it-delete-check`)
+      if (data.type !== 'success') {
+        throw new Error(data.message)
+      }
+      this.linkedDiscussItDeleteCheck = data
+    },
+    async deleteAssignment (assignment) {
       if (assignment.is_beta_assignment) {
         this.$bvModal.show('modal-cannot-delete-beta-assignment')
         return false
       }
       this.assignmentId = assignment.id
       this.tetheredBetaAssignmentExists = assignment.tethered_beta_assignment_exists && assignment.id !== 1389
+      this.linkedDiscussItDeleteCheck = { can_delete: true, number_of_comments: 0, number_of_students: 0, assignment_names: [], cannot_delete_message: '' }
+      if (!this.tetheredBetaAssignmentExists) {
+        try {
+          await this.getLinkedDiscussItDeleteCheck()
+        } catch (error) {
+          this.$noty.error(error.message)
+          return false
+        }
+      }
       this.$bvModal.show('modal-delete-assignment')
     },
     async resetAll (modalId) {

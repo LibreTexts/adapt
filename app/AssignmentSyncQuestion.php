@@ -461,6 +461,10 @@ class AssignmentSyncQuestion extends Model
         $this->updatePointsBasedOnWeights($assignment);
         $this->addLearningTreeIfBetaAssignment($assignment_question_id, $assignment->id, $question->id);
         $betaCourseApproval->updateBetaCourseApprovalsForQuestion($assignment, $question->id, 'add');
+        if ($question->isDiscussIt() && $assignment->isBetaAssignment()) {
+            //Beta courses mirror the Alpha course's linked (daisy-chained) Discuss-it questions
+            DiscussItChain::syncBetaAssignmentQuestion($assignment, $question->id);
+        }
 
         return $assignment_question_id;
 
@@ -829,6 +833,8 @@ class AssignmentSyncQuestion extends Model
             $assignment_question->assignment_id = $to_assignment_id;
             $assignment_question->question_revision_id = $question_revision_ids_by_question_ids[$assignment_question->question_id] ?? null;
             $assignment_question->forge_settings = null;
+            //links (daisy chains) are rebuilt by the caller when a whole course is copied
+            $assignment_question->discuss_it_chain_id = null;
             $assignment_question->clicker_start = null;
             $assignment_question->clicker_end = null;
             if ($assignment_question->discuss_it_settings) {

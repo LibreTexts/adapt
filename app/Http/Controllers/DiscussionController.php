@@ -6,8 +6,10 @@ use App\Assignment;
 use App\AssignmentSyncQuestion;
 use App\Discussion;
 use App\DiscussionComment;
+use App\DiscussItChain;
 use App\DiscussionGroup;
 use App\Exceptions\Handler;
+use App\Helpers\Helper;
 use App\Http\Requests\StoreDiscussionRequest;
 use App\Jobs\InitConvertToMP4;
 use App\Jobs\InitProcessTranscribe;
@@ -68,6 +70,17 @@ class DiscussionController extends Controller
             $type = $request->type;
             $recording_type = $request->recording_type ? $request->recording_type : null;
             $pasted_comment = $request->pasted_comment ? 1 : 0;
+            //instructors can turn off new threads and/or replies per assignment (useful for linked questions,
+            //where students might otherwise comment in an assignment that no longer counts)
+            if ($request->user()->role === 3) {
+                $blocked_message = Helper::discussItStudentCommentBlockedMessage(
+                    json_decode($assignmentSyncQuestion->discussItSettings($assignment->id, $question->id)),
+                    !$discussion_id);
+                if ($blocked_message) {
+                    $response['message'] = $blocked_message;
+                    return $response;
+                }
+            }
             DB::beginTransaction();
             if (!$discussion_id) {
                 if ($request->user()->role === 3) {
@@ -82,10 +95,19 @@ class DiscussionController extends Controller
                 $discussion->save();
             } else {
                 $discussion = Discussion::find($discussion_id);
+                //the thread may have been started in another linked (daisy-chained) assignment
+                if (!$discussion
+                    || (int)$discussion->question_id !== $question->id
+                    || !in_array((int)$discussion->assignment_id, DiscussItChain::linkedAssignmentIds($assignment->id, $question->id))) {
+                    DB::rollback();
+                    $response['message'] = "That discussion thread is not part of this assignment.";
+                    return $response;
+                }
             }
             $discuss_it_settings = json_decode($assignmentSyncQuestion->discussItSettings($assignment->id, $question->id));
             $discussionComment = new DiscussionComment();
             $discussionComment->discussion_id = $discussion->id;
+            $discussionComment->posted_in_assignment_id = $assignment->id;
             $discussionComment->user_id = $request->user()->id;
             $discussionComment->{$type} = $data[$type];
             $discussionComment->pasted_comment = $pasted_comment;

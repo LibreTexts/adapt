@@ -159,6 +159,12 @@
       >{{ comment.created_by_name }}</span> <span v-show="comment.created_by_user_id === activeUserId"
                                                   class="text-success"
       >***</span>
+        <b-badge v-if="comment.assignment_id && +comment.assignment_id !== +assignmentId && comment.assignment_name"
+                 variant="light"
+                 class="border"
+        >
+          From {{ comment.assignment_name }}
+        </b-badge>
         <span v-if="comment.text" v-html="comment.text"/>
         <iframe
           v-if="comment.file"

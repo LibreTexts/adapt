@@ -19,6 +19,7 @@ use App\Course;
 use App\CourseOrder;
 use App\Custom\LTIDatabase;
 use App\Discussion;
+use App\DiscussItChain;
 use App\Enrollment;
 use App\Exceptions\Handler;
 use App\FinalGrade;
@@ -2211,6 +2212,7 @@ class CourseController extends Controller
                 DeleteAssignmentDirectoryFromS3::dispatch($assignment->id);//queue this?
                 $discussion->deleteByAssignment($assignment);
             }
+            DiscussItChain::deleteByCourse($course->id);
             DB::table('co_instructors')
                 ->where('course_id', $course->id)
                 ->delete();

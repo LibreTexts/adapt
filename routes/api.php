@@ -523,6 +523,7 @@ Route::group(['middleware' => ['auth:api', 'analytics','rate.limit.by.user']], f
     Route::get('/assignments/{assignment}/common-question-text', 'AssignmentController@showCommonQuestionText');
 
     Route::patch('/assignments/{assignment}', 'AssignmentController@update');
+    Route::get('/assignments/{assignment}/linked-discuss-it-delete-check', 'AssignmentController@linkedDiscussItDeleteCheck');
     Route::delete('/assignments/{assignment}', 'AssignmentController@destroy');
 
     Route::post('/s3/pre-signed-url', 'S3Controller@preSignedURL');
@@ -648,6 +649,10 @@ Route::group(['middleware' => ['auth:api', 'analytics','rate.limit.by.user']], f
     Route::patch('/assignments/{assignment}/question/{question}/flashcard-card-settings', 'AssignmentSyncQuestionController@updateFlashcardCardSettings');
     Route::get('/assignments/{assignment}/question/{question}/discuss-it-settings', 'AssignmentSyncQuestionController@getDiscussItSettings');
     Route::patch('/assignments/{assignment}/question/{question}/discuss-it-settings', 'AssignmentSyncQuestionController@updateDiscussItSettings');
+    Route::post('/assignments/{assignment}/discuss-it-link-options', 'AssignmentSyncQuestionController@getDiscussItLinkOptions');
+    Route::post('/assignments/{assignment}/question/{question}/discuss-it-link', 'AssignmentSyncQuestionController@linkDiscussItQuestion');
+    Route::delete('/assignments/{assignment}/question/{question}/discuss-it-link', 'AssignmentSyncQuestionController@unlinkDiscussItQuestion');
+    Route::get('/assignments/{assignment}/question/{question}/discuss-it-link-revision-status', 'AssignmentSyncQuestionController@getDiscussItLinkRevisionStatus');
     Route::get('/assignments/{assignment}/question/{question}/forge-settings', 'AssignmentSyncQuestionController@getForgeSettings');
     Route::patch('/assignments/{assignment}/question/{question}/forge-settings', 'AssignmentSyncQuestionController@updateForgeSettings');
     Route::get('/assignments/{assignment}/questions/{question}/forge-draft-submissions', 'AssignmentSyncQuestionController@getForgeDraftSubmissions');

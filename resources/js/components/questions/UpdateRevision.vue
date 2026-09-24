@@ -109,7 +109,14 @@
           </table>
         </div>
       </div>
-      <b-alert variant="danger" show>
+      <b-alert v-if="discussItLinkStatus.is_linked && !discussItLinkStatus.can_update_revision" variant="danger" show>
+        This Discuss-it question is linked to {{ otherLinkedAssignmentNames }}, and students have already commented,
+        so it can no longer be updated to another revision.
+      </b-alert>
+      <b-alert v-if="discussItLinkStatus.is_linked && discussItLinkStatus.can_update_revision" variant="info" show>
+        This Discuss-it question is linked, so it will also be updated in {{ otherLinkedAssignmentNames }}.
+      </b-alert>
+      <b-alert v-if="!discussItLinkStatus.is_linked || discussItLinkStatus.can_update_revision" variant="danger" show>
         <b-form-checkbox
           id="checkbox-1"
           v-model="understandStudentSubmissionsRemoved"
@@ -118,12 +125,15 @@
           :unchecked-value="false"
           @hidden="understandStudentSubmissionsRemoved=false"
         >
-          I understand that student submissions for this question will be removed. Please inform your class to resubmit.
+          I understand that student submissions for this question will be removed<span
+          v-if="discussItLinkStatus.is_linked"
+        > in this assignment and in the linked assignments</span>. Please inform your class to resubmit.
         </b-form-checkbox>
       </b-alert>
       <template #modal-footer="{ cancel, ok }">
         <b-button size="sm"
                   variant="primary"
+                  :disabled="discussItLinkStatus.is_linked && !discussItLinkStatus.can_update_revision"
                   @click="updateTheQuestionRevision"
         >
           Update
@@ -206,11 +216,17 @@ export default {
     mathJaxRendered: false,
     differences: [],
     reasonForEdit: '',
-    understandStudentSubmissionsRemoved: false
+    understandStudentSubmissionsRemoved: false,
+    discussItLinkStatus: { is_linked: false, can_update_revision: true, other_linked_assignment_names: [] }
   }),
-  computed: mapGetters({
-    user: 'auth/user'
-  }),
+  computed: {
+    ...mapGetters({
+      user: 'auth/user'
+    }),
+    otherLinkedAssignmentNames () {
+      return this.discussItLinkStatus.other_linked_assignment_names.join(', ')
+    }
+  },
   watch: {
     pendingQuestionRevision: function () {
       this.showDifferences()
@@ -325,7 +341,11 @@ export default {
         this.formattedStudentEmailsAssociatedWithSubmissions = data.student_emails_associated_with_submissions.join(', ')
         this.studentsWithSubmissionsForm.studentEmails = data.student_emails_associated_with_submissions
         let lastName = this.user.last_name
-        this.studentsWithSubmissionsForm.message = `<p>Hi,</p><p>There was an issue with Question #${this.questionNumber} in Assignment ${this.assignmentName}.&nbsp; Because of this, you'll need to resubmit your response to this question.</p><p>-Professor ${lastName}</p>`
+        // a linked (daisy-chained) Discuss-it question is updated in every linked assignment
+        const assignmentNames = this.discussItLinkStatus.is_linked && this.discussItLinkStatus.other_linked_assignment_names.length
+          ? `${this.assignmentName} (and the linked assignments ${this.otherLinkedAssignmentNames})`
+          : this.assignmentName
+        this.studentsWithSubmissionsForm.message = `<p>Hi,</p><p>There was an issue with Question #${this.questionNumber} in Assignment ${assignmentNames}.&nbsp; Because of this, you'll need to resubmit your response to this question.</p><p>-Professor ${lastName}</p>`
         this.$bvModal.show('modal-email-students-with-submissions')
       } else {
         this.$emit('reloadSingleQuestion')
@@ -335,8 +355,25 @@ export default {
       this.mathJaxRendered = true
       this.typesetMath()
     },
-    showRevision () {
+    async getDiscussItLinkStatus () {
+      this.discussItLinkStatus = { is_linked: false, can_update_revision: true, other_linked_assignment_names: [] }
+      if (!this.assignmentId || !this.currentQuestion || !this.currentQuestion.id) {
+        return
+      }
+      try {
+        const { data } = await axios.get(`/api/assignments/${this.assignmentId}/question/${this.currentQuestion.id}/discuss-it-link-revision-status`)
+        if (data.type === 'error') {
+          this.$noty.error(data.message)
+          return
+        }
+        this.discussItLinkStatus = data
+      } catch (error) {
+        this.$noty.error(error.message)
+      }
+    },
+    async showRevision () {
       this.understandStudentSubmissionsRemoved = 0
+      await this.getDiscussItLinkStatus()
       this.$bvModal.show('modal-show-revision')
     }
 

@@ -6,6 +6,7 @@ use App\AssignmentQuestionLearningTree;
 use App\BetaCourseApproval;
 use App\Custom\FCMNotification;
 use App\DiscussionComment;
+use App\DiscussItChain;
 use App\DiscussionGroup;
 use App\Enrollment;
 use App\Exceptions\Handler;
@@ -1186,7 +1187,7 @@ class AssignmentSyncQuestionController extends Controller
 
                 $comment_dates = DB::table('discussion_comments')
                     ->join('discussions', 'discussion_comments.discussion_id', '=', 'discussions.id')
-                    ->where('discussions.assignment_id', $assignment->id)
+                    ->where('discussion_comments.posted_in_assignment_id', $assignment->id)
                     ->where('discussions.question_id', $discuss_it_question_id)
                     ->where('discussion_comments.user_id', $user_id)
                     ->max('discussion_comments.created_at');
@@ -1227,6 +1228,201 @@ class AssignmentSyncQuestionController extends Controller
     }
 
     /**
+     * Before questions are added to an assignment: for each Discuss-it question that is already in other
+     * assignments of this course, which assignments it could be linked (daisy-chained) with.
+     *
+     * @param Request $request
+     * @param Assignment $assignment
+     * @param AssignmentSyncQuestion $assignmentSyncQuestion
+     * @return array
+     * @throws Exception
+     */
+    public
+    function getDiscussItLinkOptions(Request                $request,
+                                     Assignment             $assignment,
+                                     AssignmentSyncQuestion $assignmentSyncQuestion): array
+    {
+        try {
+            $response['type'] = 'error';
+            $authorized = Gate::inspect('remixAssignmentWithChosenQuestions', [$assignmentSyncQuestion, $assignment]);
+            if (!$authorized->allowed()) {
+                $response['message'] = $authorized->message();
+                return $response;
+            }
+            $discuss_it_link_options = [];
+            //links in Beta courses are managed by the Alpha course
+            if (!$assignment->isBetaAssignment()) {
+                $question_ids = array_unique(array_map('intval', $request->question_ids ?? []));
+                $questions = Question::whereIn('id', $question_ids)->get();
+                foreach ($questions as $question) {
+                    if (!$question->isDiscussIt()) {
+                        continue;
+                    }
+                    $link_options = DiscussItChain::linkOptions($assignment, $question->id);
+                    if ($link_options['linked_assignments'] || $link_options['unlinked_assignments']) {
+                        $discuss_it_link_options[] = array_merge(['question_id' => $question->id,
+                            'title' => $question->title], $link_options);
+                    }
+                }
+            }
+            $response['discuss_it_link_options'] = $discuss_it_link_options;
+            $response['type'] = 'success';
+        } catch (Exception $e) {
+            $h = new Handler(app());
+            $h->report($e);
+            $response['message'] = "There was an error checking whether these Discuss-it questions can be linked in other assignments.  Please try again or contact us for assistance.";
+        }
+        return $response;
+    }
+
+    /**
+     * Links this assignment's Discuss-it question with the question in the chosen assignments of the same course.
+     *
+     * @param Request $request
+     * @param Assignment $assignment
+     * @param Question $question
+     * @param AssignmentSyncQuestion $assignmentSyncQuestion
+     * @return array
+     * @throws Exception
+     */
+    public
+    function linkDiscussItQuestion(Request                $request,
+                                   Assignment             $assignment,
+                                   Question               $question,
+                                   AssignmentSyncQuestion $assignmentSyncQuestion): array
+    {
+        try {
+            $response['type'] = 'error';
+            $authorized = Gate::inspect('updateDiscussItSettings', [$assignmentSyncQuestion, $assignment, $question]);
+            if (!$authorized->allowed()) {
+                $response['message'] = $authorized->message();
+                return $response;
+            }
+            if ($assignment->isBetaAssignment()) {
+                $response['message'] = "Links for Discuss-it questions in Beta courses are managed by the Alpha course.";
+                return $response;
+            }
+            $assignment_ids = array_map('intval', $request->assignment_ids ?? []);
+            if (!$assignment_ids && !DiscussItChain::where('course_id', $assignment->course_id)->where('question_id', $question->id)->exists()) {
+                $response['message'] = "Please choose at least one assignment to link this question in.";
+                return $response;
+            }
+            DB::beginTransaction();
+            //the chosen assignments come first so that, for a brand new link, their number of groups is kept
+            $assignment_ids[] = $assignment->id;
+            $response = DiscussItChain::link($assignment->course_id, $question->id, $assignment_ids);
+            $response['type'] === 'success' ? DB::commit() : DB::rollback();
+        } catch (Exception $e) {
+            DB::rollback();
+            $h = new Handler(app());
+            $h->report($e);
+            $response['message'] = "There was an error linking this Discuss-it question.  Please try again or contact us for assistance.";
+        }
+        return $response;
+    }
+
+    /**
+     * @param Assignment $assignment
+     * @param Question $question
+     * @param AssignmentSyncQuestion $assignmentSyncQuestion
+     * @return array
+     * @throws Exception
+     */
+    public
+    function unlinkDiscussItQuestion(Assignment             $assignment,
+                                     Question               $question,
+                                     AssignmentSyncQuestion $assignmentSyncQuestion): array
+    {
+        try {
+            $response['type'] = 'error';
+            $authorized = Gate::inspect('updateDiscussItSettings', [$assignmentSyncQuestion, $assignment, $question]);
+            if (!$authorized->allowed()) {
+                $response['message'] = $authorized->message();
+                return $response;
+            }
+            if ($assignment->isBetaAssignment()) {
+                $response['message'] = "Links for Discuss-it questions in Beta courses are managed by the Alpha course.";
+                return $response;
+            }
+            DB::beginTransaction();
+            $response = DiscussItChain::unlink($assignment->id, $question->id);
+            $response['type'] === 'success' ? DB::commit() : DB::rollback();
+        } catch (Exception $e) {
+            DB::rollback();
+            $h = new Handler(app());
+            $h->report($e);
+            $response['message'] = "There was an error unlinking this Discuss-it question.  Please try again or contact us for assistance.";
+        }
+        return $response;
+    }
+
+    /**
+     * For the "update to latest revision" confirmation: is this question linked (daisy-chained), and if so, can it
+     * still be updated?
+     *
+     * @param Assignment $assignment
+     * @param Question $question
+     * @param AssignmentSyncQuestion $assignmentSyncQuestion
+     * @return array
+     * @throws Exception
+     */
+    public
+    function getDiscussItLinkRevisionStatus(Assignment             $assignment,
+                                            Question               $question,
+                                            AssignmentSyncQuestion $assignmentSyncQuestion): array
+    {
+        try {
+            $response['type'] = 'error';
+            $authorized = Gate::inspect('updateToLatestRevision', [$assignmentSyncQuestion, $assignment, $question]);
+            if (!$authorized->allowed()) {
+                $response['message'] = $authorized->message();
+                return $response;
+            }
+            $is_linked = (bool)DiscussItChain::chainId($assignment->id, $question->id);
+            $other_linked_assignment_names = [];
+            if ($is_linked) {
+                $other_linked_assignment_ids = array_diff(DiscussItChain::linkedAssignmentIds($assignment->id, $question->id), [$assignment->id]);
+                $other_linked_assignment_names = array_values(DiscussItChain::assignmentNamesById($other_linked_assignment_ids));
+            }
+            $response['is_linked'] = $is_linked;
+            $response['other_linked_assignment_names'] = $other_linked_assignment_names;
+            $response['can_update_revision'] = !$is_linked || !DiscussItChain::chainHasRealStudentComments($assignment->id, $question->id);
+            $response['type'] = 'success';
+        } catch (Exception $e) {
+            $h = new Handler(app());
+            $h->report($e);
+            $response['message'] = "There was an error checking whether this question is linked in other assignments.  Please try again or contact us for assistance.";
+        }
+        return $response;
+    }
+
+    /**
+     * Called while remixing, after a question is newly added: links it if the instructor asked for that.
+     *
+     * @param Request $request
+     * @param Assignment $assignment
+     * @param Question $question
+     * @return array messages to show the instructor
+     * @throws Exception
+     */
+    private
+    function _linkNewlyAddedDiscussItQuestion(Request $request, Assignment $assignment, Question $question): array
+    {
+        $discuss_it_links = $request->discuss_it_links ?? [];
+        $link_to_assignment_ids = $discuss_it_links[$question->id] ?? [];
+        if (!$link_to_assignment_ids || !$question->isDiscussIt() || $assignment->isBetaAssignment()) {
+            return [];
+        }
+        //the existing assignments come first so that the new one takes on their number of groups
+        $assignment_ids = array_map('intval', $link_to_assignment_ids);
+        $assignment_ids[] = $assignment->id;
+        $link_response = DiscussItChain::link($assignment->course_id, $question->id, $assignment_ids);
+        return $link_response['type'] === 'error'
+            ? ["\"$question->title\" was added but could not be linked: {$link_response['message']}"]
+            : [];
+    }
+
+    /**
      * @param Request $request
      * @param Assignment $assignment
      * @param Question $question
@@ -1254,10 +1450,29 @@ class AssignmentSyncQuestionController extends Controller
                 ->join('discussions', 'discussion_comments.discussion_id', '=', 'discussions.id')
                 ->join('users', 'discussion_comments.user_id', '=', 'users.id')
                 ->where('users.role', 3)
-                ->where('discussions.assignment_id', $assignment->id)
+                ->where('discussion_comments.posted_in_assignment_id', $assignment->id)
                 ->where('discussions.question_id', $question->id)
                 ->exists();
             $discuss_it_completion_status = [];
+            //students get a note that the discussion is shared (no assignment names)
+            $response['is_linked'] = (bool)DiscussItChain::chainId($assignment->id, $question->id);
+            //named in the notice students see before commenting on a linked question
+            $response['assignment_name'] = $assignment->name;
+            if ($request->user()->role === 2) {
+                //linked (daisy-chained) assignments for the settings modal
+                $response['discuss_it_links'] = DiscussItChain::linkOptions($assignment, $question->id);
+                $response['discuss_it_links']['is_beta_assignment'] = $assignment->isBetaAssignment();
+                //for "Copy settings from" and "Also apply to" in the settings modal
+                $response['linked_discuss_it_settings'] = [];
+                foreach ($response['discuss_it_links']['is_linked'] ? $response['discuss_it_links']['linked_assignments'] : [] as $linked_assignment) {
+                    $response['linked_discuss_it_settings'][] = [
+                        'id' => $linked_assignment['id'],
+                        'name' => $linked_assignment['name'],
+                        'discuss_it_settings' => json_decode($assignmentSyncQuestion->discussItSettings($linked_assignment['id'], $question->id), true),
+                        'has_real_student_comments' => DiscussItChain::realStudentCommentsExist([$linked_assignment['id']], $question->id)
+                    ];
+                }
+            }
             $response['type'] = 'success';
             $response['discuss_it_settings'] = $discuss_it_settings;
             $response['discuss_it_completion_status'] = $discuss_it_completion_status;
@@ -1298,7 +1513,10 @@ class AssignmentSyncQuestionController extends Controller
                 return $response;
             }
             $data = $request->validated();
-            DB::beginTransaction();
+            //other linked assignments to give the same settings (not part of the settings themselves)
+            $apply_to_assignment_ids = array_values(array_unique(array_map('intval', $data['apply_to_assignment_ids'] ?? [])));
+            $confirmed_participation_warnings = !empty($data['confirm_participation_warnings']);
+            unset($data['apply_to_assignment_ids'], $data['confirm_participation_warnings']);
             $grading_criteria = ['min_length_of_audio_video' => '',
                 "min_number_of_words" => ''];
             foreach ($grading_criteria as $key => $value) {
@@ -1306,26 +1524,67 @@ class AssignmentSyncQuestionController extends Controller
                     $data[$key] = $value;
                 }
             }
+            $apply_to_info = $this->_discussItSettingsForLinkedAssignments($assignmentSyncQuestion, $assignment, $question, $data, $apply_to_assignment_ids);
+            if ($apply_to_info['type'] === 'error') {
+                $response['message'] = $apply_to_info['message'];
+                return $response;
+            }
+            //closing new threads/replies can leave students unable to meet the completion criteria; allowed, but
+            //only once the instructor has seen what it means
+            $participation_warnings = array_merge(array_values(Helper::discussItParticipationConflicts($data)),
+                $apply_to_info['participation_warnings']);
+            if ($participation_warnings && !$confirmed_participation_warnings) {
+                $response['type'] = 'confirm';
+                $response['participation_warnings'] = $participation_warnings;
+                return $response;
+            }
+            DB::beginTransaction();
 
-            DB::table('discussion_groups')
-                ->where('assignment_id', $assignment->id)
-                ->where('question_id', $question->id)
-                ->delete();
-
-            for ($i = 1; $i <= $data['number_of_groups']; $i++) {
-                DiscussionGroup::create(['assignment_id' => $assignment->id,
-                    'question_id' => $question->id,
-                    'user_id' => $request->user()->id,
-                    'group' => $i]);
+            $discussionGroup = new DiscussionGroup();
+            $number_of_groups_changed = false;
+            $chain_id = DiscussItChain::chainId($assignment->id, $question->id);
+            if ($chain_id) {
+                //linked (daisy-chained) questions share groups, so the number of groups is shared too
+                $number_of_groups_changed = +$data['number_of_groups'] !== DiscussItChain::numberOfGroups($assignment->id, $question->id);
+                if ($number_of_groups_changed) {
+                    if (DiscussItChain::chainHasRealStudentComments($assignment->id, $question->id)) {
+                        DB::rollback();
+                        $response['message'] = "This question is linked in other assignments and students have already commented, so the number of groups can no longer be changed.";
+                        return $response;
+                    }
+                    foreach (DiscussItChain::memberAssignmentIds($chain_id) as $linked_assignment_id) {
+                        if ($linked_assignment_id !== $assignment->id) {
+                            DiscussItChain::setNumberOfGroups($linked_assignment_id, $question->id, +$data['number_of_groups']);
+                        }
+                    }
+                    $discussionGroup->seedGroups($assignment->id, $question->id, +$data['number_of_groups'], $request->user()->id);
+                } else if (!DB::table('discussion_groups')->where('assignment_id', $assignment->id)->where('question_id', $question->id)->exists()) {
+                    //e.g. a copied course: group rows aren't copied, so make sure every group exists
+                    $discussionGroup->seedGroups($assignment->id, $question->id, +$data['number_of_groups'], $request->user()->id);
+                }
+            } else {
+                $discussionGroup->seedGroups($assignment->id, $question->id, +$data['number_of_groups'], $request->user()->id);
             }
             DB::table('assignment_question')
                 ->where('assignment_id', $assignment->id)
                 ->where('question_id', $question->id)
                 ->update(['discuss_it_settings' => $data]);
+            foreach ($apply_to_info['settings_by_assignment_id'] as $apply_to_assignment_id => $apply_to_settings) {
+                DB::table('assignment_question')
+                    ->where('assignment_id', $apply_to_assignment_id)
+                    ->where('question_id', $question->id)
+                    ->update(['discuss_it_settings' => json_encode($apply_to_settings)]);
+                DiscussItChain::seedGroupsIfMissing($apply_to_assignment_id, $question->id);
+            }
+            if ($chain_id && $number_of_groups_changed) {
+                DiscussItChain::mirrorToBetaCourses($assignment->course_id, $question->id);
+            }
 
             Cache::put("discuss_it_settings_{$assignment->course->user_id}", json_encode($data));
             $response['type'] = 'success';
-            $response['message'] = 'The discuss-it settings have been updated.';
+            $response['message'] = $apply_to_info['settings_by_assignment_id']
+                ? 'The discuss-it settings have been updated here and in ' . implode(', ', $apply_to_info['names']) . '.'
+                : 'The discuss-it settings have been updated.';
             DB::commit();
         } catch (Exception $e) {
             DB::rollback();
@@ -1335,6 +1594,65 @@ class AssignmentSyncQuestionController extends Controller
         }
         return $response;
 
+    }
+
+    /**
+     * The settings each chosen linked assignment would get: the same as this one's, except whether students can
+     * start new threads or reply, which stay per assignment.  Nothing is applied unless every chosen assignment
+     * qualifies.  Where students there couldn't meet the completion criteria, a warning is returned instead of an
+     * error, since that can be intended (a closed earlier assignment).
+     *
+     * @param AssignmentSyncQuestion $assignmentSyncQuestion
+     * @param Assignment $assignment
+     * @param Question $question
+     * @param array $data
+     * @param array $apply_to_assignment_ids
+     * @return array
+     */
+    private function _discussItSettingsForLinkedAssignments(AssignmentSyncQuestion $assignmentSyncQuestion,
+                                                            Assignment             $assignment,
+                                                            Question               $question,
+                                                            array                  $data,
+                                                            array                  $apply_to_assignment_ids): array
+    {
+        $response = ['type' => 'success', 'settings_by_assignment_id' => [], 'names' => [], 'participation_warnings' => []];
+        if (!$apply_to_assignment_ids) {
+            return $response;
+        }
+        $response['type'] = 'error';
+        $chain_id = DiscussItChain::chainId($assignment->id, $question->id);
+        $linked_assignment_ids = $chain_id ? DiscussItChain::memberAssignmentIds($chain_id) : [];
+        if (in_array($assignment->id, $apply_to_assignment_ids)
+            || array_diff($apply_to_assignment_ids, $linked_assignment_ids)) {
+            $response['message'] = 'The settings can only be applied to assignments where this question is linked.';
+            return $response;
+        }
+        $names_by_id = DiscussItChain::assignmentNamesById($apply_to_assignment_ids);
+        foreach ($apply_to_assignment_ids as $apply_to_assignment_id) {
+            $name = $names_by_id[$apply_to_assignment_id];
+            $authorized = Gate::inspect('updateDiscussItSettings', [$assignmentSyncQuestion, Assignment::find($apply_to_assignment_id), $question]);
+            if (!$authorized->allowed()) {
+                $response['message'] = "You can't change the settings in $name, so nothing was saved.";
+                return $response;
+            }
+            if (DiscussItChain::realStudentCommentsExist([$apply_to_assignment_id], $question->id)) {
+                $response['message'] = "Students have already commented in $name, so its settings can't be changed from here. Nothing was saved; please change that assignment's settings directly.";
+                return $response;
+            }
+            $current_settings = json_decode($assignmentSyncQuestion->discussItSettings($apply_to_assignment_id, $question->id), true) ?: [];
+            $settings = $data;
+            foreach (['students_can_start_threads', 'students_can_reply_to_threads'] as $key) {
+                $settings[$key] = $current_settings[$key] ?? '1';
+            }
+            //with its own new-thread/reply options, students there might not be able to meet the criteria
+            foreach (Helper::discussItParticipationConflicts($settings) as $conflict) {
+                $response['participation_warnings'][] = "In $name: $conflict";
+            }
+            $response['settings_by_assignment_id'][$apply_to_assignment_id] = $settings;
+            $response['names'][] = $name;
+        }
+        $response['type'] = 'success';
+        return $response;
     }
 
     public
@@ -1491,6 +1809,7 @@ class AssignmentSyncQuestionController extends Controller
                     return $response;
             }
             DB::beginTransaction();
+            $discuss_it_link_messages = [];
             foreach ($chosen_questions as $key => $question) {
                 if (!in_array($question['question_id'], $assignment_questions)) {
                     $learning_tree_id = null;
@@ -1570,6 +1889,8 @@ class AssignmentSyncQuestionController extends Controller
                     }
 
                     unset($assignment_question->id);
+                    //links (daisy chains) belong to the source assignment; new links are made below if requested
+                    unset($assignment_question->discuss_it_chain_id);
                     $assignment_question->assignment_id = $assignment->id;
                     $assignment_question->order = count($assignment_questions) + $key + 1;
                     $question_to_add = Question::find($question['question_id']);
@@ -1612,6 +1933,11 @@ class AssignmentSyncQuestionController extends Controller
                         ->where('assignment_id', $assignment->id)
                         ->where('question_id', $question['question_id'])
                         ->update(['question_revision_id' => $Question->latestQuestionRevision('id')]);
+                    //link after the revision is set so that the chain's revision wins
+                    if (!$assignment_question_exists) {
+                        $discuss_it_link_messages = array_merge($discuss_it_link_messages,
+                            $this->_linkNewlyAddedDiscussItQuestion($request, $assignment, $question_to_add));
+                    }
 
 
                     if ($assignment_question_learning_tree) {
@@ -1641,6 +1967,10 @@ class AssignmentSyncQuestionController extends Controller
             $assignmentSyncQuestion->updatePointsBasedOnWeights($assignment);
             DB::commit();
             $response['message'] = "The assessment has been added to your assignment.";
+            if ($discuss_it_link_messages) {
+                $response['message'] .= ' ' . implode(' ', $discuss_it_link_messages);
+            }
+            $response['discuss_it_link_messages'] = $discuss_it_link_messages;
             $response['type'] = 'success';
         } catch (Exception $e) {
             DB::rollback();
@@ -2964,9 +3294,15 @@ class AssignmentSyncQuestionController extends Controller
             $response['message'] = "You cannot remove this question since there are already submissions and this assignment computes points using question weights.";
             return $response;
         }
+        if (DiscussItChain::chainId($assignment->id, $question->id)
+            && DiscussItChain::chainHasRealStudentComments($assignment->id, $question->id)) {
+            $response['message'] = "You cannot remove this question since it is linked in other assignments and students have already commented. All student comments would need to be removed first.";
+            return $response;
+        }
 
         try {
             DB::beginTransaction();
+            DiscussItChain::detach($assignment->id, $question->id);
             $remove_randomized_assessment_response = $assignmentSyncQuestion->removeRandomizedAssessment($assignment, $question);
             if ($remove_randomized_assessment_response['message']) {
                 $response['message'] = $remove_randomized_assessment_response['message'];
@@ -4374,6 +4710,15 @@ class AssignmentSyncQuestionController extends Controller
                 $response['message'] = "You must confirm that you understand that student submissions will be removed.";
                 return $response;
             }
+            //a linked (daisy-chained) Discuss-it question is updated in every linked assignment together
+            $linked_assignment_ids = [$assignment->id];
+            if (DiscussItChain::chainId($assignment->id, $question->id)) {
+                if (DiscussItChain::chainHasRealStudentComments($assignment->id, $question->id)) {
+                    $response['message'] = "This question is linked in other assignments and students have already commented, so it can no longer be updated to another revision.";
+                    return $response;
+                }
+                $linked_assignment_ids = DiscussItChain::linkedAssignmentIds($assignment->id, $question->id);
+            }
             DB::beginTransaction();
             if ($request->latest_question_revision_id) {
                 //override it when on the page where you have all possible revisions
@@ -4386,20 +4731,31 @@ class AssignmentSyncQuestionController extends Controller
                 $question_revision_id = $pending_question_revision->question_revision_id;
             }
 
-            $assignmentSyncQuestion->where('assignment_id', $assignment->id)
-                ->where('question_id', $question->id)
-                ->update(['question_revision_id' => $question_revision_id]);
-            $pendingQuestionRevision->where('assignment_id', $assignment->id)->where('question_id', $question->id)->delete();
             $student_emails_associated_with_submissions = [];
+            $has_real_student_submissions = false;
+            foreach ($linked_assignment_ids as $linked_assignment_id) {
+                $linked_assignment = $linked_assignment_id === $assignment->id ? $assignment : Assignment::find($linked_assignment_id);
+                $assignmentSyncQuestion->where('assignment_id', $linked_assignment->id)
+                    ->where('question_id', $question->id)
+                    ->update(['question_revision_id' => $question_revision_id]);
+                $pendingQuestionRevision->where('assignment_id', $linked_assignment->id)->where('question_id', $question->id)->delete();
 
-            if ($assignmentSyncQuestion->questionHasSomeTypeOfRealStudentSubmission($assignment, $question)) {
-                $student_emails_associated_with_submissions = $assignmentSyncQuestion->studentEmailsAssociatedWithSomeTypeOfStudentSubmission($assignment, $question);
-                $student_submissions_message = "In addition, the student submissions have been removed and the scores have been updated.";
-            } else {
-                $student_submissions_message = "There were no student submissions to this question so no student scores were updated.";
+                if ($assignmentSyncQuestion->questionHasSomeTypeOfRealStudentSubmission($linked_assignment, $question)) {
+                    $has_real_student_submissions = true;
+                    $student_emails_associated_with_submissions = array_merge($student_emails_associated_with_submissions,
+                        $assignmentSyncQuestion->studentEmailsAssociatedWithSomeTypeOfStudentSubmission($linked_assignment, $question));
+                }
+                $assignmentSyncQuestion->updateAssignmentScoreBasedOnRemovedQuestion($linked_assignment, $question);
+                Helper::removeAllStudentSubmissionTypesByAssignmentAndQuestion($linked_assignment->id, $question->id);
             }
-            $assignmentSyncQuestion->updateAssignmentScoreBasedOnRemovedQuestion($assignment, $question);
-            Helper::removeAllStudentSubmissionTypesByAssignmentAndQuestion($assignment->id, $question->id);
+            $student_emails_associated_with_submissions = array_values(array_unique($student_emails_associated_with_submissions));
+            $student_submissions_message = $has_real_student_submissions
+                ? "In addition, the student submissions have been removed and the scores have been updated."
+                : "There were no student submissions to this question so no student scores were updated.";
+            if (count($linked_assignment_ids) > 1) {
+                $other_names = DiscussItChain::assignmentNamesById(array_diff($linked_assignment_ids, [$assignment->id]));
+                $student_submissions_message = "Since it is linked, it was also updated in: " . implode(', ', $other_names) . ".  $student_submissions_message";
+            }
 
             DB::commit();
 

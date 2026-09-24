@@ -372,13 +372,16 @@ class DiscussionCommentController extends Controller
      * @throws Exception
      */
     public
-    function deletingWillMakeRequirementsNotSatisfied(DiscussionComment      $discussionComment,
+    function deletingWillMakeRequirementsNotSatisfied(Request                $request,
+                                                      DiscussionComment      $discussionComment,
                                                       AssignmentSyncQuestion $assignmentSyncQuestion): array
     {
         try {
             $response['type'] = 'error';
             $discussion = Discussion::find($discussionComment->discussion_id);
-            $authorized = Gate::inspect('deletingWillMakeRequirementsNotSatisfied', [$discussionComment, $discussion->assignment_id, $discussion->question_id]);
+            //for linked (daisy-chained) questions, the comment belongs to the assignment it was made in
+            $posted_in_assignment_id = $discussionComment->postedInAssignmentId();
+            $authorized = Gate::inspect('deletingWillMakeRequirementsNotSatisfied', [$discussionComment, $posted_in_assignment_id, $discussion->question_id, (int)$request->viewing_assignment_id]);
             if (!$authorized->allowed()) {
                 $response['message'] = $authorized->message();
                 return $response;
@@ -389,7 +392,7 @@ class DiscussionCommentController extends Controller
                 $response['deleting_will_make_requirements_not_satisfied'] = false;
             }
 
-            $assignment = Assignment::find($discussion->assignment_id);
+            $assignment = Assignment::find($posted_in_assignment_id);
             $satisfied_requirements = $discussionComment->satisfiedRequirements($assignment,
                 $discussion->question_id,
                 $discussionComment->user_id,
@@ -523,13 +526,15 @@ class DiscussionCommentController extends Controller
                 ->first();
 
             $response['type'] = 'error';
-            $authorized = Gate::inspect('destroy', [$discussionComment, $discussion->assignment_id, $discussion->question_id]);
+            //for linked (daisy-chained) questions, the comment belongs to the assignment it was made in
+            $posted_in_assignment_id = $discussionComment->postedInAssignmentId();
+            $authorized = Gate::inspect('destroy', [$discussionComment, $posted_in_assignment_id, $discussion->question_id, (int)$request->viewing_assignment_id]);
             if (!$authorized->allowed()) {
                 $response['message'] = $authorized->message();
                 return $response;
             }
 
-            $already_graded = $request->user()->role === 3 && $submission->where('assignment_id', $discussion->assignment_id)
+            $already_graded = $request->user()->role === 3 && $submission->where('assignment_id', $posted_in_assignment_id)
                     ->where('question_id', $discussion->question_id)
                     ->where('user_id', $request->user()->id)
                     ->first();
@@ -595,11 +600,12 @@ class DiscussionCommentController extends Controller
                 ->where('discussion_comments.id', $discussionComment->id)
                 ->first();
             $discussion = Discussion::find($discussion_info->discussion_id);
-            $assignment = Assignment::find($discussion_info->assignment_id);
+            //for linked (daisy-chained) questions, the comment belongs to the assignment it was made in
+            $assignment = Assignment::find($discussionComment->postedInAssignmentId());
             $question = Question::find($discussion_info->question_id);
 
             $response['type'] = 'error';
-            $authorized = Gate::inspect('update', [$discussionComment, $discussion->assignment_id, $discussion->question_id]);
+            $authorized = Gate::inspect('update', [$discussionComment, $assignment->id, $discussion->question_id, (int)$request->viewing_assignment_id]);
             if (!$authorized->allowed()) {
                 $response['message'] = $authorized->message();
                 return $response;

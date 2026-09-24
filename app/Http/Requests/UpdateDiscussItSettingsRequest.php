@@ -22,6 +22,20 @@ class UpdateDiscussItSettingsRequest extends FormRequest
     }
 
     /**
+     * Clients from before new threads/replies could be turned off don't send them; both default to allowed.
+     *
+     * @return void
+     */
+    protected function prepareForValidation(): void
+    {
+        foreach (['students_can_start_threads', 'students_can_reply_to_threads'] as $key) {
+            if (!$this->has($key)) {
+                $this->merge([$key => '1']);
+            }
+        }
+    }
+
+    /**
      * Get the validation rules that apply to the request.
      *
      * @return array
@@ -36,6 +50,11 @@ class UpdateDiscussItSettingsRequest extends FormRequest
             'number_of_groups' => new IsValidNumberOfDiscussItGroups($assignment_id, $question_id),
             "students_can_edit_comments" => ['required', Rule::in([0, 1])],
             "students_can_delete_comments" => ['required', Rule::in([0, 1])],
+            "students_can_start_threads" => ['required', Rule::in([0, 1])],
+            "students_can_reply_to_threads" => ['required', Rule::in([0, 1])],
+            "apply_to_assignment_ids" => ['sometimes', 'array'],
+            "apply_to_assignment_ids.*" => ['integer'],
+            "confirm_participation_warnings" => ['sometimes', 'boolean'],
             "min_number_of_initiated_discussion_threads" => ['required', 'integer', 'min:0'],
             "min_number_of_comments" => ['integer', 'min:0'],
             "min_number_of_replies" => ['required', new IsValidMinNumberForDiscussIt()],

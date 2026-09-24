@@ -19,20 +19,27 @@ class Discussion extends Model
      */
     public function deleteByAssignment(Assignment $assignment)
     {
-        $discussions = Discussion::where('assignment_id', $assignment->id)->get();
         $questionMediaUpload = new QuestionMediaUpload();
-
-        foreach ($discussions as $discussion) {
-            $discussion_comments = DiscussionComment::where('discussion_id', $discussion->id)->get();
-            foreach ($discussion_comments as $discussion_comment) {
-                if ($discussion_comment->file) {
-                    $questionMediaUpload->deleteFileAndVttFile($discussion_comment->file);
-                }
-                $discussion_comment->delete();
+        //with linked (daisy-chained) questions, comments can be made in this assignment on threads started elsewhere
+        $discussion_ids = Discussion::where('assignment_id', $assignment->id)->pluck('id')->toArray();
+        $discussion_comments = DiscussionComment::whereIn('discussion_id', $discussion_ids)
+            ->orWhere('posted_in_assignment_id', $assignment->id)
+            ->get();
+        $possibly_empty_discussion_ids = [];
+        foreach ($discussion_comments as $discussion_comment) {
+            if ($discussion_comment->file) {
+                $questionMediaUpload->deleteFileAndVttFile($discussion_comment->file);
             }
-            $discussion->delete();
-            DB::table('discussion_groups')->where('assignment_id', $assignment->id)->delete();
+            $possibly_empty_discussion_ids[] = $discussion_comment->discussion_id;
+            $discussion_comment->delete();
         }
+        Discussion::whereIn('id', $discussion_ids)->delete();
+        foreach (array_unique($possibly_empty_discussion_ids) as $discussion_id) {
+            if (!DiscussionComment::where('discussion_id', $discussion_id)->exists()) {
+                Discussion::where('id', $discussion_id)->delete();
+            }
+        }
+        DB::table('discussion_groups')->where('assignment_id', $assignment->id)->delete();
     }
 
     /**
@@ -47,7 +54,7 @@ class Discussion extends Model
     {
 
         return $this->join('discussion_comments', 'discussions.id', '=', 'discussion_comments.discussion_id')
-            ->where('discussions.assignment_id', $assignment_id)
+            ->where('discussion_comments.posted_in_assignment_id', $assignment_id)
             ->where('discussions.question_id', $question_id)
             ->where('discussion_comments.user_id', $user_id)
             ->where('discussion_comments.satisfied_requirement', 1)
@@ -80,10 +87,26 @@ class Discussion extends Model
         }
 
 
+        //a linked (daisy-chained) question shows the discussions from every linked assignment
+        $linked_assignment_ids = DiscussItChain::linkedAssignmentIds($assignment->id, $question->id);
+        $assignment_names_by_id = count($linked_assignment_ids) > 1
+            ? DiscussItChain::assignmentNamesById($linked_assignment_ids)
+            : [];
+        //students only see the names of linked assignments that are visible to them
+        if ($assignment_names_by_id && request()->user() && request()->user()->role !== 2) {
+            $visible_assignment_ids = DiscussItChain::assignmentIdsVisibleToStudent(array_keys($assignment_names_by_id), request()->user()->id);
+            foreach ($assignment_names_by_id as $assignment_id => $name) {
+                if ($assignment_id !== $assignment->id && !in_array($assignment_id, $visible_assignment_ids)) {
+                    $assignment_names_by_id[$assignment_id] = 'Another assignment';
+                }
+            }
+        }
         $discussion_infos = $this->join('discussion_comments', 'discussions.id', '=', 'discussion_comments.discussion_id')
-            ->where('assignment_id', $assignment->id)
+            ->whereIn('discussions.assignment_id', $linked_assignment_ids)
             ->where('question_id', $question->id)
             ->select('discussions.id AS discussion_id',
+                'discussions.assignment_id AS discussion_assignment_id',
+                DB::raw('COALESCE(discussion_comments.posted_in_assignment_id, discussions.assignment_id) AS comment_assignment_id'),
                 'discussions.created_at AS discussion_created_at',
                 'discussions.user_id AS discussion_user_id',
                 'discussions.group',
@@ -119,6 +142,8 @@ class Discussion extends Model
                     'created_at' => $this->_formatDate($value->discussion_created_at, $enrolled_student_time_zones_by_user_id[$value->discussion_user_id]),
                     'started_by' => $enrolled_students_by_user_id[$value->discussion_user_id],
                     'group' => $value->group,
+                    'assignment_id' => $value->discussion_assignment_id,
+                    'assignment_name' => $assignment_names_by_id[$value->discussion_assignment_id] ?? '',
                     'comments' => []
                 ];
             }
@@ -138,6 +163,8 @@ class Discussion extends Model
                 'id' => $value->comment_id,
                 'created_by_user_id' => $value->discussion_comments_user_id,
                 'created_by_name' => $enrolled_students_by_user_id[$value->discussion_comments_user_id],
+                'assignment_id' => (int)$value->comment_assignment_id,
+                'assignment_name' => $assignment_names_by_id[$value->comment_assignment_id] ?? '',
                 'text' => $question->addTimeToS3Files($value->text, $htmlDom, false),
                 'pasted_comment' => $value->pasted_comment,
                 'file' => $value->file,
@@ -145,6 +172,10 @@ class Discussion extends Model
                 'transcript' => $value->transcript ? $questionMediaUpload->parseVtt($value->transcript) : null,
                 're_processed_transcript' => $value->re_processed_transcript,
                 'created_at' => $this->_formatDate($value->comment_created_at, $enrolled_student_time_zones_by_user_id[$value->discussion_user_id])];
+            //per-student comments (used for grading) only include what was posted in this assignment
+            if ((int)$value->comment_assignment_id !== $assignment->id) {
+                continue;
+            }
             if (!isset($discussions_by_user_id[$value->discussion_comments_user_id])) {
                 $discussions_by_user_id[$value->discussion_comments_user_id] = [
                     'user_id' => $value->discussion_comments_user_id,
