@@ -1841,8 +1841,7 @@
                     }}/</span>{{ questions[currentPage - 1].points * 1 }}
                   point{{ 1 * (questions[currentPage - 1].points) !== 1 ? 's' : '' }}
                 </div>
-
-                <small v-if="assessmentType === 'delayed' || (studentNonClicker() && assessmentType === 'real time')"
+                <small v-if="questionStatus && questionStatus !== 'closed' && (assessmentType === 'delayed' || (studentNonClicker() && assessmentType === 'real time'))"
                        :class="getQuestionStatusClass()"
                 >
                   <span v-show="assessmentType !== 'delayed' && numberOfAllowedAttempts !== 'unlimited'
