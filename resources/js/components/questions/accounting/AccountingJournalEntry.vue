@@ -236,7 +236,7 @@
                       title="Displayed below the last row of the entry, e.g., To record sale of calculators on account."
                       class="ml-2 text-muted"
                     >
-                      <b-icon-question-circle />
+                      <b-icon-question-circle/>
                     </span>
                   </div>
                   <div style="width: 50%">
@@ -278,7 +278,7 @@
     </div>
 
     <!-- T-Accounts toggle (sits outside any card so nothing renders when off) -->
-    <div class="pb-3" v-if="user.id === 142886 || isAdmin">
+    <div class="pb-3">
       <b-form-checkbox
         v-model="qtiJson.includeTAccounts"
         switch
@@ -308,7 +308,9 @@
               @change="addTAccountForTitle"
             />
           </div>
-
+          <b-alert :show="!sortedTAccountsView.length" variant="info">
+            Please add at least one account above.
+          </b-alert>
           <ErrorMessage
             v-if="tAccountsErrors && tAccountsErrors['tAccountsGeneral']"
             class="pb-2"
@@ -384,11 +386,15 @@
                 <tr v-if="tAccount.beginningBalance" class="balance-row">
                   <td class="text-muted"><em>{{ tAccount.beginningBalance.debitLabel }}</em></td>
                   <td>
-                    <b-form-input v-model="tAccount.beginningBalance.debit" type="text" inputmode="decimal" placeholder="0.00" @input="onBeginningBalanceAmountEdited(tAccount)"/>
+                    <b-form-input v-model="tAccount.beginningBalance.debit" type="text" inputmode="decimal"
+                                  placeholder="0.00" @input="onBeginningBalanceAmountEdited(tAccount)"
+                    />
                   </td>
                   <td class="text-muted"><em>{{ tAccount.beginningBalance.creditLabel }}</em></td>
                   <td>
-                    <b-form-input v-model="tAccount.beginningBalance.credit" type="text" inputmode="decimal" placeholder="0.00" @input="onBeginningBalanceAmountEdited(tAccount)"/>
+                    <b-form-input v-model="tAccount.beginningBalance.credit" type="text" inputmode="decimal"
+                                  placeholder="0.00" @input="onBeginningBalanceAmountEdited(tAccount)"
+                    />
                   </td>
                   <td class="text-center action-cell">
                     <b-button variant="outline-secondary" size="sm" @click="deleteBeginningBalance(accountIndex)">
@@ -448,16 +454,24 @@
                      sticks; the label is always manually entered. -->
                 <tr v-if="tAccount.balance" class="balance-row">
                   <td>
-                    <b-form-input v-model="tAccount.balance.debitLabel" type="text" list="taccount-label-list" placeholder="e.g., 6/30 Bal." autocomplete="off" @input="handleInput()"/>
+                    <b-form-input v-model="tAccount.balance.debitLabel" type="text" list="taccount-label-list"
+                                  placeholder="e.g., 6/30 Bal." autocomplete="off" @input="handleInput()"
+                    />
                   </td>
                   <td>
-                    <b-form-input v-model="tAccount.balance.debit" type="text" inputmode="decimal" @input="onBalanceAmountEdited(tAccount)"/>
+                    <b-form-input v-model="tAccount.balance.debit" type="text" inputmode="decimal"
+                                  @input="onBalanceAmountEdited(tAccount)"
+                    />
                   </td>
                   <td>
-                    <b-form-input v-model="tAccount.balance.creditLabel" type="text" list="taccount-label-list" placeholder="e.g., 6/30 Bal." autocomplete="off" @input="handleInput()"/>
+                    <b-form-input v-model="tAccount.balance.creditLabel" type="text" list="taccount-label-list"
+                                  placeholder="e.g., 6/30 Bal." autocomplete="off" @input="handleInput()"
+                    />
                   </td>
                   <td>
-                    <b-form-input v-model="tAccount.balance.credit" type="text" inputmode="decimal" @input="onBalanceAmountEdited(tAccount)"/>
+                    <b-form-input v-model="tAccount.balance.credit" type="text" inputmode="decimal"
+                                  @input="onBalanceAmountEdited(tAccount)"
+                    />
                   </td>
                   <td class="text-center action-cell">
                     <b-button variant="outline-secondary" size="sm" @click="deleteBalanceRow(accountIndex)">
@@ -846,8 +860,11 @@ export default {
           if (row.accountTitle !== accountTitle) return
           if (row.type !== 'debit' && row.type !== 'credit') return
           const occurrence = { label: (entry.entryText || '').trim(), amount: row.amount || '' }
-          if (row.type === 'debit') debitOccurrences.push(occurrence)
-          else creditOccurrences.push(occurrence)
+          if (row.type === 'debit') {
+            debitOccurrences.push(occurrence)
+          } else {
+            creditOccurrences.push(occurrence)
+          }
         })
       })
       const rowCount = Math.max(debitOccurrences.length, creditOccurrences.length, 1)
@@ -1183,8 +1200,9 @@ export default {
         const amount = this.parseAmount(row.amount)
         if (row.amount !== '' && row.amount !== null && row.amount !== undefined && row.type) {
           hasAnyValues = true
-          if (row.type === 'debit') totalDebits += amount
-          else if (row.type === 'credit') totalCredits += amount
+          if (row.type === 'debit') {
+            totalDebits += amount
+          } else if (row.type === 'credit') totalCredits += amount
         }
       })
       return {

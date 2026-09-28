@@ -2054,7 +2054,7 @@
                 </b-col>
               </b-form-row>
             </b-form-group>
-            <b-form-group v-show="user.id === 173 || isAdmin" label-cols-sm="4" label-cols-lg="3" :label-for="`time_limit_${index}`">
+            <b-form-group label-cols-sm="4" label-cols-lg="3" :label-for="`time_limit_${index}`">
               <template v-slot:label>
                 Time Limit
                 <QuestionCircleTooltip :id="'time_limit_tooltip'" />
