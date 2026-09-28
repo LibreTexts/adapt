@@ -25,7 +25,7 @@ class UpdateHoursUntilDue extends FormRequest
     public function rules()
     {
         return [
-            'hours_until_due' => Rule::in([0,1,6,12,24])
+            'hours_until_due' => Rule::in([0,1,6,12,24,168])
         ];
     }
 }

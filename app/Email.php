@@ -24,14 +24,22 @@ class Email extends Model
             ->join('assign_to_timings', 'assign_to_users.assign_to_timing_id', '=', 'assign_to_timings.id')
             ->join('assignments', 'assign_to_timings.assignment_id', '=', 'assignments.id')
             ->join('courses', 'assignments.course_id', '=', 'courses.id')
-            ->where('assign_to_timings.due', DB::raw("DATE_FORMAT(DATE_ADD(UTC_TIMESTAMP(), INTERVAL notifications.hours_until_due HOUR), '%Y-%m-%d %H:%i:00')"))
+            ->whereBetween('assign_to_timings.due', [
+                DB::raw("DATE_FORMAT(
+        DATE_ADD(UTC_TIMESTAMP(), INTERVAL notifications.hours_until_due HOUR),
+        '%Y-%m-%d %H:%i:00'
+    )"),
+                DB::raw("DATE_FORMAT(
+        DATE_ADD(UTC_TIMESTAMP(), INTERVAL notifications.hours_until_due HOUR),
+        '%Y-%m-%d %H:%i:59'
+    )")
+            ])
             ->where('assignments.notifications', 1)
             ->select('users.id AS user_id', 'users.first_name', 'users.last_name', 'users.email',
                 'assignments.name AS assignment_name', 'assignments.id AS assignment_id',
                 'courses.name AS course_name',
                 'notifications.hours_until_due')
             ->get();
-
         $extension_notifications = DB::table('notifications')
             ->join('users', 'notifications.user_id', '=', 'users.id')
             ->join('extensions', 'users.id', '=', 'extensions.user_id')
@@ -49,7 +57,6 @@ class Email extends Model
 //extensions override the other ones
         foreach ($extension_notifications as $notification) {
             try {
-                Log::info('Extension reminder:' . $notification->assignment_id . ' ' . $notification->user_id);
                 $this->processAssignmentDueReminders($notification);
                 if (!isset($sent_emails[$notification->assignment_id])) {
                     $sent_emails[$notification->assignment_id] = [];
@@ -84,9 +91,9 @@ class Email extends Model
             'student_first_name' => $notification->first_name,
             'assignment' => $notification->assignment_name,
             'course' => $notification->course_name,
-            'hours_until_due' => $notification->hours_until_due > 1 ? "$notification->hours_until_due hours" : "$notification->hours_until_due hour",
+            'hours_until_due' => $notification->hours_until_due,
             'assignment_link' => config('app.url') . "/students/assignments/$notification->assignment_id/summary",
-            'notifications_link' =>config('app.url') ."/settings/notifications"
+            'notifications_link' => config('app.url') . "/settings/notifications"
         ];
         Log::info('Regular assignment reminder:' . $notification->assignment_id . ' ' . $notification->user_id);
         $beautymail = app()->make(Beautymail::class);

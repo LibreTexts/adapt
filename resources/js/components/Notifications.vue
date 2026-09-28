@@ -36,6 +36,9 @@
                 <b-form-radio name="hours_until_due" value="24">
                   24 hours before it's due
                 </b-form-radio>
+                <b-form-radio name="hours_until_due" value="168">
+                  1 week before it's due
+                </b-form-radio>
               </b-form-radio-group>
             </b-form-group>
             <hr>
