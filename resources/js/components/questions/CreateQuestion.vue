@@ -682,6 +682,7 @@
           :key="`preview-solution-${questionToViewKey}`"
           :questions="[questionToView]"
           :current-page="1"
+          :modal-id="preview-modal"
         />
         <HintFileHtml
           v-if="questionToView.render_webwork_hint"
