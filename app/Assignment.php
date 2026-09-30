@@ -718,6 +718,9 @@ class Assignment extends Model
                     $available_from = $assigned_assignments[$assignment->id]->available_from;
                     $due = $is_extension ? $extensions_by_assignment[$assignment->id] : $assigned_assignments[$assignment->id]->due;
                     $final_submission_deadline = $assigned_assignments[$assignment->id]->final_submission_deadline;
+                    //$due may be swapped for the final submission deadline below, so keep the original
+                    //for the student-facing Late explanation
+                    $original_due = $due;
 
 
                     $due_date = Carbon::createFromFormat("Y-m-d H:i:s", $due);
@@ -737,6 +740,7 @@ class Assignment extends Model
                     }
                     $assignments_info[$key]['due'] = [
                         'due_date' => $this->convertUTCMysqlFormattedDateToLocalDateAndTime($due, Auth::user()->time_zone), //for viewing
+                        'original_due_date' => $this->convertUTCMysqlFormattedDateToLocalDateAndTime($original_due, Auth::user()->time_zone),
                         'is_extension' => $is_extension,
                         'late' => $late
                     ];//for viewing

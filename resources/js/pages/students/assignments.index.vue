@@ -297,10 +297,31 @@
               </span>
             </template>
             <template #cell(status)="data">
-              <span v-if="assignmentLevelOverrides.includes(data.item.id)">
-                 <span class="text-success"> Open</span>
+              <span :id="`status-tooltip-${data.item.id}`"
+                    tabindex="0"
+                    :aria-describedby="`status-description-${data.item.id}`"
+                    :class="isOverridden(data.item) ? 'text-success' : getStatusTextClass(data.item.status)"
+              >{{ isOverridden(data.item) ? 'Open' : data.item.status }}</span>
+              <span :id="`status-description-${data.item.id}`" class="sr-only">
+                {{ getStatusExplanation(data.item) }}
               </span>
-              <span v-else :class="getStatusTextClass(data.item.status)"> {{ data.item.status }}</span>
+              <b-tooltip :target="`status-tooltip-${data.item.id}`"
+                         delay="250"
+                         triggers="hover focus"
+              >
+                {{ getStatusExplanation(data.item) }}
+              </b-tooltip>
+              <span v-if="showLateExplanation(data.item)">
+                <QuestionCircleTooltip :id="`late-explanation-${data.item.id}`"
+                                       :aria-label="`Why does the Due column show a later date for ${data.item.name}?`"
+                />
+                <b-tooltip :target="`late-explanation-${data.item.id}`"
+                           delay="250"
+                           triggers="hover focus"
+                >
+                  {{ getLateExplanation(data.item) }}
+                </b-tooltip>
+              </span>
             </template>
             <template #cell(score)="data">
               <span v-if="data.item.score === 'Not yet released'">Not yet released</span>
@@ -332,6 +353,7 @@ import Loading from 'vue-loading-overlay'
 import 'vue-loading-overlay/dist/vue-loading.css'
 import { initAssignmentGroupOptions, updateAssignmentGroupFilter } from '~/helpers/Assignments'
 import QuestionCircleTooltipModal from '~/components/QuestionCircleTooltipModal'
+import QuestionCircleTooltip from '~/components/QuestionCircleTooltip'
 import { mapGetters } from 'vuex'
 import { initCentrifuge } from '~/helpers/Centrifuge'
 import { getStatusTextClass } from '~/helpers/AssignTosStatus'
@@ -345,7 +367,8 @@ export default {
   components: {
     RedirectToClickerModal,
     Loading,
-    QuestionCircleTooltipModal
+    QuestionCircleTooltipModal,
+    QuestionCircleTooltip
   },
   metaInfo () {
     return { title: 'My Assignments' }
@@ -488,6 +511,56 @@ export default {
     getStatusTextClass,
     resetClickerAssignmentIdClickerQuestionId,
     initClickerAssignmentsForEnrolledAndOpenCourses,
+    isOverridden (assignment) {
+      return this.assignmentLevelOverrides.includes(assignment.id)
+    },
+    formatTooltipDate (date) {
+      return date ? this.$moment(date, 'YYYY-MM-DD HH:mm:ss A').format('M/D/YY h:mm A') : ''
+    },
+    getLatePolicyText (assignment) {
+      // Mirrors AssignmentController::formatLatePolicy() so students see consistent wording
+      switch (assignment.late_policy) {
+        case ('marked late'):
+          return 'Late submissions are marked late. It is up to your instructor whether to apply a late penalty.'
+        case ('deduction'): {
+          const percent = +assignment.late_deduction_percent
+          return assignment.late_deduction_application_period === 'once'
+            ? `A deduction of ${percent}% is applied once to any late submission.`
+            : `A deduction of ${percent}% is applied every ${assignment.late_deduction_application_period} to any late submission.`
+        }
+        default:
+          return 'Enter the assignment for details about late submissions.'
+      }
+    },
+    showLateExplanation (assignment) {
+      return assignment.assessment_type !== 'clicker' &&
+        !this.isOverridden(assignment) &&
+        Boolean(assignment.due && assignment.due.late)
+    },
+    getStatusExplanation (assignment) {
+      if (this.isOverridden(assignment)) {
+        return 'Your instructor has opened this assignment for you, so you can submit responses even if the due date has passed.'
+      }
+      if (assignment.assessment_type === 'clicker') {
+        return 'This is a clicker assignment. Your instructor opens its questions live during class.'
+      }
+      switch (assignment.status) {
+        case ('Upcoming'):
+          return `This assignment is not yet open. It opens on ${this.formatTooltipDate(assignment.available_from)}.`
+        case ('Open'):
+          return `This assignment is open. You can submit responses until ${this.formatTooltipDate(assignment.due.due_date)}.`
+        case ('Late'):
+          return `The due date has passed, but you can still submit responses until ${this.formatTooltipDate(assignment.due.due_date)}. ${this.getLatePolicyText(assignment)}`
+        case ('Closed'):
+          return 'This assignment is closed and you can no longer submit responses.'
+        default:
+          return 'Status information is not available for this assignment.'
+      }
+    },
+    getLateExplanation (assignment) {
+      return `Since the due date has passed, the Due column now shows the final submission deadline (${this.formatTooltipDate(assignment.due.due_date)}). ` +
+        `The original due date was ${this.formatTooltipDate(assignment.due.original_due_date)}. ${this.getLatePolicyText(assignment)}`
+    },
     async getAssignmentStatusesByCourseAndUser () {
       try {
         const { data } = await axios.get(`/api/courses/${this.courseId}/assignment-statuses`)

@@ -2,10 +2,10 @@
   <a :id="id"
      href=""
      :class="'text-dark'"
-     :aria-label="ariaLabel"
+     :aria-label="accessibleLabel"
      @click.prevent
   >
-    <b-icon :style="iconStyle" icon="question-circle"/>
+    <b-icon :style="iconStyle" icon="question-circle" aria-hidden="true"/>
   </a>
 </template>
 
@@ -26,14 +26,21 @@ export default {
     id: {
       type: String,
       default: ''
+    },
+    // Optional descriptive label. When omitted, the label is derived from the id (previous behavior).
+    ariaLabel: {
+      type: String,
+      default: ''
     }
   },
-  data: () => ({
-    ariaLabel: ''
-  }),
-  mounted () {
-    this.ariaLabel = _.upperFirst(this.id.replace('_', ' '))
-    this.ariaLabel = _.replace(this.ariaLabel, /_|-/g, ' ')
+  computed: {
+    accessibleLabel () {
+      if (this.ariaLabel) {
+        return this.ariaLabel
+      }
+      const label = _.upperFirst(this.id.replace('_', ' '))
+      return _.replace(label, /_|-/g, ' ')
+    }
   }
 }
 </script>
