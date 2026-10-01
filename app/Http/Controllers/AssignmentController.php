@@ -1123,7 +1123,7 @@ class AssignmentController extends Controller
             $imported_assignment_group_id = $assignmentGroup->importAssignmentGroupToCourse($course, $assignment);
             $assignmentGroupWeight->importAssignmentGroupWeightToCourse($assignment->course, $course, $imported_assignment_group_id, true);
             $imported_assignment = $assignment->replicate();
-            $imported_assignment->show_scores = 0;
+            $imported_assignment->show_scores = Assignment::scoresAlwaysReleased($imported_assignment->assessment_type) ? 1 : 0;
             $imported_assignment->solutions_released = 0;
             $imported_assignment->students_can_view_assignment_statistics = 0;
 
@@ -1169,7 +1169,7 @@ class AssignmentController extends Controller
                 }
             }
             if ($auto_release) {
-                if ($imported_assignment->assessment_type === 'real time') {
+                if (Assignment::scoresAlwaysReleased($imported_assignment->assessment_type)) {
                     $auto_release['show_scores'] = null;
                     $auto_release['show_scores_after'] = null;
                 }
@@ -1304,7 +1304,7 @@ class AssignmentController extends Controller
                 }
             }
             $new_assignment = $assignment->replicate();
-            $new_assignment->show_scores = 0;
+            $new_assignment->show_scores = Assignment::scoresAlwaysReleased($new_assignment->assessment_type) ? 1 : 0;
             $new_assignment->solutions_released = 0;
             $new_assignment->students_can_view_assignment_statistics = 0;
             $new_assignment->name = $new_assignment->name . " copy";
@@ -1315,6 +1315,9 @@ class AssignmentController extends Controller
                 $new_auto_release = $auto_release->replicate();
                 $new_auto_release->type_id = $new_assignment->id;
                 $new_auto_release->save();
+            }
+            if (Assignment::scoresAlwaysReleased($new_assignment->assessment_type)) {
+                Assignment::clearShowScoresAutoRelease([$new_assignment->id]);
             }
             if ($request->level === 'properties_and_questions') {
                 $reset_discuss_it_settings_to_default = +$request->reset_discuss_it_settings_to_default === 1;
@@ -1578,6 +1581,11 @@ class AssignmentController extends Controller
 
         if (!$authorized->allowed()) {
             $response['message'] = $authorized->message();
+            return $response;
+        }
+
+        if (Assignment::scoresAlwaysReleased($assignment->assessment_type) && $assignment->show_scores) {
+            $response['message'] = "Scores are always released for $assignment->assessment_type assignments.";
             return $response;
         }
 
@@ -1855,6 +1863,9 @@ class AssignmentController extends Controller
                 $assignments = [$assignment];
                 foreach ($beta_assignments as $beta_assignment) {
                     $assignments[] = Assignment::find($beta_assignment->id);
+                }
+                if (Assignment::scoresAlwaysReleased($assignment->assessment_type)) {
+                    Assignment::clearShowScoresAutoRelease(collect($assignments)->pluck('id')->toArray());
                 }
                 foreach ($assignments as $assignment) {
                     $course = $assignment->course;
@@ -2561,6 +2572,13 @@ class AssignmentController extends Controller
 
 
                 $data = $autoRelease->handleUpdateOrCreate($data, 'assignment', $assignment->id, $request->assessment_type);
+                $new_assessment_type = $request->source === 'a' ? $request->assessment_type : 'delayed';
+                if (Assignment::scoresAlwaysReleased($new_assessment_type)) {
+                    $data['show_scores'] = 1;
+                    Assignment::clearShowScoresAutoRelease(collect($assignments)->pluck('id')->toArray());
+                } else if (Assignment::scoresAlwaysReleased($assignment->assessment_type) && $new_assessment_type === 'delayed') {
+                    $data['show_scores'] = 0;
+                }
                 if ($assignment->points_per_question !== $request->points_per_question) {
                     $message = $this->validPointsPerQuestionSwitch($assignment);
                     if ($message) {

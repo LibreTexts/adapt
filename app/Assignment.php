@@ -24,6 +24,34 @@ class Assignment extends Model
     protected $guarded = [];
 
     /**
+     * Assessment types whose scores are always released to students.
+     */
+    public const ALWAYS_SHOW_SCORES_ASSESSMENT_TYPES = ['real time', 'learning tree'];
+
+    /**
+     * @param string|null $assessment_type
+     * @return bool
+     */
+    public static function scoresAlwaysReleased(?string $assessment_type): bool
+    {
+        return in_array($assessment_type, self::ALWAYS_SHOW_SCORES_ASSESSMENT_TYPES);
+    }
+
+    /**
+     * @param array $assignment_ids
+     * @return void
+     */
+    public static function clearShowScoresAutoRelease(array $assignment_ids): void
+    {
+        DB::table('auto_releases')
+            ->where('type', 'assignment')
+            ->whereIn('type_id', $assignment_ids)
+            ->update(['show_scores' => null,
+                'show_scores_after' => null,
+                'show_scores_activated' => 0]);
+    }
+
+    /**
      * @param User $user
      * @param array $open_assignment_ids
      * @return array

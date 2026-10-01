@@ -157,7 +157,18 @@
         </b-button>
       </template>
     </b-modal>
-    <div>
+    <div v-if="scoresAlwaysReleased">
+      Always released
+      <QuestionCircleTooltip :id="`scores-always-released-tooltip-${assignment.id}`" />
+      <b-tooltip :target="`scores-always-released-tooltip-${assignment.id}`"
+                 delay="250"
+                 triggers="hover focus"
+      >
+        Scores are always released for {{ assignment.assessment_type }} assignments since students receive immediate
+        feedback on each submission.
+      </b-tooltip>
+    </div>
+    <div v-else>
       <b-form-checkbox
         :id="`${property}-${assignment.id}`"
         :key="property"
@@ -189,9 +200,11 @@
 <script>
 import 'vue-loading-overlay/dist/vue-loading.css'
 import axios from 'axios'
+import QuestionCircleTooltip from './QuestionCircleTooltip.vue'
 
 export default {
   name: 'ShowHideAssignmentProperties',
+  components: { QuestionCircleTooltip },
   props: {
     assignment:
       {
@@ -212,6 +225,11 @@ export default {
     thingToHide: '',
     autoReleaseTimingMessage: ''
   }),
+  computed: {
+    scoresAlwaysReleased () {
+      return this.property === 'show_scores' && ['real time', 'learning tree'].includes(this.assignment.assessment_type)
+    }
+  },
   mounted () {
     this.assessmentType = this.assignment.assessment_type
     this.disabled = this.assignment.assessment_type === 'clicker' || !this.assignment['auto_release_' + this.property]

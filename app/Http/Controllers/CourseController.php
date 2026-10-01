@@ -291,9 +291,14 @@ class CourseController extends Controller
                             $autoRelease->{$column} = $value;
                         }
                     }
-                    if ($assignment->assesment_type === 'real time' && $assignment->solutions_availability === 'manual') {
+                    if ($assignment->assessment_type === 'real time' && $assignment->solutions_availability === 'automatic') {
                         $autoRelease->solutions_released = null;
                         $autoRelease->solutions_released_after = null;
+                    }
+                    if (Assignment::scoresAlwaysReleased($assignment->assessment_type)) {
+                        $autoRelease->show_scores = null;
+                        $autoRelease->show_scores_after = null;
+                        $autoRelease->show_scores_activated = 0;
                     }
 
                     $autoRelease->save();

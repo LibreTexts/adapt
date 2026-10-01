@@ -216,7 +216,7 @@ class AutoRelease extends Model
         }
 
         if ($type === 'assignment') {
-            if ($assessment_type === 'real time') {
+            if (Assignment::scoresAlwaysReleased($assessment_type)) {
                 $auto_release_data['show_scores'] = null;
                 $auto_release_data['show_scores_after'] = null;
             }

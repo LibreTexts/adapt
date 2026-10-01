@@ -1,19 +1,19 @@
 <?php
 
-namespace Tests\Feature\Instructors;
+namespace Tests\Feature;
 
 
 use App\Assignment;
+use App\Course;
 use App\Enrollment;
+use App\Grader;
 use App\GraderAccessCode;
 use App\School;
 use App\Section;
+use App\Traits\Test;
 use App\User;
-use App\Course;
-use App\Grader;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
-use App\Traits\Test;
 
 class CoursesIndexTest extends TestCase
 {

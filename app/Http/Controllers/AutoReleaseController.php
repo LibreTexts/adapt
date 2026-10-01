@@ -81,8 +81,11 @@ class AutoReleaseController extends Controller
             foreach ($auto_release_keys as $auto_release) {
                 switch ($setting) {
                     case('manual'):
-                        $assignment->whereIn('id', $assignment_ids_to_update)
-                            ->update([$auto_release => $value]);
+                        $query = $assignment->whereIn('id', $assignment_ids_to_update);
+                        if ($auto_release === 'show_scores' && !$value) {
+                            $query->whereNotIn('assessment_type', Assignment::ALWAYS_SHOW_SCORES_ASSESSMENT_TYPES);
+                        }
+                        $query->update([$auto_release => $value]);
                         break;
                     case('auto'):
                         $assignment_ids = DB::table('assignments')
@@ -196,6 +199,10 @@ class AutoReleaseController extends Controller
                 $response['message'] = "$request->property is not a valid auto-release activation property.";
                 return $response;
             }
+            if ($request->property === 'show_scores' && Assignment::scoresAlwaysReleased($assignment->assessment_type)) {
+                $response['message'] = "Scores are always released for $assignment->assessment_type assignments.";
+                return $response;
+            }
             $property = $request->property . "_activated";
             $auto_release = $autoRelease->where('type', 'assignment')->where('type_id', $assignment->id)->first();
             $auto_release->{$property} = 1 - $auto_release->{$property};
@@ -276,13 +283,13 @@ class AutoReleaseController extends Controller
 
                 if ($assignment_auto_release) {
                     $assignment_auto_releases = [
-                        'shown' => $assignment_auto_release->auto_release_shown,
-                        'show_scores' => $assignment_auto_release->auto_release_show_scores,
-                        'show_scores_after' => $assignment_auto_release->auto_release_show_scores_after,
-                        'solutions_released' => $assignment_auto_release->auto_release_solutions_released,
-                        'solutions_released_after' => $assignment_auto_release->auto_release_solutions_released_after,
-                        'students_can_view_assignment_statistics' => $assignment_auto_release->auto_release_students_can_view_assignment_statistics,
-                        'students_can_view_assignment_statistics_after' => $assignment_auto_release->auto_release_students_can_view_assignment_statistics_after];
+                        'shown' => $assignment_auto_release->shown,
+                        'show_scores' => $assignment_auto_release->show_scores,
+                        'show_scores_after' => $assignment_auto_release->show_scores_after,
+                        'solutions_released' => $assignment_auto_release->solutions_released,
+                        'solutions_released_after' => $assignment_auto_release->solutions_released_after,
+                        'students_can_view_assignment_statistics' => $assignment_auto_release->students_can_view_assignment_statistics,
+                        'students_can_view_assignment_statistics_after' => $assignment_auto_release->students_can_view_assignment_statistics_after];
                 }
 
                 $course_default_auto_releases = [
@@ -301,6 +308,9 @@ class AutoReleaseController extends Controller
                 $labels['solutions_released'] = 'Solutions';
                 $labels['students_can_view_assignment_statistics'] = 'Statistics';
                 foreach ($auto_release_keys as $value) {
+                    if ($value === 'show_scores' && Assignment::scoresAlwaysReleased($assignment->assessment_type)) {
+                        continue;
+                    }
                     if ($value === 'shown') {
                         $assignment_auto_release = $assignment_auto_releases['shown'] ? $assignment_auto_releases['shown'] . ' before your "available on"' : null;
                         $course_default_auto_release = $course_default_auto_releases['shown'] ? $course_default_auto_releases['shown'] . ' before your "available on"' : null;
