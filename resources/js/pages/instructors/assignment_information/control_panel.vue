@@ -18,9 +18,21 @@
           id="scores"
           label-cols-sm="4"
           label-cols-lg="3"
-          label="Scores"
           label-for="scores"
         >
+          <template v-slot:label>
+            Scores
+            <span v-if="scoresAlwaysReleased">
+              <QuestionCircleTooltip id="scores-always-released-tooltip" />
+              <b-tooltip target="scores-always-released-tooltip"
+                         delay="250"
+                         triggers="hover focus"
+              >
+                Scores are always released for {{ assignment.assessment_type }} assignments since students receive
+                immediate feedback on each submission.
+              </b-tooltip>
+            </span>
+          </template>
           <b-form-row class="mt-2">
             <ShowHideAssignmentProperties :key="`show-scores-toggle-${assignment.id}-${showHideAssignmentPropertiesKey}`"
                                           :assignment="assignment"
@@ -179,9 +191,14 @@ export default {
     assignment: {},
     assessmentType: ''
   }),
-  computed: mapGetters({
-    user: 'auth/user'
-  }),
+  computed: {
+    ...mapGetters({
+      user: 'auth/user'
+    }),
+    scoresAlwaysReleased () {
+      return ['real time', 'learning tree'].includes(this.assignment.assessment_type)
+    }
+  },
   async mounted () {
     if (![2, 4].includes(this.user.role)) {
       await this.$router.push({ name: 'no.access' })

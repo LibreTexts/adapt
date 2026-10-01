@@ -1,37 +1,37 @@
 <template>
   <div>
     <div v-if="property ==='solutions_released'">
-    <b-modal :id="`modal-confirm-release-assignment-solutions-with-non-released-questions-${assignment.id}`"
-             title="Override non-released question solutions"
-             no-close-on-esc
-    >
-      <p>
-        You are about to release the solutions. In this assignment, some of your clicker questions can be viewed by your
-        students but
-        you are currently not sharing the solution with them.
-      </p>
-      <p>
-        By releasing the solutions at the assignment level, the individual solutions
-        will be released as well.
-      </p>
-      <template #modal-footer>
-        <b-button
-          size="sm"
-          class="float-right"
-          @click="$bvModal.hide(`modal-confirm-release-assignment-solutions-with-non-released-questions-${assignment.id}`);assignment['solutions_released'] = false"
-        >
-          Cancel
-        </b-button>
-        <b-button
-          variant="primary"
-          size="sm"
-          class="float-right"
-          @click="handleSubmitShowHideAssignmentProperty()"
-        >
-          Release All Solutions
-        </b-button>
-      </template>
-    </b-modal>
+      <b-modal :id="`modal-confirm-release-assignment-solutions-with-non-released-questions-${assignment.id}`"
+               title="Override non-released question solutions"
+               no-close-on-esc
+      >
+        <p>
+          You are about to release the solutions. In this assignment, some of your clicker questions can be viewed by your
+          students but
+          you are currently not sharing the solution with them.
+        </p>
+        <p>
+          By releasing the solutions at the assignment level, the individual solutions
+          will be released as well.
+        </p>
+        <template #modal-footer>
+          <b-button
+            size="sm"
+            class="float-right"
+            @click="$bvModal.hide(`modal-confirm-release-assignment-solutions-with-non-released-questions-${assignment.id}`);assignment['solutions_released'] = false"
+          >
+            Cancel
+          </b-button>
+          <b-button
+            variant="primary"
+            size="sm"
+            class="float-right"
+            @click="handleSubmitShowHideAssignmentProperty()"
+          >
+            Release All Solutions
+          </b-button>
+        </template>
+      </b-modal>
     </div>
     <div v-if="thingToHide">
       <b-modal :id="`modal-deactivate-auto-release-${assignment.id}-${property}`"
@@ -72,7 +72,7 @@
             class="float-right"
             @click="handleSubmitShowHideAssignmentProperty()"
           >
-      Submit
+            Submit
           </b-button>
         </template>
       </b-modal>
@@ -158,15 +158,7 @@
       </template>
     </b-modal>
     <div v-if="scoresAlwaysReleased">
-      Always released
-      <QuestionCircleTooltip :id="`scores-always-released-tooltip-${assignment.id}`" />
-      <b-tooltip :target="`scores-always-released-tooltip-${assignment.id}`"
-                 delay="250"
-                 triggers="hover focus"
-      >
-        Scores are always released for {{ assignment.assessment_type }} assignments since students receive immediate
-        feedback on each submission.
-      </b-tooltip>
+      Released
     </div>
     <div v-else>
       <b-form-checkbox

@@ -1711,7 +1711,6 @@ import LMSGradePassback from '~/components/LMSGradePassback.vue'
 import GrantLmsApiAccess from '~/components/GrantLmsApiAccess.vue'
 import { isMobile } from '~/helpers/mobileCheck'
 import ShowHideAssignmentProperties from '~/components/ShowHideAssignmentProperties.vue'
-import showHideAssignmentProperties from '../../components/ShowHideAssignmentProperties.vue'
 import AutoReleaseDate from '../../components/AutoReleaseDate.vue'
 import ErrorMessage from '../../components/ErrorMessage.vue'
 import ConsultInsight from '~/components/ConsultInsight.vue'
@@ -1953,7 +1952,11 @@ export default {
       }
     },
     getAutoReleaseTooltip (setting) {
-      return `If you have set up auto-release for ${setting}, then you can optionally activate or de-activate the auto-release below.<br><br>This option is not available for clicker assignments nor for assignments without the auto-release set.`
+      let tooltip = `If you have set up auto-release for ${setting}, then you can optionally activate or de-activate the auto-release below.<br><br>This option is not available for clicker assignments nor for assignments without the auto-release set.`
+      if (setting === 'releasing your scores') {
+        tooltip += '<br><br>Scores are always released for auto-graded (real time) and learning tree assignments since students receive immediate feedback on each submission.'
+      }
+      return tooltip
     },
     unlinkAssignment (assignment) {
       if (assignment.lms_resource_link_id) {
@@ -2478,7 +2481,7 @@ What assignment parameters??? */
       }
     },
     async initCreateAssignmentFromTemplate (assignmentId) {
-      //open_ended_questions_in_real_time_assignment_exists
+      // open_ended_questions_in_real_time_assignment_exists
       this.createAssignmentFromTemplateAssignmentId = assignmentId
       this.discussItQuestionsExist = false
       try {

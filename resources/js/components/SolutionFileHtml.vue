@@ -162,6 +162,7 @@ export default {
   },
   destroyed () {
     window.removeEventListener('message', this.receiveMessage)
+    window.removeEventListener('resize', this.onWindowResize)
   },
   mounted () {
     applyWarningsVisibility(this.user)
@@ -219,18 +220,58 @@ export default {
       this.imathasSolutionSrc = `https://${imathasDomain}/imathas/adapt/showdetsoln.php?problemJWT=${problemJWT}`
       await this.openShowHTMLSolutionModal()
     },
-    getMaxChildWidth (sel) {
-      let max = 0
-      $(sel).children().each(function () {
-        const cWidth = parseInt($(this).width())
-        if (cWidth > max) max = cWidth
-      })
-      return max
+    getSolutionModalEl () {
+      return document.querySelector(`#modal-show-html-solution-${this.modalId}`)
     },
-    onHTMLSolutionModalShown () {
-      const modalEl = document.querySelector(`#modal-show-html-solution-${this.modalId}`)
+    async onHTMLSolutionModalShown () {
+      const modalEl = this.getSolutionModalEl()
+      if (!modalEl) return
       this.convertMathJaxV2ToV3(modalEl)
-      this.typesetMath(modalEl)
+      // typesetMath may or may not return a promise; await either way so we
+      // measure the rendered math, not the raw TeX.
+      try {
+        await Promise.resolve(this.typesetMath(modalEl))
+      } catch (e) {
+        console.error(e)
+      }
+      // Give the browser one frame to lay out the typeset output.
+      requestAnimationFrame(() => this.fitModalToContent(modalEl))
+      window.removeEventListener('resize', this.onWindowResize)
+      window.addEventListener('resize', this.onWindowResize)
+    },
+    onWindowResize () {
+      const modalEl = this.getSolutionModalEl()
+      if (modalEl && modalEl.offsetParent !== null) {
+        this.fitModalToContent(modalEl)
+      }
+    },
+    // Widens the modal so wide content (MathJax matrices, tables, images)
+    // fits, up to 95% of the viewport. Anything wider scrolls horizontally.
+    fitModalToContent (modalEl) {
+      const dialog = modalEl.querySelector('.modal-dialog')
+      const body = modalEl.querySelector('.modal-body')
+      if (!dialog || !body) return
+
+      // Reset to the size="lg" default before measuring.
+      dialog.style.maxWidth = ''
+      body.style.overflowX = ''
+
+      const style = getComputedStyle(body)
+      const padding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
+
+      // scrollWidth includes overflowing content, even inside overflow:auto containers.
+      let contentWidth = body.scrollWidth
+      body.querySelectorAll('mjx-container, .MathJax_Display, .MJXc-display, .MathJax_SVG_Display, table, img, .mt-section > *')
+        .forEach(el => {
+          contentWidth = Math.max(contentWidth, el.scrollWidth + padding)
+        })
+
+      if (contentWidth <= body.clientWidth) return // already fits
+
+      const maxAllowed = window.innerWidth * 0.95
+      // +4 accounts for modal-content borders and rounding
+      dialog.style.maxWidth = `${Math.ceil(Math.min(contentWidth + 4, maxAllowed))}px`
+      body.style.overflowX = 'auto'
     },
     async openShowHTMLSolutionModal () {
       this.$bvModal.show(`modal-show-html-solution-${this.modalId}`)
@@ -242,20 +283,12 @@ export default {
         })
 
         const mtSection = solutionModal.find('.mt-section')[0]
-        if (mtSection && document.getElementsByClassName('mt-section').length) {
+        if (mtSection) {
           for (const el of mtSection.querySelectorAll('h2.editable')) {
             el.style.display = 'none'
           }
-
-          const maxChildWidth = this.getMaxChildWidth(mtSection)
-          const modalLg = document.querySelector('.modal-lg')
-          if (modalLg && parseInt(maxChildWidth) > parseInt(getComputedStyle(modalLg).width)) {
-            const selector = solutionModal[0]
-            selector.getElementsByClassName('modal-lg')[0].style.maxWidth =
-              Math.min(parseInt(maxChildWidth), window.outerWidth) - 20 + 'px'
-            selector.getElementsByClassName('modal-body')[0].style.overflowX = 'auto'
-          }
         }
+        // Sizing happens in onHTMLSolutionModalShown, after MathJax has rendered.
       })
     },
     standardizeFilename (filename) {
@@ -274,8 +307,10 @@ export default {
 </script>
 
 <style>
-.MathJax_Display, .MJXc-display, .MathJax_SVG_Display {
+.MathJax_Display, .MJXc-display, .MathJax_SVG_Display,
+mjx-container[display="true"] {
   overflow-x: auto;
   overflow-y: hidden;
+  max-width: 100%;
 }
 </style>
