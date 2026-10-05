@@ -131,15 +131,15 @@
           </template>
           <div class="mt-2">
             <span id="assignment-url">{{ getAssignmentUrl() }}</span> <a
-              href=""
-              class="pr-1"
-              aria-label="Copy Direct Student Link"
-              @click.prevent="doCopy('assignment-url')"
-            >
-              <font-awesome-icon
-                :icon="copyIcon"
-              />
-            </a>
+            href=""
+            class="pr-1"
+            aria-label="Copy Direct Student Link"
+            @click.prevent="doCopy('assignment-url')"
+          >
+            <font-awesome-icon
+              :icon="copyIcon"
+            />
+          </a>
           </div>
         </b-form-group>
         <b-form-group
@@ -2054,35 +2054,6 @@
                 </b-col>
               </b-form-row>
             </b-form-group>
-            <b-form-group label-cols-sm="4" label-cols-lg="3" :label-for="`time_limit_${index}`">
-              <template v-slot:label>
-                Time Limit
-                <QuestionCircleTooltip :id="'time_limit_tooltip'" />
-                <b-tooltip target="time_limit_tooltip" delay="250" triggers="hover focus">
-                  Once a student starts this assignment, they must finish within this amount of time (e.g. "1 hour").
-                  Leave blank for no personal time limit. This will never extend a student's time past the due date
-                  above.
-                </b-tooltip>
-              </template>
-              <b-form-row>
-                <b-col lg="4">
-                  <b-form-input
-                    :id="`time_limit_${index}`"
-                    v-model="assignTo.time_limit"
-                    type="text"
-                    placeholder="e.g. 1 hour"
-                    :disabled="assignTo.time_limit_locked"
-                    :class="{ 'is-invalid': form.errors.has(`time_limit_${index}`) }"
-                    @keydown="form.errors.clear(`time_limit_${index}`)"
-                  />
-                  <has-error :form="form" :field="`time_limit_${index}`" />
-                  <small v-if="assignTo.time_limit_locked" class="text-muted d-block mt-1">
-                    This can't be changed because at least one student has already started their timer for this
-                    assignment.
-                  </small>
-                </b-col>
-              </b-form-row>
-            </b-form-group>
             <b-form-group
               v-show="form.late_policy !== 'not accepted'"
               label-cols-sm="4"
@@ -2128,6 +2099,35 @@
                     </template>
                   </vue-timepicker>
                   <ErrorMessage :message="form.errors.get(`final_submission_deadline_time_${index}`)" />
+                </b-col>
+              </b-form-row>
+            </b-form-group>
+            <b-form-group label-cols-sm="4" label-cols-lg="3" :label-for="`time_limit_${index}`">
+              <template v-slot:label>
+                Time Limit
+                <QuestionCircleTooltip :id="'time_limit_tooltip'" />
+                <b-tooltip target="time_limit_tooltip" delay="250" triggers="hover focus">
+                  Once a student starts this assignment, they must finish within this amount of time (e.g. "1 hour").
+                  Leave blank for no personal time limit. This will never extend a student's time past the due date
+                  above.
+                </b-tooltip>
+              </template>
+              <b-form-row>
+                <b-col lg="4">
+                  <b-form-input
+                    :id="`time_limit_${index}`"
+                    v-model="assignTo.time_limit"
+                    type="text"
+                    placeholder="e.g. 1 hour"
+                    :disabled="assignTo.time_limit_locked"
+                    :class="{ 'is-invalid': form.errors.has(`time_limit_${index}`) }"
+                    @keydown="form.errors.clear(`time_limit_${index}`)"
+                  />
+                  <has-error :form="form" :field="`time_limit_${index}`" />
+                  <small v-if="assignTo.time_limit_locked" class="text-muted d-block mt-1">
+                    This can't be changed because at least one student has already started their timer for this
+                    assignment.
+                  </small>
                 </b-col>
               </b-form-row>
             </b-form-group>
