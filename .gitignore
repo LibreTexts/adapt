@@ -12,6 +12,7 @@ auth.json
 /public/mix-manifest.json
 /JWE
 .env
+.env.bak
 .phpunit.result.cache
 Homestead.json
 Homestead.yaml
