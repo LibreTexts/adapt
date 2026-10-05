@@ -373,10 +373,10 @@ class QuestionBankController extends Controller
                         $question_ids = $question_ids->where('qti_json_type', $nursing_formatted_question_types_with_values[$request->question_type]);
                     } else if ($request->question_type === 'discuss_it') {
                         $question_ids = $question_ids->where('qti_json_type', 'discuss_it');
-                    } else if (in_array($request->question_type, ['Marker', 'Submit Molecule', 'Flashcard', 'Accounting Journal Entry', 'Accounting Report', 'Accounting Multi Part Computation'])) {
+                    } else if (in_array($request->question_type, ['Marker', 'Submit Molecule', 'Pushing Arrows', 'Flashcard', 'Accounting Journal Entry', 'Accounting Report', 'Accounting Multi Part Computation'])) {
                         $question_ids = $question_ids->where('qti_json_type', strtolower(str_replace(' ', '_', $request->question_type)));
                     } else if ($request->qti_content_type === 'sketcher') {
-                        $question_ids = $question_ids->whereIn('qti_json_type', ['marker', 'submit_molecule']);
+                        $question_ids = $question_ids->whereIn('qti_json_type', ['marker', 'submit_molecule', 'pushing_arrows']);
                     } else if ($request->qti_content_type === 'accounting') {
                         $question_ids = $question_ids->whereIn('qti_json_type', ['accounting_journal_entry', 'accounting_report', 'accounting_multi_part_computation']);
                     } else if ($request->qti_content_type === '3d_model') {
@@ -493,6 +493,9 @@ class QuestionBankController extends Controller
                 }
                 if ($questions[$key]->qti_json_type === 'marker') {
                     $questions[$key]->question_type = 'Marker';
+                }
+                if ($questions[$key]->qti_json_type === 'pushing_arrows') {
+                    $questions[$key]->question_type = 'Pushing Arrows';
                 }
                 if ($questions[$key]->qti_json_type === 'discuss_it') {
                     $questions[$key]->question_type = 'Discuss-it';

@@ -1024,7 +1024,6 @@
                           All
                         </b-form-radio>
                       </b-form-radio-group>
-                      </b-tooltip>
                       <label v-if="['h5p','imathas'].includes(allQuestionsTechnology)" class="ml-4"
                              style="font-size:14px;margin-right:11px"
                       >Technology ID</label>
@@ -1984,7 +1983,7 @@ export default {
                 'Fill-in-the-blank', 'Flashcard', 'Matching', 'Multi Numerical', 'Multiple Answer', 'Multiple Choice', 'Select Choice', 'Single Numerical', 'True/False']
               break
             case ('sketcher'):
-              options = ['Marker', 'Submit Molecule']
+              options = ['Marker', 'Pushing Arrows', 'Submit Molecule']
               break
             case ('accounting'):
               options = ['Accounting Journal Entry', 'Accounting Multi Part Computation', 'Accounting Report']
@@ -1994,6 +1993,16 @@ export default {
               break
           }
           this.formattedQuestionTypesOptionsByTechnology = this.formattedQuestionTypesOptionsByTechnology.filter(item => options.includes(item.formatted_question_type))
+          // Pushing Arrows may not be in the formatted-question-types list yet, so make sure it's offered for Sketcher
+          if (this.qtiContentType === 'sketcher' &&
+            !this.formattedQuestionTypesOptionsByTechnology.find(item => item.formatted_question_type === 'Pushing Arrows')) {
+            this.formattedQuestionTypesOptionsByTechnology.push({
+              formatted_question_type: 'Pushing Arrows',
+              technology: 'qti'
+            })
+          }
+          this.formattedQuestionTypesOptionsByTechnology.sort((a, b) =>
+            a.formatted_question_type.localeCompare(b.formatted_question_type))
         }
       } else {
         const usedFormattedQuestionTypes = []
