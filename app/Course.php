@@ -472,34 +472,53 @@ class Course extends Model
     {
         return $this->hasManyThrough('App\Score', 'App\Assignment');
     }
-
     /**
      * @throws Exception
      */
     public
     function concludedCourses(string $operator_text, int $num_days): Collection
     {
+        $realStudentSubmissionExists = function (string $table) {
+            return function ($subquery) use ($table) {
+                $subquery->select(DB::raw(1))
+                    ->from('assignments')
+                    ->join($table, "$table.assignment_id", '=', 'assignments.id')
+                    ->join('users', 'users.id', '=', "$table.user_id")
+                    ->join('enrollments', function ($join) {
+                        $join->on('enrollments.user_id', '=', 'users.id')
+                            ->on('enrollments.course_id', '=', 'courses.id');
+                    })
+                    ->whereColumn('assignments.course_id', 'courses.id')
+                    ->where('users.fake_student', 0);
+            };
+        };
 
         $concluded_courses = DB::table('courses')
-            ->join('enrollments', 'courses.id', '=', 'enrollments.course_id')
-            ->join('users', 'enrollments.user_id', '=', 'users.id')
             ->select('courses.id',
                 'courses.name',
                 'courses.user_id',
                 'courses.end_date')
-            ->where('users.fake_student', 0);
+            // Only include courses where at least one real (non-fake) enrolled student
+            // has made at least one submission (auto-graded or open-ended).
+            ->where(function ($query) use ($realStudentSubmissionExists) {
+                $query->whereExists($realStudentSubmissionExists('submissions'))
+                    ->orWhereExists($realStudentSubmissionExists('submission_files'));
+            });
         switch ($operator_text) {
             case('more-than'):
                 $concluded_courses = $concluded_courses->where('end_date', '<', Carbon::now()->subDays($num_days));
                 break;
             case('equals'):
-                $concluded_courses = $concluded_courses->where(DB::raw('DATE(`end_date`)'), '=', Carbon::now()->subDays($num_days)->toDateString());
+                // Range instead of DATE(end_date) so the courses.end_date index can be used.
+                $day = Carbon::now()->subDays($num_days)->startOfDay();
+                $concluded_courses = $concluded_courses
+                    ->where('end_date', '>=', $day)
+                    ->where('end_date', '<', $day->copy()->addDay());
                 break;
             default:
                 throw new Exception ("$operator_text is not a valid operator.");
         }
         $concluded_courses = $concluded_courses
-            ->groupBy('courses.id')
             ->orderBy('end_date', 'desc')
             ->get();
         $course_ids = [];
