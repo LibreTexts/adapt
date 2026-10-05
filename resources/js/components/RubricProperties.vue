@@ -410,6 +410,11 @@ export default {
         this.rubricItems = []
         this.name = ''
         this.description = ''
+        this.rubricTemplateId = 0
+        if (this.rubricTemplateSaveOption === 'update existing template') {
+          this.rubricTemplateSaveOption = 'do not save as template'
+        }
+        return
       }
       const template = this.rubricTemplateOptions.find(item => item.value === rubricTemplateId)
 

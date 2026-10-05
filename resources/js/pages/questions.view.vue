@@ -296,7 +296,7 @@
         </b-button>
       </template>
     </b-modal>
-    <b-modal id="modal-confirm-update-use-existing-cubric"
+    <b-modal id="modal-confirm-update-use-existing-rubric"
              title="Confirm Switching Rubric"
     >
       <b-alert :show="rubricPointsBreakDownExists" variant="danger">
@@ -307,7 +307,7 @@
       <template #modal-footer>
         <b-button
           size="sm"
-          @click="$bvModal.hide('modal-confirm-delete-overriding-rubric')"
+          @click="$bvModal.hide('modal-confirm-update-use-existing-rubric')"
         >
           Cancel
         </b-button>

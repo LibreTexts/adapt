@@ -86,7 +86,9 @@ export default {
     description: '',
     name: '',
     scoreInputType: '',
-    rubricShown: true
+    rubricShown: true,
+    rubricTemplate: null,
+    rubricTemplateSaveOption: 'do not save as template'
   }),
   mounted () {
     if (this.isTemplate) {
@@ -100,8 +102,6 @@ export default {
   methods: {
     setKeyValue (key, value) {
       this[key] = value
-      console.error(key)
-      console.error(value)
     },
     setRubricItems () {
       alert('To do setRubricItems')
@@ -127,12 +127,21 @@ export default {
             question_id: this.questionId,
             rubric_shown: this.rubricShown
           }
-          const action = this.rubricTemplateSaveOption === 'update existing template' || this.isEdit ? 'patch' : 'post'
-          let rubricTemplateId
-          if (this.isEdit) {
-            rubricTemplateId = saveAsTemplate ? this.rubricTemplateId : this.rubricInfo.id
+          // On the template page, isEdit means "editing this template".
+          // On a question page, isEdit only means the question already has a rubric,
+          // so the "On save" choice alone decides whether a template is updated.
+          const updatingExistingTemplate = this.isTemplate
+            ? this.isEdit
+            : this.rubricTemplateSaveOption === 'update existing template'
+          const rubricTemplateId = this.isTemplate ? this.rubricInfo.id : this.rubricTemplate
+          if (updatingExistingTemplate && !rubricTemplateId) {
+            this.$noty.error('Please choose the template you would like to update.')
+            return
           }
-          const url = this.isEdit ? `/api/rubric-templates/${rubricTemplateId}` : '/api/rubric-templates'
+          const action = updatingExistingTemplate ? 'patch' : 'post'
+          const url = updatingExistingTemplate
+            ? `/api/rubric-templates/${rubricTemplateId}`
+            : '/api/rubric-templates'
           const { data } = await axios[action](url, rubricData)
           this.$noty[data.type](data.message)
           if (data.type === 'success') {
@@ -178,4 +187,3 @@ export default {
   }
 }
 </script>
-
