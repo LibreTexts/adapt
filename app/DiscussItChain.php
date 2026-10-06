@@ -127,6 +127,55 @@ class DiscussItChain extends Model
     }
 
     /**
+     * Real-student comments that depend on these assignments: comments made in them, and comments made anywhere
+     * on threads started in them.  Unlinking would hide these (a reply would lose its thread, or a thread its
+     * replies), and removing the question would delete them (see Helper::removeAllStudentSubmissionTypesByAssignmentAndQuestion).
+     * Comments made in other linked assignments on threads started there don't depend on them.
+     *
+     * @param array $assignment_ids
+     * @param int $question_id
+     * @return bool
+     */
+    public static function realStudentCommentsTiedToAssignments(array $assignment_ids, int $question_id): bool
+    {
+        if (!$assignment_ids) {
+            return false;
+        }
+        return DB::table('discussion_comments')
+            ->join('discussions', 'discussion_comments.discussion_id', '=', 'discussions.id')
+            ->join('users', 'discussion_comments.user_id', '=', 'users.id')
+            ->where('discussions.question_id', $question_id)
+            ->where('users.role', 3)
+            ->where('users.fake_student', 0)
+            ->where(function ($query) use ($assignment_ids) {
+                $query->whereIn('discussion_comments.posted_in_assignment_id', $assignment_ids)
+                    ->orWhereIn('discussions.assignment_id', $assignment_ids);
+            })
+            ->exists();
+    }
+
+    /**
+     * Why this assignment's question can't be unlinked, or null if it can.  Only comments that depend on this
+     * assignment (or on its Beta copies, which are unlinked along with it) count; students' work in the other
+     * linked assignments stays where it is.
+     *
+     * @param int $assignment_id
+     * @param int $question_id
+     * @return string|null
+     */
+    public static function unlinkBlockedReason(int $assignment_id, int $question_id): ?string
+    {
+        if (self::realStudentCommentsTiedToAssignments([$assignment_id], $question_id)) {
+            return 'Students have already commented on this question in this assignment, so it can no longer be unlinked.';
+        }
+        $beta_assignment_ids = array_values(array_diff(self::withBetaAssignmentIds([$assignment_id]), [$assignment_id]));
+        if (self::realStudentCommentsTiedToAssignments($beta_assignment_ids, $question_id)) {
+            return 'Students in a tethered Beta course have already commented on this question in their copy of this assignment, so it can no longer be unlinked.';
+        }
+        return null;
+    }
+
+    /**
      * @param array $assignment_ids
      * @return array
      */
@@ -194,12 +243,14 @@ class DiscussItChain extends Model
             }
         }
         $is_linked = $chain && self::chainId($assignment->id, $question_id) === $chain->id;
+        $unlink_blocked_reason = $is_linked ? self::unlinkBlockedReason($assignment->id, $question_id) : null;
         return [
             'is_linked' => $is_linked,
             'chain_exists' => (bool)$chain,
             'linked_assignments' => $linked_assignments,
             'unlinked_assignments' => $unlinked_assignments,
-            'can_unlink' => !$is_linked || !self::chainHasRealStudentComments($assignment->id, $question_id)
+            'can_unlink' => !$unlink_blocked_reason,
+            'unlink_blocked_reason' => $unlink_blocked_reason
         ];
     }
 
@@ -336,8 +387,10 @@ class DiscussItChain extends Model
             $response['message'] = 'This question is not linked to any other assignment.';
             return $response;
         }
-        if (self::chainHasRealStudentComments($assignment_id, $question_id)) {
-            $response['message'] = 'Students have already commented in the linked assignments, so this question can no longer be unlinked.';
+        //checked now, not when the settings window was opened, so a comment made in the meantime still blocks it
+        $unlink_blocked_reason = self::unlinkBlockedReason($assignment_id, $question_id);
+        if ($unlink_blocked_reason) {
+            $response['message'] = $unlink_blocked_reason;
             return $response;
         }
         $course_id = Assignment::find($assignment_id)->course_id;

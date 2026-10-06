@@ -239,15 +239,57 @@ class DiscussItChainTest extends TestCase
     }
 
     /** @test */
-    public function cannot_unlink_after_real_students_comment()
+    public function can_unlink_when_students_commented_only_in_the_other_linked_assignments()
     {
         $this->_link($this->assignment_2, [$this->assignment_1])->assertJson(['type' => 'success']);
         $discussion_id = $this->_startDiscussion($this->assignment_1, $this->student_user);
         $this->_comment($discussion_id, $this->assignment_1, $this->student_user);
         $this->actingAs($this->user)
             ->deleteJson("/api/assignments/{$this->assignment_2->id}/question/{$this->question->id}/discuss-it-link")
+            ->assertJson(['type' => 'success']);
+        $this->assertNull($this->_chainId($this->assignment_2));
+        $this->assertDatabaseHas('discussion_comments', ['discussion_id' => $discussion_id,
+            'posted_in_assignment_id' => $this->assignment_1->id]);
+    }
+
+    /** @test */
+    public function cannot_unlink_after_real_students_comment_in_this_assignment()
+    {
+        $this->_link($this->assignment_2, [$this->assignment_1])->assertJson(['type' => 'success']);
+        //a reply made in assignment 2 on a thread started in assignment 1
+        $discussion_id = $this->_startDiscussion($this->assignment_1, $this->user);
+        $this->_comment($discussion_id, $this->assignment_1, $this->user);
+        $this->_comment($discussion_id, $this->assignment_2, $this->student_user);
+        $this->actingAs($this->user)
+            ->deleteJson("/api/assignments/{$this->assignment_2->id}/question/{$this->question->id}/discuss-it-link")
             ->assertJson(['type' => 'error',
-                'message' => 'Students have already commented in the linked assignments, so this question can no longer be unlinked.']);
+                'message' => 'Students have already commented on this question in this assignment, so it can no longer be unlinked.']);
+        $this->assertNotNull($this->_chainId($this->assignment_2));
+    }
+
+    /** @test */
+    public function cannot_unlink_when_students_elsewhere_replied_to_a_thread_started_here()
+    {
+        $this->_link($this->assignment_2, [$this->assignment_1])->assertJson(['type' => 'success']);
+        $discussion_id = $this->_startDiscussion($this->assignment_2, $this->user);
+        $this->_comment($discussion_id, $this->assignment_2, $this->user);
+        $this->_comment($discussion_id, $this->assignment_1, $this->student_user);
+        $this->actingAs($this->user)
+            ->deleteJson("/api/assignments/{$this->assignment_2->id}/question/{$this->question->id}/discuss-it-link")
+            ->assertJson(['type' => 'error']);
+    }
+
+    /** @test */
+    public function the_settings_modal_says_whether_this_assignment_can_be_unlinked()
+    {
+        $this->_link($this->assignment_2, [$this->assignment_1])->assertJson(['type' => 'success']);
+        $this->_comment($this->_startDiscussion($this->assignment_1, $this->student_user), $this->assignment_1, $this->student_user);
+        $this->actingAs($this->user)
+            ->getJson("/api/assignments/{$this->assignment_2->id}/question/{$this->question->id}/discuss-it-settings")
+            ->assertJson(['discuss_it_links' => ['can_unlink' => true, 'unlink_blocked_reason' => null]]);
+        $this->actingAs($this->user)
+            ->getJson("/api/assignments/{$this->assignment_1->id}/question/{$this->question->id}/discuss-it-settings")
+            ->assertJson(['discuss_it_links' => ['can_unlink' => false]]);
     }
 
     /** @test */
@@ -433,14 +475,29 @@ class DiscussItChainTest extends TestCase
     */
 
     /** @test */
-    public function cannot_remove_a_linked_question_after_students_comment()
+    public function cannot_remove_a_linked_question_after_students_comment_in_this_assignment()
     {
         $this->_link($this->assignment_2, [$this->assignment_1])->assertJson(['type' => 'success']);
-        $this->_comment($this->_startDiscussion($this->assignment_1, $this->student_user), $this->assignment_1, $this->student_user);
+        $this->_comment($this->_startDiscussion($this->assignment_2, $this->student_user), $this->assignment_2, $this->student_user);
         $this->actingAs($this->user)
             ->deleteJson("/api/assignments/{$this->assignment_2->id}/questions/{$this->question->id}")
             ->assertJson(['type' => 'error',
-                'message' => 'You cannot remove this question since it is linked in other assignments and students have already commented. All student comments would need to be removed first.']);
+                'message' => 'You cannot remove this question since it is linked in other assignments and students have already commented on it in this assignment. Their comments here would need to be removed first.']);
+    }
+
+    /** @test */
+    public function can_remove_a_linked_question_when_students_commented_only_in_the_other_linked_assignments()
+    {
+        $this->_link($this->assignment_2, [$this->assignment_1])->assertJson(['type' => 'success']);
+        $discussion_id = $this->_startDiscussion($this->assignment_1, $this->student_user);
+        $this->_comment($discussion_id, $this->assignment_1, $this->student_user);
+        $this->actingAs($this->user)
+            ->deleteJson("/api/assignments/{$this->assignment_2->id}/questions/{$this->question->id}")
+            ->assertJson(['type' => 'info']);
+        $this->assertDatabaseMissing('assignment_question', ['assignment_id' => $this->assignment_2->id,
+            'question_id' => $this->question->id]);
+        $this->assertNull($this->_chainId($this->assignment_1));
+        $this->assertDatabaseHas('discussion_comments', ['discussion_id' => $discussion_id]);
     }
 
     /** @test */
@@ -655,15 +712,16 @@ class DiscussItChainTest extends TestCase
     }
 
     /** @test */
-    public function alpha_cannot_unlink_after_beta_students_comment()
+    public function alpha_cannot_unlink_after_beta_students_comment_in_its_copy()
     {
         [, , $beta_assignments] = $this->_createBetaCourse();
         $this->_link($this->assignment_2, [$this->assignment_1])->assertJson(['type' => 'success']);
-        $this->_comment($this->_startDiscussion($beta_assignments[0], $this->student_user), $beta_assignments[0], $this->student_user);
+        //beta_assignments[1] is the Beta copy of assignment 2
+        $this->_comment($this->_startDiscussion($beta_assignments[1], $this->student_user), $beta_assignments[1], $this->student_user);
         $this->actingAs($this->user)
             ->deleteJson("/api/assignments/{$this->assignment_2->id}/question/{$this->question->id}/discuss-it-link")
             ->assertJson(['type' => 'error',
-                'message' => 'Students have already commented in the linked assignments, so this question can no longer be unlinked.']);
+                'message' => 'Students in a tethered Beta course have already commented on this question in their copy of this assignment, so it can no longer be unlinked.']);
     }
 
     /*

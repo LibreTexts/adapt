@@ -567,7 +567,7 @@
                   Unlink This Question
                 </b-button>
                 <span v-if="!discussItLinks.can_unlink" class="small text-muted ml-2">
-                  Students have already commented, so this question can no longer be unlinked.
+                  {{ discussItLinks.unlink_blocked_reason || 'Students have already commented on this question in this assignment, so it can no longer be unlinked.' }}
                 </span>
               </div>
               <div v-if="!discussItLinks.is_linked && discussItLinks.chain_exists" class="mb-2">

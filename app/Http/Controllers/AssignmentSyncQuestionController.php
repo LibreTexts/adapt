@@ -3294,9 +3294,11 @@ class AssignmentSyncQuestionController extends Controller
             $response['message'] = "You cannot remove this question since there are already submissions and this assignment computes points using question weights.";
             return $response;
         }
+        //only comments that removing it here would delete count: those made in this assignment, and those made in
+        //the linked assignments on threads started here.  Checked at the time of removal, not when the page loaded.
         if (DiscussItChain::chainId($assignment->id, $question->id)
-            && DiscussItChain::chainHasRealStudentComments($assignment->id, $question->id)) {
-            $response['message'] = "You cannot remove this question since it is linked in other assignments and students have already commented. All student comments would need to be removed first.";
+            && DiscussItChain::realStudentCommentsTiedToAssignments([$assignment->id], $question->id)) {
+            $response['message'] = "You cannot remove this question since it is linked in other assignments and students have already commented on it in this assignment. Their comments here would need to be removed first.";
             return $response;
         }
 
