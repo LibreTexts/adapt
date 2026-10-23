@@ -60,8 +60,6 @@ class AssignmentsIndex1Test extends TestCase
 
     }
 
-
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function owner_cannot_release_letter_grades_if_assignment_weights_are_not_100()
     {
@@ -82,10 +80,6 @@ class AssignmentsIndex1Test extends TestCase
             ->assertJson(['message' => 'The letter grades <strong>are not</strong> released.']);
     }
 
-
-
-
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function non_owner_cannot_toggle_show_question_titles()
     {
@@ -94,7 +88,6 @@ class AssignmentsIndex1Test extends TestCase
             ->assertJson(['message' => 'You are not allowed to toggle whether students can view question titles.']);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function non_owner_cannot_toggle_question_url_view()
     {
@@ -102,8 +95,6 @@ class AssignmentsIndex1Test extends TestCase
             ->patchJson("/api/assignments/{$this->assignment->id}/question-url-view")
             ->assertJson(['message' => 'You are not allowed to update the question URL view for this assignment.']);
     }
-
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function nonowner_cannot_toggle_graders_seeing_student_names()
@@ -120,9 +111,6 @@ class AssignmentsIndex1Test extends TestCase
             ->patchJson("/api/assignments/{$this->assignment->id}/graders-can-see-student-names/1")
             ->assertJson(['message' => "Graders <strong>cannot</strong> see their students' names."]);
     }
-
-
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function nonowner_cannot_create_new_assignment_group()
@@ -141,7 +129,6 @@ class AssignmentsIndex1Test extends TestCase
             ->assertJson(['message' => '<strong>some group</strong> has been added as an assignment group.']);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function assignment_group_must_not_be_empty()
     {
@@ -149,15 +136,6 @@ class AssignmentsIndex1Test extends TestCase
             ->postJson("/api/assignmentGroups/{$this->course->id}", ['assignment_group' => ''])
             ->assertJsonValidationErrors(['assignment_group']);
     }
-
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function will_only_update_the_name_and_dates_if_there_is_already_a_submission()
-    {
-
-
-    }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function can_get_your_assignments()
@@ -167,19 +145,6 @@ class AssignmentsIndex1Test extends TestCase
             ->assertJson($expected);
 
     }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function owener_can_update_solutions_shown()
-    {
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function cannot_update_solutions_shown_if_not_owner()
-    {
-
-    }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function must_submit_a_valid_scoring_type()
@@ -224,6 +189,4 @@ class AssignmentsIndex1Test extends TestCase
             ->assertJson(['type' => 'error', 'message' => 'You are not allowed to delete this assignment.']);
 
     }
-
-
 }

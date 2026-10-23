@@ -45,7 +45,6 @@ class ScoresIndexTest extends TestCase
             'course_id' => $this->course->id
         ]);
 
-
         $this->assignment = factory(Assignment::class)->create(['course_id' => $this->course->id]);
         //enroll a student in that course
         $assignToTiming = new AssignToTiming();
@@ -59,7 +58,6 @@ class ScoresIndexTest extends TestCase
         $assignToUser->user_id = $this->student_user->id;
 
         $assignToUser->save();
-
 
         $this->student_user_2 = factory(User::class)->create();//not enrolled
         $this->student_user->role = 3;
@@ -85,7 +83,6 @@ public function correctly_computes_the_final_score_with_randomized_assessment_as
     $this->assignment->default_points_per_question = 10;
     $this->assignment->number_of_randomized_assessments = 1;
     $this->assignment->save();
-
 
     DB::table('assignment_question')->insert([
         'assignment_id' => $this->assignment->id,
@@ -135,7 +132,6 @@ public function correctly_computes_the_final_score_with_randomized_assessment_as
             $this->assignUserToAssignment($assignment->id, 'course', $this->course->id, $this->student_user->id);
         }
 
-
         $response = $this->actingAs($this->user)->getJson("/api/scores/{$this->course->id}/{$this->section->id}/0");
         $weighted_score_assignment_id = $response->baseResponse->original['weighted_score_assignment_id'];
         $this->assertEquals('49.17%', $response->baseResponse->original['table']['rows'][0][$weighted_score_assignment_id]);//see computation above
@@ -158,15 +154,12 @@ public function correctly_computes_the_final_score_with_randomized_assessment_as
         $this->grader->section_id = $this->section_2->id;
         $this->grader->save();
 
-
         $this->actingAs($this->grader_user)->patchJson("/api/scores/{$this->assignment->id}/{$this->student_user->id}",
             [
                 'score' => 3
             ])
             ->assertJson(['message' => 'You are not allowed to update this score.']);
     }
-
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function owner_is_warned_when_creating_an_extension_if_scores_are_shown()
@@ -187,9 +180,6 @@ public function correctly_computes_the_final_score_with_randomized_assessment_as
         $this->actingAs($this->user)->getJson("/api/extensions/{$this->assignment->id}/{$this->student_user->id}")
             ->assertJson(['extension_warning' => 'Before providing an extension please note that:  The assignment solutions are available.']);
     }
-
-
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function instructors_can_log_in_as_students_in_their_courses()
@@ -228,7 +218,6 @@ public function correctly_computes_the_final_score_with_randomized_assessment_as
     public function if_a_student_is_not_in_the_course_a_user_cannot_get_their_extra_credit()
     {
 
-
         $this->actingAs($this->user)->getJson("/api/extra-credit/{$this->course->id}/{$this->student_user_2->id}")
             ->assertJson(['message' => 'You are not allowed to view this student\'s extra credit.']);
     }
@@ -242,7 +231,6 @@ public function correctly_computes_the_final_score_with_randomized_assessment_as
         $this->actingAs($this->user)->getJson("/api/extra-credit/{$this->course->id}/{$this->student_user->id}")
             ->assertJson(['extra_credit' => '10.00']);
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function if_a_student_is_not_in_the_course_a_user_cannot_udpate_extra_credit()
@@ -274,9 +262,6 @@ public function correctly_computes_the_final_score_with_randomized_assessment_as
             'extra_credit' => -5])
             ->assertJsonValidationErrors(['extra_credit']);
     }
-
-
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function correctly_computes_the_final_scores()
@@ -316,7 +301,6 @@ public function correctly_computes_the_final_score_with_randomized_assessment_as
         $this->assertEquals('51.11%', $response->baseResponse->original['table']['rows'][0][$weighted_score_assignment_id]);//see computation above
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function can_update_assignment_score_if_owner()
@@ -395,7 +379,6 @@ public function correctly_computes_the_final_score_with_randomized_assessment_as
         ]);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function can_get_extension_if_owner()
     {
@@ -430,25 +413,4 @@ public function correctly_computes_the_final_score_with_randomized_assessment_as
                 'message' => 'You are not allowed to view these scores.']);//for the fake student
 
     }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function can_get_student_score_by_assignment_if_owner()
-    {
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public
-    function cannot_get_student_score_by_assignment_if_not_owner()
-    {
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function correctly_handles_different_timezones()
-    {
-
-    }
-
-
 }

@@ -35,7 +35,6 @@ class AssignmentsIndex2Test extends TestCase
         $this->course = factory(Course::class)->create(['user_id' => $this->user->id]);
         $this->student_user = factory(User::class)->create(['role' => 3]);
 
-
         $this->student_user_2 = factory(User::class)->create(['role' => 3]);
 
         $this->student_user_ids = [$this->student_user->id, $this->student_user_2->id];
@@ -44,7 +43,6 @@ class AssignmentsIndex2Test extends TestCase
         $this->assignment = factory(Assignment::class)
             ->create(['course_id' => $this->course->id, 'name' => 'Assignment 1']);
         $this->assignUserToAssignment($this->assignment->id, 'course', $this->course->id);
-
 
         $this->assignment_3 = factory(Assignment::class)
             ->create([
@@ -61,7 +59,6 @@ class AssignmentsIndex2Test extends TestCase
             'open_ended_submission_type' => 'file'
         ]);
 
-
         $this->learning_tree = factory(LearningTree::class)->create(['user_id' => $this->user->id]);
         $this->original_assignment_question_learning_tree_id = DB::table('assignment_question_learning_tree')->insertGetId([
             'assignment_question_id' => $this->original_assignment_question_id,
@@ -70,7 +67,6 @@ class AssignmentsIndex2Test extends TestCase
         ]);
 
         $this->course_3 = factory(Course::class)->create(['user_id' => $this->user->id]);
-
 
         $this->user_2 = factory(User::class)->create();
         $this->course_2 = factory(Course::class)->create(['user_id' => $this->user_2->id]);
@@ -83,7 +79,6 @@ class AssignmentsIndex2Test extends TestCase
 
         FinalGrade::create(['course_id' => $this->course->id,
             'letter_grades' => $finalGrade->defaultLetterGrades()]);
-
 
         $this->assign_tos = [
             [
@@ -184,7 +179,6 @@ class AssignmentsIndex2Test extends TestCase
         ])->assertJson(['type' => 'success']);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function cannot_change_points_per_question_if_submissions_exist()
     {
@@ -221,7 +215,6 @@ class AssignmentsIndex2Test extends TestCase
         $this->actingAs($this->user)->postJson("/api/assignments/{$this->assignment->id}/create-assignment-from-template", ['level' => 'properties_and_questions'])
             ->assertJson(['message' => 'Since this is an Alpha course, please select "Just Properties".']);
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public
@@ -268,7 +261,6 @@ class AssignmentsIndex2Test extends TestCase
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public
     function owner_of_assignment_can_import_properties_and_questions()
@@ -280,7 +272,6 @@ class AssignmentsIndex2Test extends TestCase
         $original_assignment_question = DB::table('assignment_question')->where('id', $this->original_assignment_question_id)->first();
 
         $this->assertEquals($original_assignment_question->question_id, $imported_assignment_question->question_id);
-
 
     }
 
@@ -295,7 +286,6 @@ class AssignmentsIndex2Test extends TestCase
             ->where('assignment_id', $imported_assignment->id)
             ->first()
             ->id;
-
 
         $original_assignment_question_id = DB::table('assignment_question')
             ->where('id', $this->original_assignment_question_id)
@@ -315,7 +305,6 @@ class AssignmentsIndex2Test extends TestCase
         $this->assertEquals($original_assignment_question_learning_tree_id, $imported_assignment_question_learning_tree_id);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public
     function owner_of_assignment_can_import_just_properties()
@@ -334,7 +323,6 @@ class AssignmentsIndex2Test extends TestCase
             ->assertJson(['message' => "You should either choose 'properties and questions' or 'properties and not questions'."]);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public
     function non_owner_of_assignment_cannot_import_it_to_their_course()
@@ -345,7 +333,6 @@ class AssignmentsIndex2Test extends TestCase
             'level' => 'properties and questions'
         ])->assertJson(['message' => 'You are not allowed to import assignments to this course.']);
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function real_time_must_have_valid_number_of_attempts()
@@ -414,7 +401,6 @@ class AssignmentsIndex2Test extends TestCase
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function cannot_change_from_individual_to_compiled_or_vice_versa_if_there_are_any_submissions()
     {
@@ -437,7 +423,6 @@ class AssignmentsIndex2Test extends TestCase
             ->assertJson(['message' => "Since students have already submitted responses, you can't switch this option."]);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function cannot_change_from_individual_to_compiled_if_non_file_open_ended_assessment_exists()
@@ -469,7 +454,6 @@ class AssignmentsIndex2Test extends TestCase
             ->patchJson("/api/assignments/{$this->assignment->id}", $this->assignment_info)
             ->assertJsonValidationErrors('number_of_randomized_assessments');
 
-
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -480,7 +464,6 @@ class AssignmentsIndex2Test extends TestCase
         $this->actingAs($this->user)->postJson("/api/assignments", $this->assignment_info)
             ->assertJsonValidationErrors('name');
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function number_of_randomized_assessments_must_be_a_valid_number()
@@ -500,7 +483,6 @@ class AssignmentsIndex2Test extends TestCase
         $this->actingAs($this->user)->postJson("/api/assignments", $this->assignment_info)
             ->assertJson(['type' => 'success']);
 
-
         $assignment_id = DB::table('assignments')->select('id')
             ->orderBy('id', 'desc')
             ->first()
@@ -517,7 +499,6 @@ class AssignmentsIndex2Test extends TestCase
             AssignToUser::all()->count(),
             'The number of assign to users should double since they were copied.');
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function cannot_repeat_assign_tos()
@@ -542,7 +523,6 @@ class AssignmentsIndex2Test extends TestCase
         $this->assertEquals(count($student_user_ids), AssignToUser::whereIn('user_id', $student_user_ids)->get()->count());
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public
     function the_correct_user_is_assigned_an_assignment_with_different_sections()
@@ -556,7 +536,6 @@ class AssignmentsIndex2Test extends TestCase
             ->assertJson(['type' => 'success']);
         $this->assertEquals(count($this->student_user_ids), AssignToUser::whereIn('user_id', $this->student_user_ids)->get()->count());
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public
@@ -584,7 +563,6 @@ class AssignmentsIndex2Test extends TestCase
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public
     function non_owner_of_assignment_cannot_create_it_from_template()
@@ -603,7 +581,6 @@ class AssignmentsIndex2Test extends TestCase
             ->assertJson(['message' => "<strong>{$this->assignment->name} copy</strong> is using the same template as <strong>{$this->assignment->name}</strong>. Don't forget to add questions and update the assignment's dates."]);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public
     function must_include_a_valid_default_open_ended_submission_type()
@@ -613,7 +590,6 @@ class AssignmentsIndex2Test extends TestCase
         $this->actingAs($this->user)->postJson("/api/assignments", $this->assignment_info)
             ->assertJsonValidationErrors(['default_open_ended_submission_type']);
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public
@@ -625,82 +601,6 @@ class AssignmentsIndex2Test extends TestCase
             ->assertJsonValidationErrors('scoring_type');
     }
 
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public
-    function final_submission_deadline_must_be_valid()
-    {
-
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public
-    function for_real_time_assessments_students_must_be_shown_scores()
-    {
-//todo
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public
-    function for_real_time_assessments_students_must_be_shown_solutions()
-    {
-//todo
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public
-    function for_real_time_assessments_students_must_be_shown_question_points()
-    {
-//todo
-
-    }
-
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public
-    function submission_count_percent_decrease_must_be_valid()
-    {
-//todo
-
-    }
-
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public
-    function can_only_toggle_show_scores_for_a_delayed_assignment()
-    {
-//todo
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public
-    function a_valid_late_policy_is_submitted()
-    {
-//todo
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public
-    function a_valid_late_percent_is_submitted()
-    {
-
-        //todo
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public
-    function a_valid_late_deduction_application_period_is_submitted()
-    {
-        //test once as well as with a time
-        //todo
-
-    }
-
-
     public
     function can_update_an_assignment_if_you_are_the_owner()
     {
@@ -709,7 +609,6 @@ class AssignmentsIndex2Test extends TestCase
             $this->assignment_info)
             ->assertJson(['type' => 'success']);
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public
@@ -727,7 +626,6 @@ class AssignmentsIndex2Test extends TestCase
         $this->assignment_info['source'] = "";
         $this->actingAs($this->user)->postJson("/api/assignments", $this->assignment_info)
             ->assertJsonValidationErrors(['source']);
-
 
     }
 
@@ -752,7 +650,6 @@ class AssignmentsIndex2Test extends TestCase
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public
     function must_include_valid_default_points_per_question()
@@ -761,7 +658,6 @@ class AssignmentsIndex2Test extends TestCase
         $this->assignment_info['default_points_per_question'] = "";
         $this->actingAs($this->user)->postJson("/api/assignments", $this->assignment_info)
             ->assertJsonValidationErrors(['default_points_per_question']);
-
 
         $this->assignment_info['default_points_per_question'] = "10000";
         $this->actingAs($this->user)->postJson("/api/assignments", $this->assignment_info)
@@ -772,7 +668,6 @@ class AssignmentsIndex2Test extends TestCase
             ->assertJsonValidationErrors(['default_points_per_question']);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public
     function must_include_valid_due_date()
@@ -782,7 +677,6 @@ class AssignmentsIndex2Test extends TestCase
         $this->actingAs($this->user)->postJson("/api/assignments", $this->assignment_info)
             ->assertJsonValidationErrors(['due_0']);
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public
@@ -904,6 +798,4 @@ class AssignmentsIndex2Test extends TestCase
         $this->assertEquals('1 hour', $assign_to_timings[0]->time_limit);
         $this->assertNull($assign_to_timings[1]->time_limit);
     }
-
-
 }

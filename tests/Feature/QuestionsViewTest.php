@@ -37,7 +37,6 @@ class QuestionsViewTest extends TestCase
     use Statistics;
     use Test;
 
-
     private $upload_file_data;
     private $assignment;
     private $student_user;
@@ -69,7 +68,6 @@ class QuestionsViewTest extends TestCase
             'section_id' => $this->section->id,
             'course_id' => $this->course->id
         ]);
-
 
         $this->assignment = factory(Assignment::class)->create(['course_id' => $this->course->id, 'solutions_released' => 0]);
         $this->beta_assignment = factory(Assignment::class)->create(['course_id' => $this->beta_course->id]);
@@ -104,7 +102,6 @@ class QuestionsViewTest extends TestCase
             'order' => 1,
             'open_ended_submission_type' => 'file'
         ]);
-
 
         $this->student_user_2 = factory(User::class)->create();
         $this->student_user_2->role = 3;
@@ -153,7 +150,6 @@ class QuestionsViewTest extends TestCase
             ->first()
             ->score;
     }
-
 
     public function createQTIMatchingQuestion($points): int
     {
@@ -209,7 +205,6 @@ class QuestionsViewTest extends TestCase
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function cannot_ask_instructor_to_release_assignment_if_not_student()
     {
@@ -226,14 +221,12 @@ class QuestionsViewTest extends TestCase
             ->assertJson(['message' => 'You are not allowed to set the current page.']);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function non_owner_cannot_start_a_clicker_assessment()
     {
         $this->actingAs($this->user_2)->postJson("/api/assignments/{$this->assignment->id}/questions/{$this->question->id}/start-clicker-assessment")
             ->assertJson(['message' => 'You are not allowed to start this clicker assessment.']);
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function a11y_student_served_regular_technology_if_a11y_technology_does_not_exist()
@@ -266,7 +259,6 @@ class QuestionsViewTest extends TestCase
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function non_a11y_student_served_regular_technology()
     {
@@ -283,7 +275,6 @@ class QuestionsViewTest extends TestCase
             ->assertJson(['questions' => [['technology_iframe' => "https://studio.libretexts.org/h5p/12/embed"]]]);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function correctly_computes_score_with_number_of_allowed_attempts_penalty()
@@ -353,7 +344,6 @@ class QuestionsViewTest extends TestCase
             ->assertJson(['message' => 'You are not allowed to access that submission array.']);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function non_owner_cannot_update_the_question_title()
     {
@@ -379,9 +369,7 @@ class QuestionsViewTest extends TestCase
         $this->actingAs($this->student_user)->postJson("/api/submission-confirmations/assignment/{$this->assignment->id}/question/{$this->question->id}")
             ->assertJson(['type' => 'success']);
 
-
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function non_enrolled_student_cannot_view_case_study_info()
@@ -398,7 +386,6 @@ class QuestionsViewTest extends TestCase
             ->assertJson(['type' => 'success']);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function user_cannot_get_query_page_if_page_id_is_not_in_one_of_their_assignments()
     {
@@ -407,7 +394,6 @@ class QuestionsViewTest extends TestCase
         $this->assertTrue(str_contains($content, 'You are not allowed to view the text associated with this question.'));
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function user_can_get_header_html_is_in_one_of_their_assignments()
@@ -430,7 +416,6 @@ class QuestionsViewTest extends TestCase
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function student_user_can_update_time_on_task()
     {
@@ -446,7 +431,6 @@ class QuestionsViewTest extends TestCase
         $this->assertEquals(10, $submission->time_on_task);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function instructor_can_get_header_html()
     {
@@ -456,7 +440,6 @@ class QuestionsViewTest extends TestCase
         $this->assertTrue(str_contains($content, 'blah'));
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public
@@ -471,7 +454,6 @@ class QuestionsViewTest extends TestCase
         $this->actingAs($this->student_user)->postJson("/api/submissions", $qti_submission)
             ->assertJson(['message' => 'Each matching term should be chosen only once.']);
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public
@@ -522,7 +504,6 @@ class QuestionsViewTest extends TestCase
         $this->actingAs($this->student_user)->postJson("/api/submissions", $qti_submission)
             ->assertJson(['message' => 'Please choose a matching term for all terms to match.']);
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function correctly_scores_native_select_choice()
@@ -719,7 +700,6 @@ class QuestionsViewTest extends TestCase
         $this->assertEquals(floatVal($points), floatVal($submission->score));
         DB::table('submissions')->delete();
 
-
         //gets it correct if off by case sensitive
         $question = Question::find($question_id);
         $qti_json = json_decode($question->qti_json, true);
@@ -802,9 +782,7 @@ class QuestionsViewTest extends TestCase
         $this->assertEquals(floatVal($points), floatVal($submission->score));
         DB::table('submissions')->delete();
 
-
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function correctly_scores_native_multiple_answers_submission()
@@ -883,7 +861,6 @@ class QuestionsViewTest extends TestCase
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function correctly_scores_native_multiple_choice_submission()
     {
@@ -956,9 +933,7 @@ class QuestionsViewTest extends TestCase
         $submission = DB::table('submissions')->where('assignment_id', $this->assignment->id)->where('question_id', $question_id)->first();
         $this->assertEquals(floatVal(0), floatVal($submission->score));
 
-
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function non_instructor_cannot_update_the_completion_scoring_mode()
@@ -969,7 +944,6 @@ class QuestionsViewTest extends TestCase
             ->assertJson(['message' => 'You are not allowed to update that resource.']);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function correct_score_is_computed_if_shown_hint()
@@ -1238,7 +1212,6 @@ class QuestionsViewTest extends TestCase
             ->assertJson(['type' => 'success']);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function will_not_give_a_lower_score_if_number_of_attempts_penalty_makes_the_score_lower_than_what_you_have()
     {
@@ -1252,7 +1225,6 @@ class QuestionsViewTest extends TestCase
             ->assertJson(['type' => 'success']);
         $this->actingAs($this->student_user)->postJson("/api/submissions", $this->h5pSubmission)
             ->assertJson(['message' => 'Your current score on this problem is 10.0000 points.<br><br>This new submission would give you a score of 9 points (including a penalty of 10%).<br><br>If accepted, this submission would reduce your question score by 1 points and is therefore, not accepted.']);
-
 
     }
 
@@ -1276,7 +1248,6 @@ class QuestionsViewTest extends TestCase
             ->assertJson(['message' => 'With the late deduction, submitting will give you a lower score on this question than you currently have so the submission will not be accepted.']);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function performance_score_is_correctly_computed_for_a_deduction_only_once_late_policy()
@@ -1302,7 +1273,6 @@ class QuestionsViewTest extends TestCase
             ->first();
 
         $this->assertEquals($submission->score, $this->question_points * $this->assignment->late_deduction_percent / 100, 'works correctly for performance');
-
 
     }
 
@@ -1392,7 +1362,6 @@ class QuestionsViewTest extends TestCase
         $this->actingAs($this->student_user)->postJson("/api/submissions", $this->h5pSubmission)
             ->assertJson(['message' => "The solution is already available so you cannot resubmit."]);
 
-
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -1409,9 +1378,7 @@ class QuestionsViewTest extends TestCase
         $this->actingAs($this->student_user)->postJson("/api/submissions", $this->h5pSubmission)
             ->assertJson(['message' => "The solution is already available so you cannot resubmit."]);
 
-
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function must_submit_at_least_once_to_view_solutions_in_real_time()
@@ -1443,7 +1410,6 @@ class QuestionsViewTest extends TestCase
             ->assertJson(['type' => 'success']);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function number_of_attempts_dictated_in_real_time()
     {
@@ -1469,7 +1435,6 @@ class QuestionsViewTest extends TestCase
         $this->actingAs($this->student_user)->postJson("/api/submissions", $this->h5pSubmission)
             ->assertJson(['type' => 'success']);
 
-
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -1491,7 +1456,6 @@ class QuestionsViewTest extends TestCase
                     'text' => 'Here is my text explaining the issue'])
             ->assertJson(['type' => 'success']);
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function with_a_late_assignment_policy_of_not_accepted_a_student_can_submit_auto_graded_response_if_assignment_past_due_and_no_extension_if_allowed()
@@ -1515,7 +1479,6 @@ class QuestionsViewTest extends TestCase
             ->assertJson(['message' => 'Auto-graded submission saved.']);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function with_a_late_assignment_policy_of_not_accepted_a_student_can_submit_text_response_if_assignment_past_due_and_no_extension_if_allowed()
@@ -1567,7 +1530,6 @@ class QuestionsViewTest extends TestCase
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function student_gets_full_credit_if_incorrect_for_complete_incomplete_assignment()
     {
@@ -1591,7 +1553,6 @@ class QuestionsViewTest extends TestCase
         $this->assertEquals($assignment_score, $question_points);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function student_gets_correct_credit_if_incorrect_for_complete_incomplete_assignment_with_open_ended_component()
@@ -1617,7 +1578,6 @@ class QuestionsViewTest extends TestCase
         $this->assertEquals($assignment_score, ($percent / 100) * $question_points);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function submitted_file_gets_correct_credit_if_scoring_type_is_completed_and_score_is_either()
@@ -1651,7 +1611,6 @@ class QuestionsViewTest extends TestCase
         $this->assignment->scoring_type = 'c';
         $this->assignment->save();
         $submission_file_data = $this->getSubmissionFileData();
-
 
         DB::table('assignment_question')->where('assignment_id', $this->assignment->id)
             ->where('question_id', $this->question->id)
@@ -1737,7 +1696,6 @@ class QuestionsViewTest extends TestCase
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function submitted_file_gets_full_credit_if_scoring_type_is_completed_for_just_text_type_question()
     {
@@ -1764,7 +1722,6 @@ class QuestionsViewTest extends TestCase
             ->assertJson(['message' => 'Your file submission has been saved.']);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function submission_with_lti_launch_is_entered_as_pending()
@@ -1841,7 +1798,6 @@ class QuestionsViewTest extends TestCase
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function cannot_switch_open_ended_submission_type_if_is_beta_course()
     {
@@ -1850,7 +1806,6 @@ class QuestionsViewTest extends TestCase
             ->assertJson(['message' => "This is an assignment in a Beta course so you can't change the open-ended submission type."]);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function cannot_switch_open_ended_submission_type_if_graded_submission_exists()
@@ -1901,7 +1856,6 @@ class QuestionsViewTest extends TestCase
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function non_instructor_cannot_update_properties()
     {
@@ -1940,15 +1894,6 @@ class QuestionsViewTest extends TestCase
             ->assertJson(['message' => 'The solution has been removed.']);
     }
 
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function completed_assignment_returns_true_when_all_submitted()
-    {
-
-
-    }
-
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function non_owner_cannot_switch_open_ended_submission_type()
     {
@@ -1958,30 +1903,13 @@ class QuestionsViewTest extends TestCase
 
     }
 
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function cannot_store_a_file_if_the_number_of_uploads_exceeds_the_max_number_of_uploads()
-    {
-
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function cannot_store_a_file_if_the_size_of_the_file_exceeds_the_max_size_permitted()
-    {
-
-    }
-
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function non_instructor_cannot_get_pre_signed_url_for_solutions()
     {
         $this->actingAs($this->student_user)->postJson("/api/s3/pre-signed-url", $this->upload_solution_data)
             ->assertJson(['message' => 'You are not allowed to upload solution files.']);
 
-
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function instructor_can_get_pre_signed_url_for_solutions()
@@ -2007,7 +1935,6 @@ class QuestionsViewTest extends TestCase
 
     }
 
-
     public function cannot_store_a_question_file_if_it_is_not_in_the_assignment()
     {
         /** tested for regular submissions */
@@ -2019,7 +1946,6 @@ class QuestionsViewTest extends TestCase
     {
 
         $scores = [80, 40, 36];
-
 
         //create fake submissions --- I just care about the scores.
         $this->assignment->show_scores = 1;
@@ -2046,7 +1972,6 @@ class QuestionsViewTest extends TestCase
         $std_dev = $this->stats_standard_deviation($scores);
         $z_score = Round(($scores[0] - $mean) / $std_dev, 2);
 
-
         $response = $this->actingAs($this->student_user)->getJson("/api/assignments/{$this->assignment->id}/questions/view", $this->headers());
         $this->assertEquals($z_score, $response['questions'][0]['submission_file_z_score']);
 
@@ -2062,7 +1987,6 @@ class QuestionsViewTest extends TestCase
             ->getJson("/api/assignments/{$this->assignment->id}/view-questions-info", $this->headers());
         $this->assertEquals($response['assignment']['total_points'], $this->assignment->number_of_randomized_assessments * $this->assignment->default_points_per_question);
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function students_get_correct_number_of_questions_for_randomized_assignment()
@@ -2105,7 +2029,6 @@ class QuestionsViewTest extends TestCase
             ->assertJson(['message' => 'You are not allowed to send that person an email.']);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function removes_submission_files_if_question_removed()
@@ -2176,7 +2099,6 @@ class QuestionsViewTest extends TestCase
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function owner_can_submit_solution_text_attached_to_audio()
     {
@@ -2194,7 +2116,6 @@ class QuestionsViewTest extends TestCase
         )->assertJson(['message' => 'Your text solution has been saved.']);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function audio_must_exist_before_submitting_solution_text()
@@ -2221,7 +2142,6 @@ class QuestionsViewTest extends TestCase
         )->assertJsonValidationErrors('solution_text');
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function correctly_recomputes_assignment_score_of_removed_question_for_points_scoring_type_for_submission_or_submission_file()
@@ -2253,7 +2173,6 @@ class QuestionsViewTest extends TestCase
         $new_score = Score::where('assignment_id', $this->assignment->id)->where('user_id', $this->student_user->id)->first()->score;
         $this->assertEquals($current_assignment_score - $submission_file_score - $submission_score, $new_score);
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function student_cannot_submit_text_if_it_was_graded()
@@ -2288,7 +2207,6 @@ class QuestionsViewTest extends TestCase
         )->assertJson(['message' => 'Your text submission was saved.']);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function must_contain_text_when_submitting()
     {
@@ -2301,7 +2219,6 @@ class QuestionsViewTest extends TestCase
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function must_submit_a_question_with_a_valid_technology()
     {
@@ -2310,7 +2227,6 @@ class QuestionsViewTest extends TestCase
         $this->actingAs($this->student_user)->postJson("/api/submissions", $this->h5pSubmission)->assertStatus(422);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function correctly_computes_the_z_score_if_there_is_no_file_submission()
@@ -2354,31 +2270,6 @@ class QuestionsViewTest extends TestCase
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
-    public function correctly_computes_the_z_score_for_a_question_submission()
-    {
-        $scores = [80, 40, 36];
-
-        //create fake submissions --- I just care about the scores.
-        $this->assignment->show_scores = 1;
-        $this->assignment->save();
-
-        $this->question->technology = 'h5p';
-        $this->question->save();
-        $data = ['assignment_id' => $this->assignment->id,
-            'question_id' => $this->question->id,
-            'submission_count' => 1,
-            'answered_correctly_at_least_once' => false,
-            'submission' => $this->submission_object];
-        $user_ids = [$this->student_user->id, $this->student_user_2->id, $this->student_user_3->id];
-        foreach ($user_ids as $key => $user_id) {
-            $data['score'] = $scores[$key];
-            $data['user_id'] = $user_ids[$key];
-            Submission::create($data);
-        }
-    }
-
-
-    #[\PHPUnit\Framework\Attributes\Test]
     public function correctly_computes_the_z_score_if_there_is_no_question_submission()
     {
         $scores = [40, 36];
@@ -2405,12 +2296,10 @@ class QuestionsViewTest extends TestCase
         $std_dev = $this->stats_standard_deviation($scores);
         $z_score = Round(($scores[0] - $mean) / $std_dev, 2);
 
-
         $response = $this->actingAs($this->student_user)->getJson("/api/assignments/{$this->assignment->id}/questions/view", $this->headers());
         $this->assertEquals('N/A', $response['questions'][0]['submission_z_score']);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function score_is_correctly_computed_for_a_deduction_with_time_periods_late_policy()
@@ -2435,30 +2324,6 @@ class QuestionsViewTest extends TestCase
         $this->assertEquals($submission->score, $this->question_points * (1 - 2 * $this->assignment->late_deduction_percent / 100));
 
     }
-
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function real_time_solutions_can_only_be_downloaded_after_initial_submission()
-    {
-
-
-    }
-
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function late_question_submission_marked_late_for_marked_late_late_policy()
-    {
-//todo
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function late_file_submission_marked_late_for_marked_late_late_policy()
-    {
-//todo
-
-    }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function not_accepted_late_policy_will_not_accept_late_submissions()
@@ -2485,7 +2350,6 @@ class QuestionsViewTest extends TestCase
         $assignToTiming->final_submission_deadline = "2029-03-05 09:00:00";
         $assignToTiming->save();
 
-
         $this->actingAs($this->student_user)->postJson("/api/submissions", $this->h5pSubmission)
             ->assertJson(['message' => 'Auto-graded submission saved.']);
 
@@ -2508,7 +2372,6 @@ class QuestionsViewTest extends TestCase
         $assignToTiming->final_submission_deadline = "2020-12-11 09:00:00";
         $assignToTiming->save();
 
-
         $this->actingAs($this->student_user)->postJson("/api/submissions", $this->h5pSubmission)
             ->assertJson(['message' => 'No more late responses are being accepted.']);
 
@@ -2518,7 +2381,6 @@ class QuestionsViewTest extends TestCase
             ->assertJson(['message' => 'No more late responses are being accepted.']);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function learning_tree_do_not_allow_submissions_if_solutions_released()
@@ -2558,7 +2420,6 @@ class QuestionsViewTest extends TestCase
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function student_can_set_page_if_the_assignment_is_past_due_with_set_page_override()
     {
@@ -2571,7 +2432,6 @@ class QuestionsViewTest extends TestCase
         $assignToTiming = AssignToTiming::where('assignment_id', $this->assignment->id)->first();
         $assignToTiming->due = Carbon::yesterday();
         $assignToTiming->save();
-
 
         $this->assignment->save();
         $this->actingAs($this->student_user)->patchJson("/api/submission-files/{$this->assignment->id}/{$this->question->id}/page", ['page' => 1])
@@ -2592,13 +2452,11 @@ class QuestionsViewTest extends TestCase
         $assignToTiming->due = Carbon::yesterday();
         $assignToTiming->save();
 
-
         $this->assignment->save();
         $this->actingAs($this->student_user)->patchJson("/api/submission-files/{$this->assignment->id}/{$this->question->id}/page", ['page' => 1])
             ->assertJson(['message' => "No responses will be saved since the due date for this assignment has passed."]);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function with_a_late_assignment_policy_of_not_accepted_a_student_cannot_submit_response_if_assignment_past_due_and_no_extension()
@@ -2613,7 +2471,6 @@ class QuestionsViewTest extends TestCase
 
     }
 
-
     public function assignments_of_scoring_type_c_will_count_the_number_of_submissions_and_compare_to_the_number_of_questions()
     {
         $this->assignment->scoring_type = 'c';
@@ -2625,7 +2482,6 @@ class QuestionsViewTest extends TestCase
             ->where('assignment_id', $this->assignment->id)
             ->first();
         $this->assertEquals(null, $score, 'No assignment score saved in not completed assignment.');
-
 
         $this->actingAs($this->student_user)->postJson("/api/submissions", [
             'technology' => 'h5p',
@@ -2641,7 +2497,6 @@ class QuestionsViewTest extends TestCase
         $this->assertEquals('c', $score[0], 'Assignment marked as completed when all questions are answered.');
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function can_get_assignment_title_if_owner_course()
@@ -2667,7 +2522,6 @@ class QuestionsViewTest extends TestCase
                 'message' => 'You are not allowed to access this assignment.']);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function student_view_scores_info_if_enrolled_in_the_course()
     {
@@ -2687,14 +2541,12 @@ class QuestionsViewTest extends TestCase
             ->assertJson(['type' => 'success']);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function student_cannot_view_questions_info_if_not_enrolled_in_the_course()
     {
         $this->actingAs($this->student_user_2)->getJson("/api/assignments/{$this->assignment->id}/view-questions-info")
             ->assertJson(['type' => 'error', 'message' => 'You are not allowed to access this assignment.']);
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function anonymous_student_can_view_questions_info_if_not_enrolled_in_the_course()
@@ -2709,14 +2561,12 @@ class QuestionsViewTest extends TestCase
             ->assertJson(['type' => 'success']);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function owner_can_view_questions_info_if_owner_of_the_course()
     {
         $this->actingAs($this->user)->getJson("/api/assignments/{$this->assignment->id}/view-questions-info")
             ->assertJson(['type' => 'success']);
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function student_cannot_get_scores_by_assignment_and_question()
@@ -2776,21 +2626,6 @@ class QuestionsViewTest extends TestCase
 
     }
 
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function students_can_email_users_if_the_user_graded_their_question()
-    {
-
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function anyone_can_contact_us()
-    {
-
-
-    }
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function can_get_assignment_questions_if_student_in_course()
     {
@@ -2821,7 +2656,6 @@ class QuestionsViewTest extends TestCase
         $this->actingAs($this->student_user)->patchJson("/api/submission-files/{$this->assignment->id}/10000000/page", ['page' => 1])
             ->assertJson(['message' => "No responses will be saved since that question is not in the assignment."]);
 
-
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -2838,51 +2672,12 @@ class QuestionsViewTest extends TestCase
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
-    public function a_student_can_create_cutups_from_a_comma_separated_list()
-    {
-
-    }
-
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function student_can_create_cutups_if_the_assignment_is_past_due_but_the_extension_has_not_past()
-    {
-
-        //Need to mock out the uploaded file
-
-        //$this->createSubmissionFile();
-        // $this->assignment->due = Carbon::yesterday();
-        // $this->assignment->save();
-        // factory(Extension::class)->create(['user_id' => $this->student_user->id, 'assignment_id' => $this->assignment->id]);
-        // $this->actingAs($this->student_user)->postJson("/api/cutups/{$this->assignment->id}/{$this->question->id}/set-as-solution-or-submission")
-        //     ->assertJson(['message' => "Your cutup has been saved as your file submission for this question."]);
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
     public function instructor_cannot_create_cutups_if_they_are_not_the_owner_of_the_course()
     {
         $this->actingAs($this->user_2)->patchJson("/api/cutups/{$this->assignment->id}/{$this->question->id}/solution")
             ->assertJson(['message' => "You are not allowed to create a cutup for this assignment."]);
 
-
     }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function instructor_can_create_cutups_if_they_are_the_owner()
-    {
-        //need to mock out the file
-        // $this->actingAs($this->user)->postJson("/api/cutups/{$this->assignment->id}/{$this->question->id}/set-as-solution-or-submission")
-        //    ->assertJson(['message' => "Your cutup has been set as the solution."]);
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function one_cannot_add_a_question_to_an_assignment_if_a_student_has_submitted_a_response()
-    {
-
-
-    }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function a_student_cannot_download_a_solution_to_a_question_if_the_solutions_are_not_released()
@@ -2893,9 +2688,7 @@ class QuestionsViewTest extends TestCase
             'assignment_id' => $this->assignment->id])
             ->assertJson(['message' => "The solutions are not released so you can't download the solution."]);
 
-
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function a_student_cannot_download_a_solution_to_a_question_in_an_assignment_that_is_not_in_an_enrolled_course()
@@ -2908,16 +2701,7 @@ class QuestionsViewTest extends TestCase
             'assignment_id' => $this->assignment->id])
             ->assertJson(['message' => 'You are not allowed to download these solutions.']);
 
-
     }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function a_student_can_download_a_solution_uploaded_by_their_instructor()
-    {
-
-
-    }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function a_non_instructor_cannot_upload_a_solution()
@@ -2925,14 +2709,6 @@ class QuestionsViewTest extends TestCase
         $this->actingAs($this->student_user)->putJson("/api/solution-files", [
             'question_id' => 1])
             ->assertJson(['message' => 'You are not allowed to upload solutions.']);
-
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function an_instructor_can_upload_a_solution()
-    {
-
 
     }
 
@@ -2946,7 +2722,6 @@ class QuestionsViewTest extends TestCase
             ->assertJson(['message' => 'That question is not part of the assignment so you cannot download the solutions.']);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function must_submit_a_question_with_a_valid_assignment_number()
@@ -2963,13 +2738,11 @@ class QuestionsViewTest extends TestCase
     public function must_submit_a_question_with_a_valid_question_number()
     {
 
-
         $this->h5pSubmission['question_id'] = false;
         $this->actingAs($this->student_user)->postJson("/api/submissions",
             $this->h5pSubmission)->assertStatus(422);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function assignments_of_scoring_type_p_and_no_question_files_will_compute_the_score_based_on_the_question_points()
@@ -2977,7 +2750,6 @@ class QuestionsViewTest extends TestCase
 
         $this->actingAs($this->student_user)->postJson("/api/submissions",
             $this->h5pSubmission);
-
 
         $score = DB::table('scores')->where('user_id', $this->student_user->id)
             ->where('assignment_id', $this->assignment->id)
@@ -2988,7 +2760,6 @@ class QuestionsViewTest extends TestCase
             ->where('question_id', $this->question->id)
             ->get()
             ->pluck('points');
-
 
         $this->assertEquals(number_format($points_1[0], 2), number_format($score[0], 2), 'Score saved when student submits.');
 
@@ -3014,18 +2785,11 @@ class QuestionsViewTest extends TestCase
 
         $this->assertEquals(number_format($points_1[0] + $points_2[0], 2), number_format($score[0], 2), 'Score saved when student submits.');
 
-
     }
 
     /**@test* */
 
     public function score_is_computed_correctly_for_h5p()
-    {
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function score_is_computed_correctly_for_imathas()
     {
 
     }
@@ -3042,7 +2806,6 @@ class QuestionsViewTest extends TestCase
     public function the_associated_technology_is_valid()
     {
 
-
     }
 
     /**@test* */
@@ -3050,14 +2813,12 @@ class QuestionsViewTest extends TestCase
     public function the_assignment_id_is_an_integer()
     {
 
-
     }
 
     /**@test* */
 
     public function the_question_id_is_an_integer()
     {
-
 
     }
 
@@ -3068,50 +2829,12 @@ class QuestionsViewTest extends TestCase
 //not sure if this is even a real thing: I have an update in the controller but nothing in the questions.get.vue?
     }
 
-
     /**@test* */
 
     public function the_submission_is_a_string()
     {
 
-
     }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function cannot_store_a_question_file_if_it_has_the_wrong_type()
-    {
-//testing for question/assignment
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function cannot_store_a_question_file()
-    {
-
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function can_toggle_question_files_if_you_are_the_owner()
-    {
-
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function cannot_toggle_question_files_if_you_are_not_the_owner()
-    {
-
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function will_mark_assignment_as_completed_if_number_of_questions_is_equal_to_number_of_questions()
-    {
-
-
-    }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function can_update_response()
@@ -3119,7 +2842,6 @@ class QuestionsViewTest extends TestCase
 
         ///to do ---- change the second one to see if the database actually updated!
         $this->actingAs($this->student_user)->postJson("/api/submissions", $this->h5pSubmission);
-
 
         $this->actingAs($this->student_user)->postJson("/api/submissions", $this->h5pSubmission)
             ->assertJson(['type' => 'success']);
@@ -3146,11 +2868,9 @@ class QuestionsViewTest extends TestCase
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function cannot_submit_response_if_assignment_not_yet_available()
     {
-
 
         $assignToTiming = AssignToTiming::where('assignment_id', $this->assignment->id)->first();
         $assignToTiming->available_from = "2035-03-05 09:00:00";
@@ -3161,7 +2881,6 @@ class QuestionsViewTest extends TestCase
                 'message' => 'No responses will be saved since this assignment is not yet available.']);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function cannot_get_assignment_questions_if_not_student_in_course()
@@ -3186,13 +2905,6 @@ class QuestionsViewTest extends TestCase
         $this->actingAs($this->user_2)->deleteJson("/api/assignments/{$this->assignment->id}/questions/{$this->question->id}")
             ->assertJson(['type' => 'error',
                 'message' => 'You are not allowed to remove a question from this assignment.']);
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function can_view_page_if_grader_in_course()
-    {
-
-
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -3250,5 +2962,4 @@ class QuestionsViewTest extends TestCase
             ->get();
         $this->assertEquals(1, count($submission_files));
     }
-
 }

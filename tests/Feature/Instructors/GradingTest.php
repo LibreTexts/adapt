@@ -59,7 +59,6 @@ class GradingTest extends TestCase
 
         $this->assignment = factory(Assignment::class)->create(['course_id' => $this->course->id]);
 
-
         $this->assignment_file = factory(SubmissionFile::class)->create(['type' => 'a', 'user_id' => $this->student_user->id, 'assignment_id' => $this->assignment->id]);
 
         $this->question = factory(Question::class)->create(['page_id' => 12361]);
@@ -98,7 +97,6 @@ class GradingTest extends TestCase
         $this->getFilesFromS3Data = ['open_ended_submission_type' => 'text'];
     }
 
-
     #[Test]
     public function can_get_assignment_files_if_owner()
     {
@@ -126,7 +124,6 @@ class GradingTest extends TestCase
 
     }
 
-
     #[Test]
     public function cannot_get_assignment_files_if_not_owner()
     {
@@ -138,11 +135,9 @@ class GradingTest extends TestCase
 
     }
 
-
     #[Test]
     public function assignments_of_scoring_type_p_and_submission_files_at_the_question_level_will_use_min_of_the_points_per_question_compared_to_the_sum_of_the_question_and_file_points()
     {
-
 
         $question_score = 5;
 
@@ -157,7 +152,6 @@ class GradingTest extends TestCase
             'answered_correctly_at_least_once' => 0,
             'submission_count' => 1]);
 
-
         //Now submit a question_file score
         $this->actingAs($this->user)->postJson("/api/grading", [
             'type' => 'question',
@@ -169,20 +163,16 @@ class GradingTest extends TestCase
             'text_feedback_editor' => 'plain'])
             ->assertJson(['type' => 'success']);
 
-
         $score = DB::table('scores')->where('user_id', $this->student_user->id)
             ->where('assignment_id', $this->assignment->id)
             ->first();
 
-
         $this->assertEquals((float)$score->score, $question_score + $file_submission_score);
     }
-
 
     #[Test]
     public function assignments_of_scoring_type_p_and_submission_files_at_the_question_level_cannot_submit_a_score_greater_than_the_total_number_of_points_in_the_question()
     {
-
 
         $question_score = 5;
 
@@ -200,7 +190,6 @@ class GradingTest extends TestCase
             'score' => $question_score,
             'answered_correctly_at_least_once' => 0,
             'submission_count' => 1]);
-
 
         //Now submit a question_file score
         $this->actingAs($this->user)->postJson("/api/grading", [
@@ -226,7 +215,6 @@ class GradingTest extends TestCase
 
     }
 
-
     #[Test]
     public function non_owner_can_not_submit_score()
     {
@@ -244,7 +232,6 @@ class GradingTest extends TestCase
         $this->actingAs($this->grader_user)->postJson("/api/grading", $this->score_data)
             ->assertJsonValidationErrors('question_submission_score');
 
-
     }
 
     #[Test]
@@ -255,9 +242,7 @@ class GradingTest extends TestCase
         $this->actingAs($this->grader_user)->postJson("/api/grading", $this->score_data)
             ->assertJsonValidationErrors('file_submission_score');
 
-
     }
-
 
     #[Test]
     public function owner_can_override_scores()
@@ -289,14 +274,12 @@ class GradingTest extends TestCase
         $this->assertEquals(10, $score->where('user_id', $this->student_user_2->id)->first()->score);
     }
 
-
     #[Test]
     public function non_owner_cannot_override_scores()
     {
         $data['overrideScores'] = [['user_id' => $this->student_user->id, 'override_score' => 2]];
         $this->actingAs($this->user_2)->patchJson("/api/scores/override-scores/{$this->assignment->id}", $data)
             ->assertJson(['message' => "You can't override the scores since this is not one of your assignments."]);
-
 
     }
 
@@ -307,7 +290,6 @@ class GradingTest extends TestCase
         $this->actingAs($this->user)->patchJson("/api/scores/override-scores/{$this->assignment->id}", $data)
             ->assertJson(['message' => "You can only override scores if the students are enrolled in your course."]);
     }
-
 
     #[Test]
     public function non_owner_cannot_get_assignment_options()
@@ -343,7 +325,6 @@ class GradingTest extends TestCase
 
     }
 
-
     #[Test]
     public function student_can_get_their_own_s3_files()
     {
@@ -367,7 +348,6 @@ class GradingTest extends TestCase
     {
         $this->actingAs($this->student_user)->getJson("/api/canned-responses")
             ->assertJson(['message' => 'You are not allowed to get canned responses.']);
-
 
     }
 
@@ -412,34 +392,12 @@ class GradingTest extends TestCase
 
     }
 
-
     #[Test]
     public function can_download_assignment_file_if_owner()
     {
         $this->markTestIncomplete(
             'Not sure how to test'
         );
-
-    }
-
-    #[Test]
-    public function can_download_assignment_file_if_grader()
-    {
-
-
-    }
-
-    #[Test]
-    public function cannot_download_assignment_file_if_not_owner()
-    {
-        /*$this->actingAs($this->user_2)->postJson("/api/submission-files/download",
-                  [
-                      'assignment_id' => $this->assignment->id,
-                      'submission' => $this->assignment_file->submission
-                  ]
-              );*/
-        //NEED EXCEPTION
-        //->assertJson(['type' => 'error', 'message' => 'You are not allowed to download that assignment file.']);
 
     }
 
@@ -469,5 +427,4 @@ class GradingTest extends TestCase
                 'message' => 'You are not allowed to create a temporary URL.']);
 
     }
-
 }

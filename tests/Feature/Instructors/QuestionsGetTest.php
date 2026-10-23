@@ -78,7 +78,6 @@ class QuestionsGetTest extends TestCase
             'open_ended_submission_type' => '0'
         ]);
 
-
         $this->student_user = factory(User::class)->create();
         $this->student_user->role = 3;
         $this->student_user->save();
@@ -101,7 +100,6 @@ class QuestionsGetTest extends TestCase
             'submission_count' => 1,
             'submission' => '{"actor":{"account":{"name":"5038b12a-1181-4546-8735-58aa9caef971","homePage":"https://h5p.libretexts.org"},"objectType":"Agent"},"verb":{"id":"http://adlnet.gov/expapi/verbs/answered","display":{"en-US":"answered"}},"object":{"id":"https://h5p.libretexts.org/wp-admin/admin-ajax.php?action=h5p_embed&id=97","objectType":"Activity","definition":{"extensions":{"http://h5p.org/x-api/h5p-local-content-id":97},"name":{"en-US":"1.3 Actividad # 5: comparativos y superlativos"},"interactionType":"fill-in","type":"http://adlnet.gov/expapi/activities/cmi.interaction","description":{"en-US":"<p><strong>Instrucciones: Ponga las palabras en orden. Empiece con el sujeto de la oración.</strong></p>\n<br/>1. de todas las universidades californianas / la / antigua / es / La Universidad del Pacífico / más <br/>__________ __________ __________ __________ __________ __________.<br/><br/>2. el / UC Merced / número de estudiantes / tiene / menor<br/>__________ __________ __________ __________ __________."},"correctResponsesPattern":["La Universidad del Pacífico[,]es[,]la[,]más[,]antigua[,]de todas las universidades californianas[,]UC Merced[,]tiene[,]el[,]menor[,]número de estudiantes"]}},"context":{"contextActivities":{"category":[{"id":"http://h5p.org/libraries/H5P.DragText-1.8","objectType":"Activity"}]}},"result":{"response":"[,][,][,][,][,][,][,]antigua[,][,][,]","score":{"min":0,"raw":11,"max":11,"scaled":0},"duration":"PT3.66S","completion":true}}'
         ];
-
 
     }
     #[Test]
@@ -129,7 +127,6 @@ class QuestionsGetTest extends TestCase
             ->assertJson(['message' => 'You are not allowed to check for Discuss-it questions over multiple assignment questions.']);
 
     }
-
 
     #[Test]
     public function cannot_remix_assignment_of_based_on_weights_and_submissions_exist()
@@ -171,7 +168,6 @@ class QuestionsGetTest extends TestCase
             ->assertJson(['message' => 'You are not allowed update the can submit work override for this question.']);
     }
 
-
     #[Test]
     public function cannot_remove_a_question_from_an_assignment_if_there_are_submissions_and_using_weights()
     {
@@ -198,7 +194,6 @@ class QuestionsGetTest extends TestCase
             ->assertJson(['message' => 'You cannot remove this question since there are already submissions and this assignment computes points using question weights.']);
     }
 
-
     #[Test]
     public function cannot_update_weight_if_student_made_a_submission()
     {
@@ -209,7 +204,6 @@ class QuestionsGetTest extends TestCase
                 'message' => "This cannot be updated since students have already submitted responses to this assignment."]);
 
     }
-
 
     #[Test]
     public function cannot_update_weight_if_not_owner()
@@ -280,9 +274,7 @@ class QuestionsGetTest extends TestCase
             ->points;
         $this->assertEquals($question_1_points, $this->assignment->total_points * $question_1_weight / ($question_0_weight + $question_1_weight));
 
-
     }
-
 
     #[Test]
     public function alpha_course_update_points_only_affects_beta_courses()
@@ -317,14 +309,12 @@ class QuestionsGetTest extends TestCase
             'open_ended_submission_type' => 'file'
         ]);
 
-
         $this->actingAs($this->user)
             ->patchJson("/api/assignments/{$this->assignment->id}/questions/{$this->question->id}/update-points",
                 ['points' => 32.15])
             ->assertJson(['type' => "success"]);
         $num_with_32_5_points = count(DB::table('assignment_question')->where('points', '32.15')->get());
         $this->assertEquals(2, $num_with_32_5_points);
-
 
     }
 
@@ -357,7 +347,6 @@ class QuestionsGetTest extends TestCase
             ->patchJson("/api/assignments/{$this->assignment->id}/questions/{$this->question->id}/update-points", ['points' => 10])
             ->assertJson(['message' => "There is at least one submission to this question in one of the Beta assignments so you can't change the points."]);
     }
-
 
     #[Test]
     public function must_remix_from_a_valid_question_source()
@@ -430,7 +419,6 @@ class QuestionsGetTest extends TestCase
             ->assertJson(['message' => 'You are not allowed to remix that assignment.']);
     }
 
-
     #[Test]
     public function direct_import_of_adapt_id_can_be_imported_using_question_id()
     {
@@ -456,7 +444,6 @@ class QuestionsGetTest extends TestCase
             )->assertJson(['message' => "You do not own {$this->question->id} so you cannot add it to this assignment which is part of a formative assignment."]);
     }
 
-
     #[Test]
     public function direct_import_must_be_a_valid_adapt_id()
     {
@@ -466,7 +453,6 @@ class QuestionsGetTest extends TestCase
             )->assertJson(['message' => '26 is not a valid question ID.']);
 
     }
-
 
     #[Test]
     public function direct_import_of_adapt_id_must_be_of_the_correct_form()
@@ -488,7 +474,6 @@ class QuestionsGetTest extends TestCase
 
     }
 
-
     #[Test]
     public function non_owner_cannot_do_a_direct_import()
     {
@@ -507,7 +492,6 @@ class QuestionsGetTest extends TestCase
 
     }
 
-
     #[Test]
     public function can_remove_a_question_from_an_assignment_if_you_are_the_owner()
     {
@@ -522,7 +506,6 @@ class QuestionsGetTest extends TestCase
         $this->actingAs($this->user)->deleteJson("/api/assignments/{$this->assignment->id}/questions/{$this->question->id}")
             ->assertJson(['type' => 'info']);
     }
-
 
     #[Test]
     public function cannot_update_points_if_not_owner()
@@ -551,22 +534,11 @@ class QuestionsGetTest extends TestCase
 
     }
 
-
     /**@test* */
     public function can_not_visit_get_questions_if_students_have_already_made_a_submission()
     {
 
-
     }
-
-
-    #[Test]
-    public function an_instructor_can_upload_a_solution_and_store_it_in_s3()
-    {
-
-
-    }
-
 
     #[Test]
     public function if_page_id_is_included_there_should_be_no_other_tags()
@@ -575,9 +547,7 @@ class QuestionsGetTest extends TestCase
             'TODO'
         );
 
-
     }
-
 
     #[Test]
     public function cannot_update_points_if_points_are_not_valid()
@@ -594,7 +564,6 @@ class QuestionsGetTest extends TestCase
 
         $this->actingAs($this->user)->patchJson("/api/assignments/{$this->assignment->id}/questions/{$this->question->id}/update-points", ['points' => 10])
             ->assertJson(['type' => 'success']);
-
 
     }
 
@@ -618,7 +587,6 @@ class QuestionsGetTest extends TestCase
 
     }
 
-
     /**@test */
     public function returns_an_error_with_an_invalid_page_id()
     {
@@ -626,7 +594,6 @@ class QuestionsGetTest extends TestCase
         $this->markTestIncomplete(
             'TODO'
         );
-
 
     }
 
@@ -646,7 +613,6 @@ class QuestionsGetTest extends TestCase
             'TODO'
         );
 
-
     }
 
     #[Test]
@@ -656,9 +622,7 @@ class QuestionsGetTest extends TestCase
             'TODO'
         );
 
-
     }
-
 
     #[Test]
     public function can_get_tags_if_not_student()
@@ -683,7 +647,6 @@ class QuestionsGetTest extends TestCase
         $this->actingAs($this->user)->postJson("/api/assignments/{$this->assignment->id}/questions/{$this->question->id}")
             ->assertJson(['type' => 'success']);
     }
-
 
     #[Test]
     public function cannot_add_a_question_to_an_assignment_if_you_are_not_the_owner()
@@ -744,5 +707,4 @@ class QuestionsGetTest extends TestCase
             ->assertJson(['type' => 'error']);
 
     }
-
 }

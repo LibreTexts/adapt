@@ -67,7 +67,6 @@ class QuestionEditorTest extends TestCase
      * @var Collection|Model|mixed
      */
 
-
     public function setup(): void
     {
         parent::setUp();
@@ -386,7 +385,6 @@ class QuestionEditorTest extends TestCase
             ->assertJson(['message' => "That attachment is not part of that question."]);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function cannot_add_new_question_if_not_your_assignment()
     {
@@ -461,7 +459,6 @@ class QuestionEditorTest extends TestCase
             ->assertJson(['message' => "You are a non-instructor editor but the question was created by someone who is not a non-instructor editor."]);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function if_repeat_bulk_upload_of_h5p_questions_will_save_to_my_favorites_folder()
@@ -559,7 +556,6 @@ class QuestionEditorTest extends TestCase
             'user_id' => $this->user->id]);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function question_gets_added_with_the_topic_if_it_exists()
     {
@@ -587,12 +583,10 @@ class QuestionEditorTest extends TestCase
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function cannot_bulk_upload_into_a_course_with_beta_courses()
     {
         $csv_file_array = $this->csv_file_array;
-
 
         $beta_course = factory(Course::class)->create(['user_id' => $this->user->id]);
         $betaCourse = new BetaCourse();
@@ -664,7 +658,6 @@ class QuestionEditorTest extends TestCase
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function can_store_if_course_and_assignment_belong_to_owner()
     {
@@ -693,7 +686,6 @@ class QuestionEditorTest extends TestCase
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function cannot_have_a_topic_without_a_course_and_assignment()
     {
@@ -707,7 +699,6 @@ class QuestionEditorTest extends TestCase
             ->assertJson(['message' => ['Row 2 is missing an Assignment.']]);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function course_should_be_one_of_your_courses()
@@ -735,7 +726,6 @@ class QuestionEditorTest extends TestCase
             ->assertJson(['message' => ["Row 2 has an assignment which is not in {$this->course->name}. In addition, there is no Template that can be used to create an assignment."]]);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function can_create_a_topic_if_it_does_not_exist()
     {
@@ -750,7 +740,6 @@ class QuestionEditorTest extends TestCase
             ->assertJson(['type' => 'success']);
         $this->assertDatabaseHas('assignment_topics', ['name' => 'Some Topic', 'assignment_id' => $assignment->id]);
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function deleted_questions_move_to_the_default_question_editor_user_and_become_public()
@@ -768,7 +757,6 @@ class QuestionEditorTest extends TestCase
             'public' => 1]);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function only_question_editor_or_instructor_can_bulk_upload_h5p()
@@ -788,7 +776,6 @@ class QuestionEditorTest extends TestCase
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function question_cannot_be_deleted_if_in_learning_tree()
     {
@@ -805,33 +792,6 @@ EOT;
         $this->question->save();
         $this->actingAs($this->user)->deleteJson("/api/questions/{$this->question->id}")
             ->assertJson(['message' => 'This question already exists in a Learning Tree and cannot be deleted.']);
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function question_owner_cannot_edit_a_question_in_another_instructors_assignment()
-    {
-        return true;
-
-
-        $this->actingAs($this->user)->postJson("/api/questions", $this->question_to_store)
-            ->assertJson(['type' => 'success']);
-        $id = Question::orderBy('id', 'desc')->limit(1)->get()[0]->id;
-        $this->question_to_store['id'] = $id;
-        $user_2 = factory(User::class)->create();
-        $course = factory(Course::class)->create(['user_id' => $user_2->id]);
-        $assignment = factory(Assignment::class)->create(['course_id' => $course->id]);
-        DB::table('assignment_question')->insert([
-            'assignment_id' => $assignment->id,
-            'question_id' => $id,
-            'points' => 10,
-            'order' => 1,
-            'open_ended_submission_type' => 'none'
-        ]);
-        $this->question_to_store['folder_id'] = $this->my_questions_folder->id;
-        $this->question_to_store = $this->addQuestionRevisionInfo($this->question_to_store);
-        $this->actingAs($this->user)->patchJson("/api/questions/$id", $this->question_to_store)
-            ->assertJson(['message' => "You cannot edit this question since it is in another instructor's assignment."]);
 
     }
 
@@ -1004,7 +964,6 @@ EOT;
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function question_cannot_be_deleted_by_non_owner()
     {
@@ -1014,7 +973,6 @@ EOT;
             ->assertJson(['message' => 'You are not allowed to delete that question.']);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function question_cannot_be_deleted_if_in_assignment()
@@ -1036,7 +994,6 @@ EOT;
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function owner_can_delete_question()
     {
@@ -1056,9 +1013,7 @@ EOT;
         $this->actingAs($this->student_user)->getJson("/api/questions")
             ->assertJson(['message' => 'You are not allowed to view My Questions.']);
 
-
     }
-
 
     /** storing questions */
     #[\PHPUnit\Framework\Attributes\Test]
@@ -1068,7 +1023,6 @@ EOT;
         $this->actingAs($this->student_user)->postJson("/api/questions", $this->question_to_store)
             ->assertJson(['message' => 'You are not allowed to save questions.']);
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function storing_a_question_requires_public()
@@ -1107,7 +1061,6 @@ EOT;
 
     }
 
-
     public function cannot_repeat_technology_id()
     {
         $this->actingAs($this->user)->postJson("/api/questions", $this->question_to_store)
@@ -1116,7 +1069,6 @@ EOT;
             ->assertJsonValidationErrors(['technology_id']);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function bulk_upload_h5p_ids_should_be_positive_integers()
@@ -1133,7 +1085,6 @@ EOT;
         $this->actingAs($this->user)->postJson("/api/questions/h5p/100000000000", ['folder_id' => $this->my_questions_folder->id])
             ->assertJson(['message' => '100000000000 is not a valid id.']);
 
-
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -1144,7 +1095,6 @@ EOT;
             ->assertJson(['h5p' => ['url' => 'https://studio.libretexts.org/h5p/600']]);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function non_admin_cannot_delete_question_editors()
@@ -1169,7 +1119,6 @@ EOT;
             ->assertJson(['message' => "You cannot delete the default non-instructor editor."]);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function tags_are_correctly_added()
@@ -1201,7 +1150,6 @@ EOT;
         $this->assertDatabaseCount('question_tag', 6);
         $this->assertDatabaseCount('tags', 3);//should only be tag 1, tag 2, tag 3
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function non_admin_cannot_view_question_editors()
@@ -1333,5 +1281,4 @@ EOT;
         ]);
         $this->assertEquals(2, DB::table('question_media_uploads')->where('s3_key', 'abc123.mp4')->count());
     }
-
 }

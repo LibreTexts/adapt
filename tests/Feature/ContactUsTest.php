@@ -23,8 +23,6 @@ class ContactUsTest extends TestCase
 
     }
 
-
-
     #[Test]
     public function name_is_required()
     {
@@ -67,12 +65,4 @@ class ContactUsTest extends TestCase
             ->assertJsonValidationErrors('email');
 
     }
-
-
-    #[Test]
-    public function can_send_contact_us_email() {
-
-
-}
-
 }

@@ -22,7 +22,6 @@ class FillInTheBlankTest extends TestCase
         $this->directory = 'test directory';
         $this->filename = 'some filename';
 
-
         $this->qti_question_info = [
             "question_type" => "assessment",
             "folder_id" => $this->saved_questions_folder->id,
@@ -65,24 +64,4 @@ class FillInTheBlankTest extends TestCase
             $this->qti_question_info)
             ->assertJsonValidationErrors('qti_item_body');
     }
-
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function fill_in_the_blank_question_cannot_be_repeated()
-    {
-/*
-        $this->actingAs($this->user)->postJson("/api/questions",
-            $this->qti_question_info)
-            ->assertJson(['type' => 'success']);
-        $question = DB::table('questions')->orderBy('id', 'desc')->first();
-        $this->actingAs($this->user)->postJson("/api/questions",
-            $this->qti_question_info)
-            ->assertJson(['errors' => ['qti_prompt' => [
-                "This question is identical to the native question with ADAPT ID $question->id."
-            ]
-            ]]);
-*/
-    }
-
-
 }

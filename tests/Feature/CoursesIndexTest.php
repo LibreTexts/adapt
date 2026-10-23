@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-
 use App\Assignment;
 use App\Course;
 use App\Enrollment;
@@ -30,7 +29,6 @@ class CoursesIndexTest extends TestCase
         $this->assignment = factory(Assignment::class)->create(['course_id' => $this->course->id]);
         $this->school = factory(School::class)->create();
 
-
         $this->student_user = factory(User::class)->create();
         $this->student_user->role = 3;
         Enrollment::create(['course_id' => $this->course->id,
@@ -54,7 +52,6 @@ class CoursesIndexTest extends TestCase
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function linking_to_lms_will_show_if_in_different_account()
     {
@@ -67,7 +64,6 @@ class CoursesIndexTest extends TestCase
                 'message' => "The LMS course is already linked to your ADAPT course $new_course->name. Please log into your account with email address {$this->user_2->email} and unlink the course."]);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function non_admin_cannot_update_disciplines()
     {
@@ -76,7 +72,6 @@ class CoursesIndexTest extends TestCase
             ->assertJson(['type' => 'error',
                 'message' => 'You are not allowed to update the discipline for this course.']);
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function cannot_get_the_mini_summary_if_you_do_not_have_an_analytics_token()
@@ -105,7 +100,6 @@ class CoursesIndexTest extends TestCase
             'lms' => 0,
             'whitelisted_domains' => ['someDomain.org']
         ])->assertJson(['type' => 'error', 'message' => 'You are not allowed to update this course.']);
-
 
     }
 
@@ -165,7 +159,6 @@ class CoursesIndexTest extends TestCase
             ->assertJson(['message' => "bogus action should either be to import or clone."]);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function instructor_can_import_a_course()
     {
@@ -197,7 +190,6 @@ class CoursesIndexTest extends TestCase
         $this->actingAs($this->user)->patchJson("/api/courses/{$this->course->id}/show-course/1")
             ->assertJson(['message' => 'Your students <strong>cannot</strong> view this course.  In addition, all course access codes have been revoked.']);
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function grader_access_code_must_be_valid()
@@ -231,31 +223,6 @@ class CoursesIndexTest extends TestCase
 
     }
 
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function owner_can_refresh_course_access_code()
-    {
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function non_owner_cannot_refresh_course_access_code()
-    {
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function owner_can_remove_a_grader_from_a_course()
-    {
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function non_owner_cannot_remove_a_grader_from_a_course()
-    {
-
-    }
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function user_cannot_email_grader_invitation_without_a_valid_email()
     {
@@ -264,7 +231,6 @@ class CoursesIndexTest extends TestCase
                 'email' => 'some bad email'])
             ->assertJsonValidationErrors(['email']);
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function user_cannot_email_grader_invitation_if_not_owner()
@@ -275,7 +241,6 @@ class CoursesIndexTest extends TestCase
             ->assertJson(['type' => 'error', 'message' => 'You are not allowed to invite graders to this course.']);
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function user_can_email_grader_invitation_if_owner()
     {
@@ -283,19 +248,16 @@ class CoursesIndexTest extends TestCase
             'Need to learn how to mock the Mail class'
         );
 
-
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function grader_can_get_courses_for_which_they_grade()
     {
 
-
         $this->actingAs($this->grader_user)->getJson("/api/courses")
             ->assertJson(['courses' => [['name' => 'First Course'], ['name' => 'First Course']]]);
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function can_get_your_courses()
@@ -315,12 +277,6 @@ class CoursesIndexTest extends TestCase
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
-    public function correctly_handles_different_timezones()
-    {
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
     public function can_delete_a_course_if_you_are_the_owner()
     {
 
@@ -333,14 +289,11 @@ class CoursesIndexTest extends TestCase
     public function cannot_delete_a_course_if_you_are_not_the_owner()
     {
 
-
         $course_2 = factory(Course::class)->create(['user_id' => $this->user_2->id]);
         $this->actingAs($this->user)->deleteJson("/api/courses/$course_2->id")
             ->assertJson(['type' => 'error', 'message' => 'You are not allowed to delete this course.']);
 
-
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function can_create_a_course()
@@ -361,7 +314,6 @@ class CoursesIndexTest extends TestCase
             'anonymous_users' => 0
         ])->assertJson(['type' => 'success']);
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function term_field_is_required()
@@ -389,7 +341,6 @@ class CoursesIndexTest extends TestCase
             'crn' => 'some crn'
         ])->assertJson(['type' => 'success']);
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function must_include_a_course_name()
@@ -454,6 +405,4 @@ class CoursesIndexTest extends TestCase
         ])->assertJsonValidationErrors(['end_date']);
 
     }
-
-
 }

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Students;
 
-
 use App\FinalGrade;
 use App\Section;
 use Tests\TestCase;
@@ -14,7 +13,6 @@ use App\Enrollment;
 use App\SubmissionFile;
 use App\Traits\Test;
 use App\Traits\Statistics;
-
 
 class StudentsAssignmentsIndexTest extends TestCase
 {
@@ -35,15 +33,12 @@ class StudentsAssignmentsIndexTest extends TestCase
             'course_id' => $this->course->id
         ]);
 
-
         $this->assignment = factory(Assignment::class)->create(['course_id' => $this->course->id, 'show_scores' => 1]);
-
 
         //create a student and enroll in the class
 
         $this->student_user_2 = factory(User::class)->create();
         $this->student_user_4 = factory(User::class)->create();
-
 
         $this->student_user_2->role = 3;
         $this->student_user_4->role = 3;
@@ -58,7 +53,6 @@ class StudentsAssignmentsIndexTest extends TestCase
             'course_id' => $this->course->id,
             'section_id' => $this->section->id
         ]);
-
 
         //student not enrolled
         $this->student_user_3 = factory(User::class)->create();
@@ -99,8 +93,6 @@ class StudentsAssignmentsIndexTest extends TestCase
             ->assertJson(['weighted_score' => '28.61%']);
     }
 
-
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function correctly_computes_the_final_score_for_the_student_if_all_assignments_show_scores_and_student_is_assigned_to_all()
     {
@@ -116,7 +108,6 @@ class StudentsAssignmentsIndexTest extends TestCase
         $this->actingAs($this->student_user)->getJson("/api/scores/{$this->course->id}/get-course-scores-by-user")
             ->assertJson(['weighted_score' => '51.11%']);
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function correctly_computes_the_z_score_for_an_assignment()
@@ -158,7 +149,6 @@ class StudentsAssignmentsIndexTest extends TestCase
 
     }
 
-
     #[\PHPUnit\Framework\Attributes\Test]
     public function can_get_assignment_file_info_if_owner()
     {
@@ -175,27 +165,6 @@ class StudentsAssignmentsIndexTest extends TestCase
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
-    public function cannot_download_assignment_file_if_not_owner()
-    {
-        /*    need exception... $this->actingAs($this->student_user_2)->postJson("/api/submission-files/download",
-                 [
-                     'assignment_id' => $this->assignment->id,
-                     'submission' => $this->submission_file->submission
-                 ]
-             )
-                 ->assertJson(['type' => 'error', 'message' => 'You are not allowed to download that assignment file.']);
-     */
-    }
-
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function correctly_handles_different_timezones()
-    {
-
-    }
-
-
-    #[\PHPUnit\Framework\Attributes\Test]
     public function can_store_assignment_file_if_enrolled_in_course()
     {
 
@@ -204,7 +173,6 @@ class StudentsAssignmentsIndexTest extends TestCase
         );
 
     }
-
 
     #[\PHPUnit\Framework\Attributes\Test]
     public function computes_the_correct_z_score_at_the_course_level()
@@ -243,5 +211,4 @@ class StudentsAssignmentsIndexTest extends TestCase
 
         $this->assertEquals('N/A', $response['assignments'][0]['z_score']);
     }
-
 }
