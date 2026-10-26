@@ -86,10 +86,10 @@ class SubmissionAudioController extends Controller
                           Assignment             $assignment,
                           Question               $question,
                           int                    $is_phone,
-                          string                 $submission = '',
                           SubmissionFile         $submissionFile,
                           Extension              $extension,
-                          AssignmentSyncQuestion $assignmentSyncQuestion): array
+                          AssignmentSyncQuestion $assignmentSyncQuestion,
+                          string                 $submission = ''): array
     {
         $response['type'] = 'error';
         $assignment_id = $assignment->id;
