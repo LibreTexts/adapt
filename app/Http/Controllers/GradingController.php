@@ -9,7 +9,9 @@ use App\Console\Commands\Analytics\insertReviewHistories;
 use App\Discussion;
 use App\Enrollment;
 use App\Exceptions\Handler;
+use App\Helpers\DynamicRubric;
 use App\Helpers\Helper;
+use App\Helpers\RubricHelper;
 use App\Http\Requests\GradingRequest;
 use App\JWE;
 use App\Question;
@@ -81,6 +83,18 @@ class GradingController extends Controller
             $question = Question::find($question_id);
             $is_discuss_it = $question->isDiscussIt();
         }
+        $dynamic_rubric_save = ['type' => 'success', 'is_dynamic' => false];
+        if ($question_id) {
+            //dynamic rubric: the server calculates the open-ended score from the applied items
+            $dynamic_rubric_save = $this->_prepareDynamicRubricSave($request, (int)$assignment_id, $question, (int)$student_user_id);
+            if ($dynamic_rubric_save['type'] !== 'success') {
+                return $dynamic_rubric_save;
+            }
+            if ($dynamic_rubric_save['is_dynamic']) {
+                $request->merge(['file_submission_score' => $dynamic_rubric_save['score']['final']]);
+                $data['file_submission_score'] = $dynamic_rubric_save['score']['final'];
+            }
+        }
         $extra_validation_response = $this->_extraValidations($request, $question_id, $assignment_id, $student_user_id);
         if ($extra_validation_response['type'] !== 'success') {
             return $extra_validation_response;
@@ -90,6 +104,21 @@ class GradingController extends Controller
             $text_feedback = $request->textFeedback ? trim($request->textFeedback) : '';
 
             DB::beginTransaction();
+            if ($dynamic_rubric_save['is_dynamic']) {
+                //re-check under a lock: a rubric edit may have been applied since the score was calculated
+                $locked_assignment_question = DB::table('assignment_question')
+                    ->where('assignment_id', $assignment_id)
+                    ->where('question_id', $question_id)
+                    ->lockForUpdate()
+                    ->first();
+                $locked_rubric = DynamicRubric::decode(RubricHelper::assignmentQuestionRubric($locked_assignment_question, $question->rubric));
+                if (!DynamicRubric::isDynamic($locked_rubric)
+                    || DynamicRubric::version($locked_rubric) !== DynamicRubric::version($dynamic_rubric_save['rubric'])) {
+                    DB::rollback();
+                    return ['type' => 'error',
+                        'message' => "The rubric was changed by someone else. Please reload the page before saving."];
+                }
+            }
             if ($request->submitted_work_pending_score) {
                 $submittedWorkPendingScore ->where('user_id', $student_user_id)
                     ->where('assignment_id', $assignment_id)
@@ -136,6 +165,7 @@ class GradingController extends Controller
                     ->where('question_id', $question_id)
                     ->first()
                 && !in_array($assignment_question->open_ended_submission_type, ["0", "no submission, manual grading"])) {
+                DB::rollback(); //close the transaction opened above instead of leaving it open
                 $response['manual_grading_error'] = true;
                 return $response;
             }
@@ -160,7 +190,9 @@ class GradingController extends Controller
                         'updated_at' => Carbon::now(),
                         'grader_id' => $request->user()->id]);
             }
-            if ($request->rubric_points_breakdown) {
+            if ($dynamic_rubric_save['is_dynamic']) {
+                $this->_saveDynamicRubricBreakdown($dynamic_rubric_save, (int)$assignment_id, (int)$question_id, (int)$student_user_id, $request->user()->id);
+            } else if ($request->rubric_points_breakdown) {
                 $rubric_items = $request->rubric_points_breakdown;
                 if ($request->special_score) {
                     $original_rubric_with_maxes = $request->original_rubric_with_maxes;
@@ -191,7 +223,7 @@ class GradingController extends Controller
                     'assignment_id' => $assignment_id,
                     'question_id' => $question_id,
                     'user_id' => $student_user_id],
-                    ['points_breakdown' => $points_breakdown]);
+                    ['points_breakdown' => $points_breakdown, 'needs_review' => 0]);
             }
             if ($request->question_submission_score !== null) {
                 DB::table('submissions')
@@ -210,6 +242,9 @@ class GradingController extends Controller
             $response['last_graded'] = Carbon::now($request->user()->time_zone)->format('F d, Y \a\t g:i A');
             $response['message'] = 'The score and feedback have been updated.';
             $response['grader_name'] = $request->user()->first_name . ' ' . $request->user()->last_name;
+            if ($dynamic_rubric_save['is_dynamic']) {
+                $response['dynamic_rubric_score'] = $dynamic_rubric_save['score'];
+            }
         } catch (Exception $e) {
 
             DB::rollback();
@@ -218,6 +253,143 @@ class GradingController extends Controller
             $response['message'] = "We were not able to save the information.  Please try again or contact us for assistance.";
         }
         return $response;
+    }
+
+    /**
+     * Works out whether this save is for a dynamic rubric and, if so, checks the request and
+     * calculates the score. Nothing is written here.
+     *
+     * @param GradingRequest $request
+     * @param int $assignment_id
+     * @param Question $question
+     * @param int $student_user_id
+     * @return array type success|error; when is_dynamic, also the rubric, score and previous values
+     */
+    private function _prepareDynamicRubricSave(GradingRequest $request,
+                                               int            $assignment_id,
+                                               Question       $question,
+                                               int            $student_user_id): array
+    {
+        $response = ['type' => 'success', 'is_dynamic' => false];
+        $assignment_question = DB::table('assignment_question')
+            ->where('assignment_id', $assignment_id)
+            ->where('question_id', $question->id)
+            ->first();
+        if (!$assignment_question) {
+            return $response;
+        }
+        $rubric_json = RubricHelper::assignmentQuestionRubric($assignment_question, $question->rubric);
+        $rubric = DynamicRubric::decode($rubric_json);
+        $payload = $request->dynamic_rubric;
+
+        if (!DynamicRubric::isDynamic($rubric)) {
+            if ($payload !== null) {
+                return ['type' => 'error',
+                    'message' => "This question's rubric no longer uses dynamic scoring. Please reload the page."];
+            }
+            return $response;
+        }
+        if ($payload === null) {
+            if ($request->rubric_points_breakdown || $request->file_submission_score !== null) {
+                //a dynamic rubric score can only come from the applied items, never from a typed-in score
+                return ['type' => 'error',
+                    'message' => "This question's rubric uses dynamic scoring. Please reload the page."];
+            }
+            return $response; //feedback or auto-graded score only: the rubric score is left as it is
+        }
+        if ((int)$payload['rubric_version'] !== DynamicRubric::version($rubric)) {
+            return ['type' => 'error',
+                'message' => "The rubric was changed by someone else. Please reload the page before saving."];
+        }
+        $applied_item_ids = array_values(array_map('strval', $payload['applied_item_ids'] ?? []));
+        if (DynamicRubric::unknownItemIds($rubric, $applied_item_ids)) {
+            return ['type' => 'error',
+                'message' => "Some of the rubric items you selected no longer exist. Please reload the page."];
+        }
+        $adjustment = round((float)($payload['adjustment'] ?? 0), 2);
+        $cap = DynamicRubric::cap($assignment_question->points, $request->question_submission_score);
+
+        $previous_breakdown = RubricPointsBreakdown::where('assignment_id', $assignment_id)
+            ->where('question_id', $question->id)
+            ->where('user_id', $student_user_id)
+            ->first();
+        $previous_submission_file = DB::table('submission_files')
+            ->where('assignment_id', $assignment_id)
+            ->where('question_id', $question->id)
+            ->where('user_id', $student_user_id)
+            ->first();
+
+        $response['is_dynamic'] = true;
+        $response['rubric'] = $rubric;
+        $response['rubric_json'] = $rubric_json;
+        $response['assignment_question'] = $assignment_question;
+        $response['applied_item_ids'] = $applied_item_ids;
+        $response['adjustment'] = $adjustment;
+        //submission_files.applied_late_penalty is a whole-number column, so score with the value that will be stored
+        $late_penalty_percent = $request->applied_late_penalty === null ? null : (int)round($request->applied_late_penalty);
+        $response['score'] = DynamicRubric::score($rubric, $applied_item_ids, $adjustment, $cap, $late_penalty_percent);
+        $response['previous'] = [
+            'applied_item_ids' => $previous_breakdown && $previous_breakdown->applied_item_ids !== null
+                ? json_decode($previous_breakdown->applied_item_ids, true)
+                : null,
+            'adjustment' => $previous_breakdown ? $previous_breakdown->adjustment : null,
+            'score' => $previous_submission_file ? $previous_submission_file->score : null];
+        return $response;
+    }
+
+    /**
+     * Saves the applied items for a dynamic rubric and logs the change.  Runs inside store()'s transaction.
+     *
+     * @param array $dynamic_rubric_save from _prepareDynamicRubricSave()
+     * @param int $assignment_id
+     * @param int $question_id
+     * @param int $student_user_id
+     * @param int $grader_id
+     * @return void
+     */
+    private function _saveDynamicRubricBreakdown(array $dynamic_rubric_save,
+                                                 int   $assignment_id,
+                                                 int   $question_id,
+                                                 int   $student_user_id,
+                                                 int   $grader_id)
+    {
+        $assignment_question = $dynamic_rubric_save['assignment_question'];
+        $uses_override = $assignment_question->use_existing_rubric !== null
+            && (int)$assignment_question->use_existing_rubric === 0
+            && $assignment_question->custom_rubric;
+        if (!$uses_override) {
+            //copy-on-first-use: from now on this assignment keeps its own copy, so a later edit by the
+            //question's author can never change these students' scores
+            DB::table('assignment_question')
+                ->where('assignment_id', $assignment_id)
+                ->where('question_id', $question_id)
+                ->update(['custom_rubric' => $dynamic_rubric_save['rubric_json'],
+                    'use_existing_rubric' => 0]);
+        }
+
+        RubricPointsBreakdown::updateOrCreate([
+            'assignment_id' => $assignment_id,
+            'question_id' => $question_id,
+            'user_id' => $student_user_id],
+            ['points_breakdown' => json_encode(['scoring_style' => 'dynamic', 'rubric_items' => []]),
+                'applied_item_ids' => json_encode($dynamic_rubric_save['applied_item_ids']),
+                'adjustment' => $dynamic_rubric_save['adjustment'],
+                'needs_review' => 0,
+                'rubric_version' => DynamicRubric::version($dynamic_rubric_save['rubric']),
+                'grader_id' => $grader_id]);
+
+        DB::table('rubric_score_logs')->insert([
+            'assignment_id' => $assignment_id,
+            'question_id' => $question_id,
+            'student_user_id' => $student_user_id,
+            'grader_id' => $grader_id,
+            'before' => json_encode($dynamic_rubric_save['previous']),
+            'after' => json_encode(['applied_item_ids' => $dynamic_rubric_save['applied_item_ids'],
+                'adjustment' => $dynamic_rubric_save['adjustment'],
+                'score' => $dynamic_rubric_save['score']['final']]),
+            'reason' => 'graded',
+            'created_at' => Carbon::now(),
+            'updated_at' => Carbon::now()]);
     }
 
     /**
@@ -290,11 +462,7 @@ class GradingController extends Controller
             ->where('question_id', $question_id)
             ->where('user_id', $student_user_id)
             ->first();
-        if (!$current_rubric_points_breakdown) {
-            $rubric_points_breakdown_updated = true;
-        } else {
-            $rubric_points_breakdown_updated = $current_rubric_points_breakdown !== $request->rubric_points_breakdown;
-        }
+        $rubric_points_breakdown_updated = $this->_rubricPointsBreakdownUpdated($request, $current_rubric_points_breakdown);
         if ($current_file_submission_score == $request->file_submission_score
             && $current_question_submission_score == $request->question_submission_score
             && $current_text_feedback == $request->textFeedback
@@ -306,6 +474,36 @@ class GradingController extends Controller
 
         $response['type'] = 'success';
         return $response;
+    }
+
+    /**
+     * Whether this save changes the student's rubric breakdown.
+     * (Previously a database row was compared to the request with !==, which was always true.)
+     *
+     * @param GradingRequest $request
+     * @param object|null $current_rubric_points_breakdown the student's rubric_points_breakdowns row
+     * @return bool
+     */
+    private function _rubricPointsBreakdownUpdated(GradingRequest $request, $current_rubric_points_breakdown): bool
+    {
+        if ($request->dynamic_rubric !== null) {
+            return true; //dynamic: the applied items are always saved and logged
+        }
+        if (!$request->rubric_points_breakdown) {
+            return false; //no rubric breakdown sent, so nothing about it changes
+        }
+        if ($current_rubric_points_breakdown && (int)($current_rubric_points_breakdown->needs_review ?? 0)) {
+            return true; //flagged when the rubric was converted: saving it, even unchanged, marks it reviewed
+        }
+        if (!$current_rubric_points_breakdown || $request->special_score) {
+            return true; //first breakdown for this student, or Full/Zero Score rewrites every item
+        }
+        $submitted_rubric_items = is_string($request->rubric_points_breakdown)
+            ? (json_decode($request->rubric_points_breakdown, true)['rubric_items'] ?? null)
+            : $request->rubric_points_breakdown;
+        $current_rubric_items = json_decode($current_rubric_points_breakdown->points_breakdown, true)['rubric_items'] ?? null;
+        //== so "2" and 2 match and the order of each item's keys doesn't matter
+        return $submitted_rubric_items != $current_rubric_items;
     }
 
     /**
@@ -479,6 +677,22 @@ class GradingController extends Controller
             $points = $assignment_question->points;
 
 
+            //dynamic rubrics: students whose score was kept when the rubric was converted, until a grader saves them
+            $needs_review_user_ids = DB::table('rubric_points_breakdowns')
+                ->where('assignment_id', $assignment->id)
+                ->where('question_id', $question->id)
+                ->where('needs_review', 1)
+                ->pluck('user_id')
+                ->map(function ($user_id) {
+                    return (int)$user_id;
+                })
+                ->toArray();
+            $needs_review_count = 0;
+            foreach ($enrolled_users as $enrolled_user) {
+                if (in_array((int)$enrolled_user->id, $needs_review_user_ids, true)) {
+                    $needs_review_count++;
+                }
+            }
             $discussions_by_user_id = $discussion->getByAssignmentQuestionMediaUploadId($assignment, $question, 0)['discussions_by_user_id'];
             $discussions = $discussion->getByAssignmentQuestionMediaUploadId($assignment, $question, 0)['discussions'];
             foreach ($enrolled_users as $user) {
@@ -551,6 +765,7 @@ class GradingController extends Controller
                         'email' => $user->email,
                         'student_id' => $user->student_id,
                         'user_id' => $user->id];
+                    $grading[$user->id]['needs_review'] = in_array((int)$user->id, $needs_review_user_ids, true);
                     //open_ended
                     $grading[$user->id]['non_technology_iframe_src'] = $non_technology_iframe_src;
                     $grading[$user->id]['technology_iframe'] = $technology_iframe;
@@ -595,12 +810,13 @@ class GradingController extends Controller
 
             $response['is_auto_graded'] = $is_auto_graded;
             $response['show_auto_graded_submission'] = $is_auto_graded && $question->technology === 'h5p';
-            $response['rubric'] = $assignment_question->custom_rubric ?: $question->rubric;
+            $response['rubric'] = RubricHelper::assignmentQuestionRubric($assignment_question, $question->rubric);
             $response['technology'] = $question->technology;
             $response['is_open_ended'] = $is_open_ended;
             $response['algorithmic'] = $webwork->algorithmicSolution($question);
             $response['type'] = 'success';
             $response['grading'] = array_values($grading);
+            $response['needs_review_count'] = $needs_review_count;
             $response['message'] = "Your view has been updated.";
             $response['graders_can_see_student_names'] = (bool)$assignment->graders_can_see_student_names;
             $response['discussions'] = $discussions;

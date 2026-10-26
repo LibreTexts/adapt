@@ -35,6 +35,14 @@ class GradingRequest extends FormRequest
             $rules['applied_late_penalty'] = 'numeric|gte:0|lte:100';
 
         }
+        if ($this->dynamic_rubric !== null) {
+            //dynamic rubric: the applied item ids; the server calculates file_submission_score from them
+            $rules['dynamic_rubric'] = 'array';
+            $rules['dynamic_rubric.applied_item_ids'] = 'present|array';
+            $rules['dynamic_rubric.applied_item_ids.*'] = 'string|distinct';
+            $rules['dynamic_rubric.adjustment'] = 'nullable|numeric';
+            $rules['dynamic_rubric.rubric_version'] = 'required|integer|gte:0';
+        }
        return $rules;
 
     }

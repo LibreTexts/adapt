@@ -13,7 +13,11 @@ use App\Exceptions\Handler;
 use App\Forge;
 use App\ForgeAssignmentQuestion;
 use App\ForgeSettings;
+use App\Helpers\DynamicRubric;
+use App\Helpers\DynamicRubricEditor;
 use App\Helpers\Helper;
+use App\Helpers\RubricEditPermission;
+use App\Helpers\RubricHelper;
 use App\Http\Requests\CustomTimeToSubmitRequest;
 use App\Http\Requests\StartClickerAssessment;
 use App\Http\Requests\UpdateAssignmentQuestionWeightRequest;
@@ -883,16 +887,27 @@ class AssignmentSyncQuestionController extends Controller
                 $response['message'] = $authorized->message();
                 return $response;
             }
+            if (DynamicRubricEditor::dynamicRubricHasScores($assignment, $question)) {
+                //deleting would remove every student's applied rubric items
+                $response['message'] = DynamicRubricEditor::HAS_DYNAMIC_SCORES_MESSAGE;
+                return $response;
+            }
             DB::beginTransaction();
             $rubricPointsBreakdown->where('assignment_id', $assignment->id)
                 ->where('question_id', $question->id)
                 ->delete();
             $assignmentSyncQuestion->where('assignment_id', $assignment->id)
                 ->where('question_id', $question->id)
-                ->update(['custom_rubric' => null]);
+                ->update(['custom_rubric' => null, 'use_existing_rubric' => 1]);
             DB::commit();
             $response['type'] = 'info';
             $response['message'] = "The overriding rubric has been deleted.";
+            $assignment_question = DB::table('assignment_question')
+                ->where('assignment_id', $assignment->id)
+                ->where('question_id', $question->id)
+                ->first();
+            $response['rubric'] = RubricHelper::assignmentQuestionRubric($assignment_question, $question->rubric);
+            $response['use_existing_rubric'] = true;
         } catch (Exception $e) {
 
             DB::rollback();
@@ -924,6 +939,11 @@ class AssignmentSyncQuestionController extends Controller
             $authorized = Gate::inspect('updateUseExistingRubric', [$assignmentSyncQuestion, $assignment]);
             if (!$authorized->allowed()) {
                 $response['message'] = $authorized->message();
+                return $response;
+            }
+            if (DynamicRubricEditor::dynamicRubricHasScores($assignment, $question)) {
+                //switching would remove every student's applied rubric items
+                $response['message'] = DynamicRubricEditor::HAS_DYNAMIC_SCORES_MESSAGE;
                 return $response;
             }
             DB::beginTransaction();
@@ -971,6 +991,26 @@ class AssignmentSyncQuestionController extends Controller
             $authorized = Gate::inspect('updateCustomRubric', [$assignmentSyncQuestion, $assignment]);
             if (!$authorized->allowed()) {
                 $response['message'] = $authorized->message();
+                return $response;
+            }
+            if (DynamicRubricEditor::dynamicRubricHasScores($assignment, $question)) {
+                //a static-rubric save would remove every student's applied rubric items
+                $response['message'] = DynamicRubricEditor::HAS_DYNAMIC_SCORES_MESSAGE;
+                return $response;
+            }
+            if (DynamicRubric::isDynamic($request->custom_rubric)) {
+                //dynamic rubrics need item ids, versions and rescoring, which only the dynamic rubric editor provides
+                $response['message'] = "Dynamic rubrics are saved with the dynamic rubric editor.";
+                return $response;
+            }
+            $proposed_custom_rubric = json_decode($request->custom_rubric, true);
+            $settings_error = RubricEditPermission::graderSettingsError($request->user(), $assignment,
+                DynamicRubricEditor::currentState($assignment, $question), false,
+                is_array($proposed_custom_rubric) && array_key_exists('rubric_shown', $proposed_custom_rubric)
+                    ? (bool)$proposed_custom_rubric['rubric_shown']
+                    : null);
+            if ($settings_error) {
+                $response['message'] = $settings_error;
                 return $response;
             }
             $assignment_question = DB::table('assignment_question')
@@ -4295,12 +4335,12 @@ class AssignmentSyncQuestionController extends Controller
                 $late_question_submission = $response_info['late_question_submission'];
 
                 $assignment->questions[$key]['question_rubric_exists'] = isset($assignment_questions_by_question_id[$question->id]) && $question->rubric !== null;
-                $custom_rubric = $assignment_questions_by_question_id[$question->id]->custom_rubric ?? null;
+                // $question already carries the assignment's revision (updateWithQuestionRevision above),
+                // so $question->rubric is the revision rubric, the same one RubricHelper::assignmentQuestionRubric() looks up
                 $assignment->questions[$key]['rubric'] =
                     isset($assignment_questions_by_question_id[$question->id])
-                    && ($assignment_questions_by_question_id[$question->id]->use_existing_rubric || $assignment_questions_by_question_id[$question->id]->use_existing_rubric === null)
-                        ? $question->rubric
-                        : $custom_rubric;
+                        ? RubricHelper::effectiveRubric($assignment_questions_by_question_id[$question->id], $question->rubric)
+                        : null;
 
 
                 $assignment->questions[$key]['use_existing_rubric'] = isset($assignment_questions_by_question_id[$question->id]) && ($assignment_questions_by_question_id[$question->id]->use_existing_rubric || $assignment_questions_by_question_id[$question->id]->use_existing_rubric === null);

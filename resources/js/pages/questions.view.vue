@@ -374,6 +374,68 @@
         </b-button>
       </template>
     </b-modal>
+    <b-modal id="modal-graded-dynamic-rubric-change"
+             title="Students Have Been Graded With This Rubric"
+             size="lg"
+             no-close-on-backdrop
+    >
+      <p>
+        Students have been graded with this dynamic rubric.
+        {{
+          rubricRemoval.action === 'delete_override'
+            ? 'Deleting it'
+            : (questions[currentPage - 1] && questions[currentPage - 1].use_existing_rubric
+              ? 'Switching to the overriding rubric'
+              : "Switching to the question's rubric")
+        }}
+        would wipe out their rubric scores.
+      </p>
+      <p class="mb-1 font-weight-bold">
+        To keep their scores, edit the rubric instead:
+      </p>
+      <ul>
+        <li>Change the criteria or points: students' scores are recalculated, and you'll see a preview first.</li>
+        <li>Switch to static scoring: choose Static in the editor; their scores are converted, with a preview first.</li>
+      </ul>
+      <hr>
+      <p class="mb-1 font-weight-bold">
+        Or {{ rubricRemoval.action === 'delete_override' ? 'delete it' : 'switch' }} and clear the scores:
+      </p>
+      <p>
+        <span v-if="rubricRemoval.numberToClear">
+          {{ rubricRemoval.numberToClear }}
+          {{ rubricRemoval.numberToClear === 1 ? "student's score" : "students' scores" }}
+          for this question will be cleared, and they'll need to be regraded.
+        </span>
+        <span v-else>No student has a score for this question that would be cleared.</span>
+        Their feedback is kept, and students with a score override keep it.
+      </p>
+      <b-form-checkbox v-model="rubricRemoval.understood">
+        I understand this can't be undone.
+      </b-form-checkbox>
+      <b-form-checkbox v-if="rubricRemoval.scoresReleased && rubricRemoval.numberToClear"
+                       v-model="rubricRemoval.emailStudents"
+                       class="mt-1"
+      >
+        Email the students whose scores are cleared
+      </b-form-checkbox>
+      <template #modal-footer>
+        <b-button size="sm" @click="$bvModal.hide('modal-graded-dynamic-rubric-change')">
+          Close
+        </b-button>
+        <b-button size="sm" variant="outline-primary" @click="editRubricInsteadOfRemoving()">
+          Edit Rubric
+        </b-button>
+        <b-button size="sm"
+                  variant="danger"
+                  :disabled="!rubricRemoval.understood || rubricRemoval.processing"
+                  @click="removeRubricAndClearScores()"
+        >
+          <b-spinner v-if="rubricRemoval.processing" small type="grow"/>
+          {{ rubricRemoval.action === 'delete_override' ? 'Delete and Clear Scores' : 'Switch and Clear Scores' }}
+        </b-button>
+      </template>
+    </b-modal>
     <b-modal id="modal-no-assignment-and-grades-url"
              title="Not Linked to LMS"
              hide-footer
@@ -2504,6 +2566,7 @@
                                    :assignment-id="+assignmentId"
                                    :question-id="questions[currentPage-1].id"
                                    @setCustomRubric="setCustomRubric"
+                                   @dynamicRubricSaved="dynamicRubricSaved"
                                    @hideRubricProperties="showRubricProperties = false"
             />
             <b-row
@@ -2515,6 +2578,7 @@
                     class="mr-2 mt-1"
               >
                 <toggle-button
+                  :key="`use-existing-rubric-toggle-${useExistingRubricToggleKey}`"
                   tabindex="0"
                   :width="questions[currentPage - 1].use_existing_rubric ? 230 : 185"
                   :value="questions[currentPage - 1].use_existing_rubric"
@@ -2548,6 +2612,9 @@
                   </b-button>
                 </span>
               </span>
+              <small v-if="dynamicRubricPointsNote()" class="pl-2 pt-1 font-italic">
+                {{ dynamicRubricPointsNote() }}
+              </small>
             </b-row>
             <div v-if="instructorInNonBasicView() && !clickerApp">
               <span v-if="!questions[currentPage-1].solution && false">
@@ -4129,6 +4196,9 @@ export default {
     clickerAssignmentId: 0,
     useExistingRubric: false,
     rubricPointsBreakDownExists: false,
+    // deleting or switching a dynamic rubric that students were graded with
+    rubricRemoval: { action: '', numberToClear: 0, scoresReleased: false, understood: false, emailStudents: false, processing: false },
+    useExistingRubricToggleKey: 0,
     showRubricPointsBreakdown: false,
     showRubricProperties: false,
     emailToGraderSubject: '',
@@ -5161,7 +5231,62 @@ export default {
         !this.isFormative &&
         !this.clickerApp
     },
+    async gradedDynamicRubricBlocks (action) {
+      // a dynamic rubric students were graded with can't simply be deleted or switched: explain and offer the options
+      try {
+        const { data } = await axios.post(`/api/assignments/${this.assignmentId}/questions/${this.questions[this.currentPage - 1].id}/dynamic-rubric/remove-with-scores-preview`)
+        if (data.type !== 'success' || !data.required) {
+          return false
+        }
+        this.rubricRemoval = {
+          action,
+          numberToClear: data.number_to_clear,
+          scoresReleased: Boolean(data.scores_released),
+          understood: false,
+          emailStudents: false,
+          processing: false
+        }
+        this.$bvModal.show('modal-graded-dynamic-rubric-change')
+        return true
+      } catch (error) {
+        this.$noty.error(error.message)
+        return false
+      }
+    },
+    editRubricInsteadOfRemoving () {
+      this.$bvModal.hide('modal-graded-dynamic-rubric-change')
+      this.showRubricProperties = true
+    },
+    async removeRubricAndClearScores () {
+      this.rubricRemoval.processing = true
+      const question = this.questions[this.currentPage - 1]
+      try {
+        const { data } = await axios.patch(`/api/assignments/${this.assignmentId}/questions/${question.id}/dynamic-rubric/remove-with-scores`, {
+          action: this.rubricRemoval.action,
+          expected_number_to_clear: this.rubricRemoval.numberToClear,
+          confirmed: this.rubricRemoval.understood,
+          email_students: this.rubricRemoval.emailStudents
+        })
+        this.$noty[data.type](data.message)
+        if (data.type === 'success') {
+          question.rubric = data.rubric
+          question.overriding_rubric = data.overriding_rubric ? true : null
+          question.use_existing_rubric = data.use_existing_rubric
+          this.useExistingRubricToggleKey++
+          this.$bvModal.hide('modal-graded-dynamic-rubric-change')
+        }
+      } catch (error) {
+        this.$noty.error(error.message)
+      } finally {
+        this.rubricRemoval.processing = false
+      }
+    },
     async initUpdateUseExistingRubric (useExistingRubric) {
+      if (await this.gradedDynamicRubricBlocks('switch_rubric')) {
+        // put the switch back until something is actually changed
+        this.useExistingRubricToggleKey++
+        return
+      }
       this.useExistingRubric = useExistingRubric.value
       this.rubricPointsBreakDownExists = false
       try {
@@ -5192,6 +5317,9 @@ export default {
       }
     },
     async initConfirmDeleteOverridingRubric () {
+      if (await this.gradedDynamicRubricBlocks('delete_override')) {
+        return
+      }
       this.rubricPointsBreakDownExists = false
       try {
         const { data } = await axios.get(`/api/rubric-points-breakdown/assignment/${this.assignmentId}/question/${this.questions[this.currentPage - 1].id}/exists`)
@@ -5211,11 +5339,43 @@ export default {
         if (data.type !== 'error') {
           this.questions[this.currentPage - 1].rubric = data.rubric
           this.questions[this.currentPage - 1].overriding_rubric = null
+          // deleting the override switches the question back to its existing rubric
+          this.questions[this.currentPage - 1].use_existing_rubric = true
           this.$bvModal.hide('modal-confirm-delete-overriding-rubric')
         }
       } catch (error) {
         this.$noty.error(error.message)
       }
+    },
+    dynamicRubricSaved (rubric) {
+      // the dynamic rubric was saved (and students rescored) as this assignment's own rubric
+      const question = this.questions[this.currentPage - 1]
+      question.rubric = JSON.stringify(rubric)
+      question.overriding_rubric = true
+      question.use_existing_rubric = false
+      this.showRubricProperties = false
+    },
+    dynamicRubricPointsNote () {
+      // dynamic criteria are exact points; flag when they don't add up to this question's points
+      const question = this.questions[this.currentPage - 1]
+      if (!question || !question.rubric || this.user.role !== 2) {
+        return ''
+      }
+      let rubric
+      try {
+        rubric = JSON.parse(question.rubric)
+      } catch (error) {
+        return ''
+      }
+      if (!rubric || rubric.scoring_style !== 'dynamic') {
+        return ''
+      }
+      const total = Math.round((rubric.rubric_items || []).reduce((sum, item) => sum + +item.points, 0) * 100) / 100
+      const points = +question.points
+      if (Math.abs(total - points) < 0.005) {
+        return ''
+      }
+      return `Rubric criteria add up to ${total}; this question is worth ${points}. Scores are capped at ${points}.`
     },
     async setCustomRubric (customRubric) {
       try {

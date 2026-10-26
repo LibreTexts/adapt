@@ -13,6 +13,8 @@ use App\BetaCourseApproval;
 use App\Course;
 use App\Helpers\Helper;
 use App\Helpers\Accounting;
+use App\Helpers\DynamicRubric;
+use App\Helpers\RubricStyleChange;
 use App\Http\Requests\StoreQuestionRequest;
 use App\IMathAS;
 use App\Jobs\GenerateFlashcardAudioVTT;
@@ -1854,19 +1856,32 @@ class QuestionController extends Controller
 
             $rubric_items_exist = isset($data['rubric_items']) && $data['rubric_items'];
             if ($rubric_items_exist) {
-                $rubric = json_encode(['rubric_items' => $data['rubric_items'], 'rubric_shown' => $data['rubric_shown']]);
+                $rubric_scoring_style = ($data['rubric_scoring_style'] ?? null) === 'dynamic' ? 'dynamic' : 'static';
+                if ($rubric_scoring_style === 'dynamic') {
+                    //items keep their ids from the previous version; new items get ids; the version goes up by 1
+                    $previous_rubric = $is_update ? Question::find($request->id)->rubric : null;
+                    $rubric = json_encode(DynamicRubric::prepareQuestionRubric($data['rubric_items'], $data['rubric_shown'], $previous_rubric));
+                } else {
+                    //static items have no ids (an item may still carry one if the style was just switched from dynamic)
+                    $static_rubric_items = array_map(function ($item) {
+                        unset($item['id']);
+                        return $item;
+                    }, $data['rubric_items']);
+                    $rubric = json_encode(['rubric_items' => $static_rubric_items, 'rubric_shown' => $data['rubric_shown']]);
+                }
                 $data['rubric'] = $rubric;
                 if ($request->rubric_template_save_option !== 'do not save as template') {
+                    $template_rubric = json_encode(DynamicRubric::templateRubric($data['rubric_items'], $data['rubric_shown'], $rubric_scoring_style));
                     $request->rubric_template_id ? RubricTemplate::where('id', $request->rubric_template_id)
                         ->update(['name' => $data['rubric_name'],
                             'description' => $data['rubric_description'],
-                            'rubric' => $rubric])
+                            'rubric' => $template_rubric])
                         : RubricTemplate::create(['name' => $data['rubric_name'],
                         'description' => $data['rubric_description'],
-                        'rubric' => $rubric,
+                        'rubric' => $template_rubric,
                         'user_id' => $request->user()->id]);
                 }
-                foreach (['rubric_name', 'rubric_description', 'rubric_template_id', 'rubric_shown', 'rubric_items'] as $rubric_key) {
+                foreach (['rubric_name', 'rubric_description', 'rubric_template_id', 'rubric_shown', 'rubric_items', 'rubric_scoring_style'] as $rubric_key) {
                     unset($data[$rubric_key]);
                 }
             }
@@ -1897,6 +1912,8 @@ class QuestionController extends Controller
                         'question_revision_id' => $initial_question_revision->id,
                         'show_captions' => $show_captions]);
                 }
+                //switching the rubric between static and dynamic: assignments already graded with the old rubric keep it
+                RubricStyleChange::keepAssignmentRubricsBeforeStyleChange($question->id, $question->rubric, $data['rubric'] ?? null);
                 $question->update($data);
                 $currentQuestionRevision = QuestionRevision::where('question_id', $question->id)->orderBy('revision_number', 'desc')->first();
 

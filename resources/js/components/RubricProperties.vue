@@ -20,8 +20,57 @@
         </b-button>
       </template>
     </b-modal>
+    <b-modal id="modal-dynamic-rubric-points-info"
+             title="When the Criteria Don't Add Up to the Question's Points"
+             size="lg"
+             ok-only
+             ok-title="Got it"
+             button-size="sm"
+    >
+      <p>
+        In a dynamic rubric, each criterion is worth exactly its points, and a student's score is capped at the
+        question's points (less any auto-graded part of the question). Most of the time the criteria should add up to
+        the question's points, and a mismatch is a typo. There are a few good reasons for them not to:
+      </p>
+      <p class="font-weight-bold mb-1">
+        More than the question's points
+      </p>
+      <ul>
+        <li>
+          <strong>Alternative routes.</strong> "Any 3 of these 4 steps earns full marks": four 4-point criteria on a
+          12-point question. A student with all four still gets 12.
+        </li>
+        <li>
+          <strong>Bonus criteria.</strong> Extra credit for going further, without letting anyone go past full marks.
+        </li>
+      </ul>
+      <p class="font-weight-bold mb-1">
+        Less than the question's points
+      </p>
+      <ul>
+        <li>
+          <strong>Part of the question is auto-graded.</strong> If 4 of the 10 points come from an auto-graded answer,
+          criteria adding up to 6 cover the rest.
+        </li>
+        <li>
+          <strong>The rest is given by judgement.</strong> Graders add the remaining points with the adjustment box.
+        </li>
+      </ul>
+      <p class="font-weight-bold mb-1">
+        0-point criteria
+      </p>
+      <ul>
+        <li>
+          <strong>Feedback only.</strong> "Check your units" tells the student something without changing the score.
+        </li>
+      </ul>
+      <p class="mb-0">
+        If none of these apply, use <strong>Scale criteria</strong> to make the criteria add up to the question's
+        points.
+      </p>
+    </b-modal>
     <b-form-group
-      v-if="rubricTemplateOptions.length"
+      v-if="canUseTemplates && rubricTemplateOptions.length"
       label-for="rubric_template"
       :label-cols-sm="isTemplate ? 2 : 3"
       :label-cols-lg="isTemplate ? 1 : 2"
@@ -33,13 +82,19 @@
           <b-form-select v-model="rubricTemplate"
                          :options="rubricTemplateOptions"
                          size="sm"
+                         :disabled="dynamicScoresExist || isConverting"
                          @change="getRubricTemplate($event)"
           />
         </b-col>
       </b-form-row>
+      <small v-if="dynamicScoresExist" class="text-muted">
+        You can still edit the criteria below: when you save, you'll see whose scores change before anything is saved.
+        Loading a template isn't available here, because a template replaces every criterion, and every graded student
+        would lose the criteria they were given.
+      </small>
     </b-form-group>
     <b-form-group
-      v-show="!isTemplate"
+      v-show="!isTemplate && canUseTemplates && !isConverting"
       label-cols-sm="3"
       label-cols-lg="2"
       label="On save"
@@ -96,6 +151,7 @@
         id="rubric_shown"
         v-model="rubricShown"
         class="mt-2"
+        :disabled="!canChangeRubricSettings || isConverting"
       >
         <b-form-radio :value="true">
           Yes
@@ -104,6 +160,89 @@
           No
         </b-form-radio>
       </b-form-radio-group>
+    </b-form-group>
+    <b-form-group
+      label-cols-sm="3"
+      label-cols-lg="2"
+      label-size="sm"
+      label-for="scoring_style"
+    >
+      <template #label>
+        Scoring Style
+        <QuestionCircleTooltip
+          id="scoring-style-tooltip"
+        />
+        <b-tooltip target="scoring-style-tooltip"
+                   delay="250"
+                   triggers="hover focus"
+        >
+          Static: the points are weights that scale to the question's points, and graders enter points for each
+          criterion. Dynamic: each criterion is worth exactly its points and graders apply criteria (keys 1-9); if you
+          later change a criterion, every student who has it is rescored.
+        </b-tooltip>
+      </template>
+      <b-form-radio-group
+        id="scoring_style"
+        v-model="scoringStyle"
+        class="mt-2"
+      >
+        <b-form-radio value="static" :disabled="!canChangeRubricSettings">
+          Static
+        </b-form-radio>
+        <b-form-radio value="dynamic" :disabled="!canChangeRubricSettings">
+          Dynamic
+        </b-form-radio>
+      </b-form-radio-group>
+      <small v-if="!canChangeRubricSettings" class="text-muted d-block">
+        Only instructors can change the scoring style and whether students see the rubric.
+      </small>
+      <small v-if="dynamicScoresExist && canChangeRubricSettings && !isConverting" class="text-muted d-block">
+        Students have been graded with this dynamic rubric. Choosing Static converts their scores, and you'll see a
+        preview before anything is saved.
+      </small>
+      <small v-if="staticScoresExist && canChangeRubricSettings && !isConverting" class="text-muted d-block">
+        Students already have static rubric scores for this question. Choosing Dynamic converts their scores, and
+        you'll see a preview before anything is saved.
+      </small>
+      <b-alert v-if="conversionDirection === 'to_dynamic'" show variant="info" class="mt-2 mb-0 small">
+        <strong>Converting to dynamic scoring.</strong> Each criterion becomes worth its points in this question, and
+        a criterion a student got full points on counts as applied. When you save, you'll see whose scores would change
+        and choose what happens to them. The rubric is converted as it was saved: you can edit the criteria once it's
+        converted.
+      </b-alert>
+      <b-alert v-if="conversionDirection === 'to_static'" show variant="info" class="mt-2 mb-0 small">
+        <strong>Converting to static scoring.</strong> What this means:
+        <ul class="mb-1 mt-1">
+          <li>
+            Each criterion's points become a weight, and static rubrics scale the weights to the question's points.
+            A student gets full points on each criterion they had applied and 0 on the rest.
+          </li>
+          <li>
+            Static rubrics have no adjustment.
+            <QuestionCircleTooltip id="static-conversion-adjustment-tooltip"/>
+            <b-tooltip target="static-conversion-adjustment-tooltip"
+                       delay="250"
+                       triggers="hover focus"
+            >
+              Example: Sam got "Correct arrow" (6 points) plus a +2 adjustment, for 8/10. A static breakdown can only
+              show criterion points, so Sam's would show 6: the +2 has nowhere to go. If you keep Sam's score, it stays
+              8/10 and Sam is marked "Needs review" so a grader can check the points.
+            </b-tooltip>
+            Students with an adjustment, or whose criteria were capped at the
+            question's points, may not keep the same score: the preview lists them, and you choose to keep their score
+            (marked "Needs review") or clear it.
+          </li>
+          <li v-if="zeroPointCriteriaTitles.length">
+            Static rubrics don't allow 0-point criteria, so these feedback-only criteria will be removed:
+            <strong>{{ zeroPointCriteriaTitles.join(', ') }}</strong>. No score changes because of this.
+          </li>
+          <li>
+            Graders won't be able to use the dynamic keys (1-9, 0) or adjustments on this question any more.
+          </li>
+        </ul>
+        Nothing is saved until you confirm the preview. The rubric is converted as it was saved: you can edit the
+        criteria once it's converted.
+      </b-alert>
     </b-form-group>
     <b-form-group
       v-if="isTemplate || ['save as new template','update existing template'].includes(rubricTemplateSaveOption)"
@@ -149,7 +288,9 @@
       <table class="table table-striped small" aria-label="Rubric Criteria">
         <thead>
         <tr>
-          <th scope="col" style="width:15px"/>
+          <th scope="col" style="width:40px">
+            <span class="sr-only">Reorder or delete</span>
+          </th>
           <th scope="col">
             Title*
           </th>
@@ -161,17 +302,30 @@
           </th>
         </tr>
         </thead>
-        <tbody>
+        <tbody is="draggable"
+               v-model="rubricItems"
+               tag="tbody"
+               handle=".rubric-criterion-drag-handle"
+        >
         <tr
           v-for="( rubricItem,rubricItemIndex) in rubricItems"
-          :key="`rubric-criterion-${rubricItemIndex}`"
+          :key="`rubric-criterion-${rubricItemKey(rubricItem)}`"
         >
-          <td>
-            <b-icon icon="trash" @click="confirmDeleteCriterion(rubricItem)"/>
+          <td class="text-nowrap">
+            <span v-if="!isConverting">
+              <b-icon icon="grip-vertical"
+                      class="rubric-criterion-drag-handle text-muted"
+                      style="cursor: move;"
+                      :title="'Drag to reorder'"
+                      aria-hidden="true"
+              />
+              <b-icon icon="trash" style="cursor: pointer;" @click="confirmDeleteCriterion(rubricItem)"/>
+            </span>
           </td>
           <td>
             <b-form-input
               v-model="rubricItem.title"
+              :disabled="isConverting"
               type="text"
               placeholder=""
               required
@@ -188,17 +342,25 @@
           <td>
             <b-form-textarea
               v-model="rubricItem.description"
+              :disabled="isConverting"
               type="text"
               placeholder=""
               rows="2"
               required
               size="sm"
               style="width:100%"
+              :class="{ 'is-invalid': errors.rubric_items && errors.rubric_items[rubricItemIndex] && errors.rubric_items[rubricItemIndex].description && errors.rubric_items[rubricItemIndex].description !== 'passes'}"
+              @keydown="errors.rubric_items && errors.rubric_items[rubricItemIndex] ? errors.rubric_items[rubricItemIndex].description = 'passes' : ''"
+            />
+            <ErrorMessage
+              v-if="errors.rubric_items && errors.rubric_items[rubricItemIndex] && errors.rubric_items[rubricItemIndex].description && errors.rubric_items[rubricItemIndex].description !== 'passes'"
+              :message="errors.rubric_items[rubricItemIndex].description"
             />
           </td>
           <td>
             <b-form-input
               v-model="rubricItem.points"
+              :disabled="isConverting"
               type="text"
               size="sm"
               style="width:70px"
@@ -213,12 +375,14 @@
             />
           </td>
         </tr>
+        </tbody>
+        <tfoot>
         <tr>
           <td/>
           <td/>
           <td/>
           <td class="font-weight-bold">
-            Total: <span>{{ getRunningTotal() }}</span> <span v-show="assignmentId"><QuestionCircleTooltip
+            Total: <span>{{ roundedRunningTotal() }}</span> <span v-show="assignmentId && scoringStyle === 'static'"><QuestionCircleTooltip
             id="running-total-tooltip"
           />
         <b-tooltip target="running-total-tooltip"
@@ -229,33 +393,70 @@
         </b-tooltip></span>
           </td>
         </tr>
-        </tbody>
+        </tfoot>
       </table>
+      <small v-if="rubricItems.length > 1 && !isConverting" class="text-muted d-block mb-2">
+        Drag <b-icon icon="grip-vertical" aria-hidden="true"/> to reorder the criteria.
+        <span v-if="scoringStyle === 'dynamic'">Keys 1-9 and 0 in the Open Grader follow this order.</span>
+      </small>
+      <div v-if="scoringStyle === 'static' && !assignmentId" class="small mb-2">
+        Points are weights. In each assignment they're scaled to the question's points<span
+          v-if="staticWeightsExample">: on a 10-point question, these would be {{ staticWeightsExample }}</span>.
+      </div>
+      <div v-if="scoringStyle === 'dynamic' && !isConverting" class="small mb-2">
+        <span v-if="!assignmentId">
+          Points are exact. Each assignment sets this question's points, and scores are capped there.
+          <b-link @click="$bvModal.show('modal-dynamic-rubric-points-info')">
+            Should the criteria add up to the question's points?
+          </b-link>
+        </span>
+        <b-alert v-else-if="questionPoints && !totalMatchesQuestionPoints()" variant="warning" show class="mb-0">
+          The criteria add up to {{ roundedRunningTotal() }}; this question is worth {{ questionPoints }}.
+          Scores are capped at {{ questionPoints }}.
+          <b-link @click="$bvModal.show('modal-dynamic-rubric-points-info')">
+            <b-icon icon="question-circle" aria-hidden="true"/> Why might they differ?
+          </b-link>
+          <b-button size="sm" variant="outline-primary" class="ml-2" @click="scaleItemsToQuestionPoints()">
+            Scale criteria to {{ questionPoints }}
+          </b-button>
+        </b-alert>
+      </div>
     </div>
-    <p>
+    <p v-if="!isConverting">
       <b-button variant="info" class="mr-1"
                 size="sm" @click="addRubricItemRow"
       >
         Add Criterion
       </b-button>
     </p>
-    <b-alert variant="danger" :show="rubricPointsBreakdownExists">
+    <b-alert variant="danger" :show="rubricPointsBreakdownExists && scoringStyle === 'static'">
       You have already saved the point breakdowns for at least one student. If you update this rubric, all rubric point
       breakdowns
       will be reset and you will
       have to enter new scores for your students.
+    </b-alert>
+    <b-alert variant="info" :show="dynamicScoresExist && !isConverting">
+      Students have been graded with this rubric. When you save, you'll see whose scores change before anything is
+      saved.
     </b-alert>
   </div>
 </template>
 
 <script>
 import axios from 'axios'
+import draggable from 'vuedraggable'
+import { mapGetters } from 'vuex'
 import ErrorMessage from './ErrorMessage.vue'
+
+// row keys for criteria that don't have an id yet; kept off the criteria so they're never saved
+const rubricItemKeys = new WeakMap()
+let nextRubricItemKey = 0
 
 export default {
   name: 'RubricProperties',
   components: {
-    ErrorMessage
+    ErrorMessage,
+    draggable
   },
   props: {
     errors: {
@@ -319,10 +520,81 @@ export default {
     },
     rubricShown: function (newVal) {
       this.$emit('setKeyValue', 'rubricShown', newVal)
+    },
+    conversionDirection: function (newVal) {
+      this.$emit('setKeyValue', 'rubricConversionDirection', newVal)
+    },
+    isConverting: function (newVal) {
+      this.$emit('setKeyValue', 'rubricConverting', newVal)
+      if (newVal) {
+        this.restoreSavedRubricForConversion()
+      }
+    },
+    scoringStyle: function (newVal, oldVal) {
+      this.$emit('setKeyValue', 'rubricScoringStyle', newVal)
+      // converting a graded dynamic rubric keeps its points as the weights (the preview shows them scaled)
+      if (newVal === 'static' && oldVal === 'dynamic' && !this.dynamicScoresExist) {
+        // static points are weights scaled to the question's points
+        this.scalePoints()
+      }
+    }
+  },
+  computed: {
+    ...mapGetters({
+      user: 'auth/user'
+    }),
+    // only instructors have rubric templates; graders editing from the Open Grader don't
+    canUseTemplates () {
+      return this.isTemplate || !this.user || +this.user.role !== 4
+    },
+    // graders may change the criteria, but the scoring style and "Rubric Shown" are the instructor's
+    canChangeRubricSettings () {
+      return this.isTemplate || !this.user || +this.user.role !== 4
+    },
+    // only in an assignment: the rubric in use already has student scores of one style or the other
+    dynamicScoresExist () {
+      return !this.isTemplate && Boolean(this.assignmentId) && this.rubricPointsBreakdownExists && this.initialScoringStyle === 'dynamic'
+    },
+    // a static rubric with static scores being switched to dynamic: saved through the conversion preview
+    // a rubric with student scores switched to the other style: saved through a conversion preview
+    conversionDirection () {
+      if (this.staticScoresExist && this.scoringStyle === 'dynamic') {
+        return 'to_dynamic'
+      }
+      if (this.dynamicScoresExist && this.scoringStyle === 'static') {
+        return 'to_static'
+      }
+      return ''
+    },
+    isConverting () {
+      return Boolean(this.conversionDirection)
+    },
+    // question bank and templates: what the static weights become on a 10-point question (rounded like the grader)
+    staticWeightsExample () {
+      const weights = this.rubricItems.map(item => +item.points)
+      if (!weights.length || weights.some(weight => isNaN(weight) || weight < 0)) {
+        return ''
+      }
+      const total = weights.reduce((sum, weight) => sum + weight, 0)
+      if (!(total > 0)) {
+        return ''
+      }
+      const scaled = weights.map(weight => Math.round(weight * 10 / total * 100) / 100)
+      return scaled.length === 1
+        ? `${scaled[0]}`
+        : `${scaled.slice(0, -1).join(', ')} and ${scaled[scaled.length - 1]}`
+    },
+    zeroPointCriteriaTitles () {
+      return (this.savedRubricItems || []).filter(item => !(+item.points > 0)).map(item => item.title)
+    },
+    staticScoresExist () {
+      return !this.isTemplate && Boolean(this.assignmentId) && this.rubricPointsBreakdownExists && this.initialScoringStyle === 'static'
     }
   },
   data: () => ({
     rubricShown: true,
+    scoringStyle: 'static',
+    initialScoringStyle: 'static',
     runningTotal: 0,
     initialScoreInputType: '',
     rubricPointsBreakdownExists: false,
@@ -336,10 +608,12 @@ export default {
     rubricItems: [],
     name: '',
     description: '',
-    currentOrderedRubricItems: []
+    currentOrderedRubricItems: [],
+    savedRubricItems: null,
+    savedRubricShown: true
   }),
   async mounted () {
-    if (!this.isTemplate) {
+    if (!this.isTemplate && this.canUseTemplates) {
       await this.getRubricTemplates()
     }
     if (this.isEdit || this.rubricInfo.rubric) {
@@ -360,16 +634,62 @@ export default {
       }
       const rubricItems = rubricInfo.rubric_items
       this.rubricShown = rubricInfo.rubric_shown
+      // dynamic rubrics keep each item's id so students' applied items stay linked to it
+      this.scoringStyle = rubricInfo.scoring_style === 'dynamic' ? 'dynamic' : 'static'
+      this.initialScoringStyle = this.scoringStyle
       this.rubricItems = rubricItems
       this.$emit('setKeyValue', 'rubricShown', this.rubricShown)
       this.$emit('setKeyValue', 'rubricTemplateSaveOption', this.rubricTemplateSaveOption)
+      this.$emit('setKeyValue', 'rubricVersion', this.scoringStyle === 'dynamic' ? (+rubricInfo.version || 0) : 0)
       this.scalePoints()
+      // what's saved, so a conversion can start from it
+      this.savedRubricItems = JSON.parse(JSON.stringify(this.rubricItems))
+      this.savedRubricShown = this.rubricShown
     }
+    this.$emit('setKeyValue', 'rubricScoringStyle', this.scoringStyle)
   },
   methods: {
+    restoreSavedRubricForConversion () {
+      // the conversion uses the saved rubric, so undo any unsaved edits to it
+      this.rubricTemplateSaveOption = 'do not save as template'
+      if (!this.savedRubricItems) {
+        return
+      }
+      const plain = items => JSON.stringify(items.map(item => [item.title, item.description, +item.points]))
+      const changed = plain(this.rubricItems) !== plain(this.savedRubricItems) || this.rubricShown !== this.savedRubricShown
+      this.rubricItems = JSON.parse(JSON.stringify(this.savedRubricItems))
+      this.rubricShown = this.savedRubricShown
+      if (changed) {
+        this.$noty.info('Your unsaved changes to the criteria were undone: the rubric is converted as it was saved. You can edit it after converting.')
+      }
+    },
+    rubricItemKey (rubricItem) {
+      if (!rubricItemKeys.has(rubricItem)) {
+        rubricItemKeys.set(rubricItem, `new-${nextRubricItemKey++}`)
+      }
+      return rubricItemKeys.get(rubricItem)
+    },
     getRunningTotal () {
       this.runningTotal = this.rubricItems.reduce((sum, item) => sum + +item.points, 0)
       return this.runningTotal
+    },
+    roundedRunningTotal () {
+      return Math.round(this.getRunningTotal() * 100) / 100
+    },
+    totalMatchesQuestionPoints () {
+      return Math.abs(this.getRunningTotal() - this.questionPoints) < 0.005
+    },
+    scaleItemsToQuestionPoints () {
+      // dynamic only: a one-off rescale the instructor asks for; saving then previews whose scores change
+      const total = this.getRunningTotal()
+      if (!total || !this.questionPoints) {
+        this.$noty.info('Please give at least one criterion some points first.')
+        return
+      }
+      for (let i = 0; i < this.rubricItems.length; i++) {
+        this.rubricItems[i].points = Math.round((+this.rubricItems[i].points / total) * this.questionPoints * 100) / 100
+      }
+      this.rubricItems = [...this.rubricItems]
     },
     async getRubricPointsBreakdowns () {
       try {
@@ -384,7 +704,7 @@ export default {
       }
     },
     deleteRubricCriterion () {
-      this.rubricItems = this.rubricItems.filter(item => item.title !== this.rubricItemToDelete.title)
+      this.rubricItems = this.rubricItems.filter(item => item !== this.rubricItemToDelete)
       this.scalePoints()
       this.$bvModal.hide('modal-confirm-delete-rubric-criterion')
       this.$noty.info('The criterion has been removed.')
@@ -394,6 +714,9 @@ export default {
       this.$bvModal.show('modal-confirm-delete-rubric-criterion')
     },
     scalePoints () {
+      if (this.scoringStyle === 'dynamic') {
+        return // dynamic points are exact and never scaled automatically
+      }
       if (this.questionPoints) {
         let totalPoints = 0
         for (let i = 0; i < this.rubricItems.length; i++) {
@@ -419,8 +742,22 @@ export default {
       const template = this.rubricTemplateOptions.find(item => item.value === rubricTemplateId)
 
       const rubricInfo = JSON.parse(template.rubric) || {}
+      const templateScoringStyle = rubricInfo.scoring_style === 'dynamic' ? 'dynamic' : 'static'
+      if ((templateScoringStyle === 'dynamic' && this.staticScoresExist) ||
+        (templateScoringStyle === 'static' && this.dynamicScoresExist)) {
+        const otherStyle = templateScoringStyle === 'dynamic' ? 'static' : 'dynamic'
+        this.$noty.error(`That template uses ${templateScoringStyle} scoring, but students have already been graded with this rubric's ${otherStyle} scoring, and loading it would replace their criteria. To change the scoring style, choose it under Scoring Style: you'll see a conversion preview first.`)
+        this.rubricTemplate = null
+        return
+      }
+      this.scoringStyle = templateScoringStyle
       if (rubricInfo.hasOwnProperty('rubric_items')) {
-        this.rubricItems = rubricInfo.rubric_items
+        // a template always creates new criteria (no ids)
+        this.rubricItems = rubricInfo.rubric_items.map(item => ({
+          title: item.title,
+          description: item.description,
+          points: item.points
+        }))
       }
       this.name = template.name
       this.description = template.description

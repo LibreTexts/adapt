@@ -18,6 +18,7 @@ use App\Course;
 use App\Exceptions\Handler;
 use App\Extension;
 use App\Helpers\Helper;
+use App\Helpers\RubricHelper;
 use App\Http\Requests\ShiftDatesRequest;
 use App\Http\Requests\StoreAssignmentProperties;
 use App\LmsAPI;
@@ -2184,7 +2185,7 @@ class AssignmentController extends Controller
                 $questions_by_id[$question->id] = $question;
             }
             foreach ($assignment_questions_where_student_can_upload_file as $value) {
-                $rubrics_by_question_id[$value->question_id] = $value->custom_rubric ?: $questions_by_id[$question->id]->rubric;
+                $rubrics_by_question_id[$value->question_id] = RubricHelper::assignmentQuestionRubric($value, $questions_by_id[$value->question_id]->rubric ?? null);
             }
 
             $dom = new DOMDocument();

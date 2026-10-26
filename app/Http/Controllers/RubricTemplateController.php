@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\Handler;
+use App\Helpers\DynamicRubric;
 use App\Http\Requests\StoreRubricRequest;
 use App\Http\Requests\StoreRubricTemplateRequest;
 use App\RubricTemplate;
@@ -52,10 +53,9 @@ class RubricTemplateController extends Controller
                 return $response;
             }
             $data = $request->validated();
-            $data['rubric'] = json_encode([
-                'rubric_shown' => $request->rubric_shown,
-                'rubric_items' => $data['rubric_items']
-            ]);
+            //templates keep the scoring style but never item ids (loading a template always creates new items)
+            $data['rubric'] = json_encode(DynamicRubric::templateRubric($data['rubric_items'], $request->rubric_shown, $data['scoring_style'] ?? null));
+            unset($data['scoring_style']);
 
             $data['user_id'] = $request->user()->id;
             unset($data['rubric_items']);
@@ -89,10 +89,9 @@ class RubricTemplateController extends Controller
             }
             $data = $request->validated();
 
-            $data['rubric'] = json_encode([
-                'rubric_shown' => $request->rubric_shown,
-                'rubric_items' => $data['rubric_items']
-            ]);
+            //templates keep the scoring style but never item ids (loading a template always creates new items)
+            $data['rubric'] = json_encode(DynamicRubric::templateRubric($data['rubric_items'], $request->rubric_shown, $data['scoring_style'] ?? null));
+            unset($data['scoring_style']);
             unset($data['rubric_items']);
             $rubricTemplate->update($data);
             $response['type'] = 'success';

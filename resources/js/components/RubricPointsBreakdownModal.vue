@@ -5,7 +5,14 @@
            :title="rubricPointsBreakdownExists ? 'Rubric Points Breakdown' : 'Rubric'"
            hide-footer
   >
+    <DynamicRubricStudentView
+      v-if="isDynamic"
+      :rubric="rubric"
+      :state="dynamicRubricState"
+      :scores-released="scoresReleased"
+    />
     <RubricPointsBreakdown
+      v-else
       :user-id="userId"
       :assignment-id="+assignmentId"
       :original-rubric="rubric"
@@ -25,11 +32,12 @@
 
 <script>
 import RubricPointsBreakdown from './RubricPointsBreakdown.vue'
+import DynamicRubricStudentView from './DynamicRubricStudentView.vue'
 import axios from 'axios'
 
 export default {
   name: 'RubricPointsBreakdownModal',
-  components: { RubricPointsBreakdown },
+  components: { RubricPointsBreakdown, DynamicRubricStudentView },
   props: {
     questionPoints: {
       type: Number,
@@ -55,7 +63,11 @@ export default {
   data: () => ({
     rubricShown: false,
     rubricPointsBreakdownExists: false,
-    scoreInputType: null
+    scoreInputType: null,
+    // dynamic rubrics: the server only sends applied criteria once scores are released
+    isDynamic: false,
+    dynamicRubricState: { exists: false, applied_item_ids: [], adjustment: 0 },
+    scoresReleased: false
   }),
   mounted () {
     this.getRubricPointsBreakdown()
@@ -70,6 +82,9 @@ export default {
         if (data.type === 'success') {
           this.rubricPointsBreakdownExists = data.rubric_points_breakdown_exists
           this.rubricShown = data.rubric_shown
+          this.isDynamic = Boolean(data.is_dynamic)
+          this.dynamicRubricState = data.dynamic_rubric_state || this.dynamicRubricState
+          this.scoresReleased = Boolean(data.scores_released)
         } else {
           this.$noty.error(data.message)
         }

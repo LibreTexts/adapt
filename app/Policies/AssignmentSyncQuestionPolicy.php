@@ -6,6 +6,7 @@ use App\Assignment;
 
 use App\AssignmentSyncQuestion;
 use App\Helpers\Helper;
+use App\Helpers\RubricEditPermission;
 use App\SubmissionFile;
 use App\User;
 use App\Question;
@@ -157,9 +158,17 @@ class AssignmentSyncQuestionPolicy
                                        Assignment             $assignment): Response
     {
 
-        return $assignment->course->ownsCourseOrIsCoInstructor($user->id)
-            ? Response::allow()
-            : Response::deny('You are not allowed to update the custom rubric for that question.');
+        if ($assignment->course->ownsCourseOrIsCoInstructor($user->id)) {
+            return Response::allow();
+        }
+        //graders may edit the rubric from the Open Grader once the instructor turns on "Can edit rubric" for them
+        $permission = RubricEditPermission::check($user, $assignment);
+        if ($permission['allowed']) {
+            return Response::allow();
+        }
+        return $permission['message'] === RubricEditPermission::NOT_ALLOWED_MESSAGE
+            ? Response::deny('You are not allowed to update the custom rubric for that question.')
+            : Response::deny($permission['message']);
     }
 
     /**

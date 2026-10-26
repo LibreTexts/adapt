@@ -163,6 +163,25 @@
                   <template v-slot:cell(sections)="data">
                     {{ formatSections(data.item.sections) }}
                   </template>
+                  <template v-slot:head(can_edit_rubric)>
+                    Can edit rubric
+                    <QuestionCircleTooltip :id="'can-edit-rubric-tooltip'"/>
+                    <b-tooltip target="can-edit-rubric-tooltip"
+                               triggers="hover focus"
+                               delay="500"
+                    >
+                      Lets this grader add and edit rubrics from the Open Grader for the assignments they grade. Editing a
+                      dynamic rubric rescores the students who were already graded with it.
+                    </b-tooltip>
+                  </template>
+                  <template v-slot:cell(can_edit_rubric)="data">
+                    <b-form-checkbox :key="`can-edit-rubric-${data.item.user_id}-${rubricEditorsKey}`"
+                                     :checked="rubricEditorUserIds.includes(+data.item.user_id)"
+                                     switch
+                                     :aria-label="`${data.item.name} can edit rubrics`"
+                                     @change="updateRubricEditor(data.item, $event)"
+                    />
+                  </template>
                   <template v-slot:cell(actions)="data">
                     <a
                       href=""
@@ -373,12 +392,18 @@ export default {
         key: 'sections',
         label: 'Section(s)'
       },
+      {
+        key: 'can_edit_rubric',
+        label: 'Can edit rubric'
+      },
       'actions'
 
     ],
     sendingEmail: false,
     isLoading: true,
     graders: {},
+    rubricEditorUserIds: [],
+    rubricEditorsKey: 0,
     course: { graders: {} },
     grader_user_id: 0,
     sectionsForm: new Form({
@@ -398,8 +423,32 @@ export default {
     this.courseId = this.$route.params.courseId
     this.getGraderNotifications()
     this.getCourse(this.courseId)
+    this.getRubricEditors()
   },
   methods: {
+    async getRubricEditors () {
+      try {
+        const { data } = await axios.get(`/api/courses/${this.courseId}/rubric-editors`)
+        if (data.type === 'error') {
+          this.$noty.error(data.message)
+          return false
+        }
+        this.rubricEditorUserIds = data.rubric_editor_user_ids
+        this.rubricEditorsKey++
+      } catch (error) {
+        this.$noty.error(error.message)
+      }
+    },
+    async updateRubricEditor (grader, canEdit) {
+      try {
+        const { data } = await axios.patch(`/api/courses/${this.courseId}/rubric-editors/${grader.user_id}`, { can_edit: canEdit })
+        this.$noty[data.type](data.message)
+      } catch (error) {
+        this.$noty.error(error.message)
+      }
+      // show what the server has, whether or not the change went through
+      await this.getRubricEditors()
+    },
     resetForwardEmails (target) {
       this.showForwardOptions = target !== 0
       if (!this.showForwardOptions) {

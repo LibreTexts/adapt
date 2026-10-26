@@ -977,6 +977,21 @@ Route::group(['middleware' => ['auth:api', 'analytics','rate.limit.by.user']], f
     Route::get('/rubric-points-breakdown/assignment/{assignment}/question/{question}/user/{user}', 'RubricPointsBreakdownController@getByAssignmentQuestionUser');
     Route::get('/rubric-points-breakdown/assignment/{assignment}/question/{question}/exists', 'RubricPointsBreakdownController@existsByAssignmentQuestion');
 
+    Route::get('/assignments/{assignment}/questions/{question}/dynamic-rubric', 'DynamicRubricController@show');
+    Route::post('/assignments/{assignment}/questions/{question}/dynamic-rubric/preview', 'DynamicRubricController@preview');
+    Route::patch('/assignments/{assignment}/questions/{question}/dynamic-rubric', 'DynamicRubricController@update');
+    Route::post('/assignments/{assignment}/questions/{question}/dynamic-rubric/convert-preview', 'DynamicRubricController@convertPreview');
+    Route::patch('/assignments/{assignment}/questions/{question}/dynamic-rubric/convert', 'DynamicRubricController@convert');
+    Route::post('/assignments/{assignment}/questions/{question}/dynamic-rubric/convert-to-static-preview', 'DynamicRubricController@convertToStaticPreview');
+    Route::patch('/assignments/{assignment}/questions/{question}/dynamic-rubric/convert-to-static', 'DynamicRubricController@convertToStatic');
+    Route::post('/assignments/{assignment}/questions/{question}/dynamic-rubric/remove-with-scores-preview', 'DynamicRubricController@removeWithScoresPreview');
+    Route::patch('/assignments/{assignment}/questions/{question}/dynamic-rubric/remove-with-scores', 'DynamicRubricController@removeWithScores');
+    Route::get('/assignments/{assignment}/questions/{question}/dynamic-rubric/latest-change', 'DynamicRubricController@latestChange');
+    Route::get('/assignments/{assignment}/questions/{question}/dynamic-rubric/history', 'DynamicRubricController@history');
+    Route::get('/assignments/{assignment}/questions/{question}/dynamic-rubric/history/user/{user}', 'DynamicRubricController@studentHistory');
+    Route::get('/courses/{course}/rubric-editors', 'DynamicRubricController@rubricEditors');
+    Route::patch('/courses/{course}/rubric-editors/{user}', 'DynamicRubricController@updateRubricEditor');
+
 
     Route::get('/can-give-up/assignments/{assignment}/questions/{question}/validate', 'CanGiveUpController@validateCanGiveUp');
 

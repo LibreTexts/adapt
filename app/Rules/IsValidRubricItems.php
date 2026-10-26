@@ -11,6 +11,18 @@ class IsValidRubricItems implements Rule
      * @var array
      */
     private $message;
+    /**
+     * @var string static|dynamic
+     */
+    private $scoring_style;
+
+    /**
+     * @param string $scoring_style static (unchanged rules) or dynamic (0-point items allowed)
+     */
+    public function __construct(string $scoring_style = 'static')
+    {
+        $this->scoring_style = $scoring_style === 'dynamic' ? 'dynamic' : 'static';
+    }
 
 
     /**
@@ -41,7 +53,10 @@ class IsValidRubricItems implements Rule
                 $criteria[] = strtolower($item['title']);
             }
 
-            if (!$item['points']
+            $points_missing = $this->scoring_style === 'dynamic'
+                ? (!isset($item['points']) || $item['points'] === '' || $item['points'] === null) //0 is allowed in dynamic rubrics
+                : !$item['points'];
+            if ($points_missing
                 || $item['points'] < 0
                 || filter_var($item['points'], FILTER_VALIDATE_FLOAT) === false) {
                 $passes = false;

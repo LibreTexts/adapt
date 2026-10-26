@@ -4,11 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Assignment;
 use App\Exceptions\Handler;
+use App\Helpers\DynamicRubric;
+use App\Helpers\RubricHelper;
 use App\Question;
 use App\RubricPointsBreakdown;
 use App\User;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
@@ -49,6 +52,50 @@ class RubricPointsBreakdownController extends Controller
 
 
     /**
+     * The student's total from the applied criteria, as the score was calculated: the cap (question points less the
+     * auto-graded score) and the late penalty, so the student view's total matches their score.
+     *
+     * @param Assignment $assignment
+     * @param Question $question
+     * @param User $user
+     * @param object $assignment_question
+     * @param string $rubric
+     * @param array $dynamic_rubric_state
+     * @return array
+     */
+    private function _dynamicRubricScore(Assignment $assignment, Question $question, User $user, $assignment_question,
+                                         string     $rubric, array $dynamic_rubric_state): array
+    {
+        $auto_graded_score = DB::table('submissions')
+            ->where('assignment_id', $assignment->id)
+            ->where('question_id', $question->id)
+            ->where('user_id', $user->id)
+            ->value('score');
+        $late_penalty_percent = DB::table('submission_files')
+            ->where('assignment_id', $assignment->id)
+            ->where('question_id', $question->id)
+            ->where('user_id', $user->id)
+            ->where('type', '<>', 'a')
+            ->value('applied_late_penalty');
+        $cap = DynamicRubric::cap($assignment_question->points, $auto_graded_score);
+        $score = DynamicRubric::score(DynamicRubric::decode($rubric),
+            $dynamic_rubric_state['applied_item_ids'],
+            $dynamic_rubric_state['adjustment'],
+            $cap,
+            $late_penalty_percent);
+        return ['raw' => $score['raw'],
+            'final' => $score['final'],
+            'out_of' => round($cap, 2),
+            'capped' => $score['raw'] > $cap + 0.005,
+            'late_penalty_percent' => (float)($late_penalty_percent ?? 0),
+            'has_override' => DB::table('submission_score_overrides')
+                ->where('assignment_id', $assignment->id)
+                ->where('question_id', $question->id)
+                ->where('user_id', $user->id)
+                ->exists()];
+    }
+
+    /**
      * @param Assignment $assignment
      * @param Question $question
      * @param User $user
@@ -72,7 +119,9 @@ class RubricPointsBreakdownController extends Controller
                 ->where('assignment_id', $assignment->id)
                 ->where('question_id', $question->id)
                 ->first();
-            $rubric = $assignment_question->custom_rubric ?: $question->rubric;
+            $rubric = RubricHelper::assignmentQuestionRubric($assignment_question, $question->rubric);
+            $is_dynamic = DynamicRubric::isDynamic($rubric);
+            $dynamic_rubric_state = ['exists' => false, 'applied_item_ids' => [], 'adjustment' => 0, 'needs_review' => false];
             if (!$rubric) {
                 $rubric_points_breakdown = [];
                 $rubric_points_breakdown_exists = false;
@@ -87,6 +136,21 @@ class RubricPointsBreakdownController extends Controller
                     ->where('question_id', $question->id)
                     ->where('user_id', $user->id)
                     ->first();
+                //students only see their own rubric results once scores are released and the rubric is shown
+                $results_visible = (int)Auth::user()->role !== 3 || ($assignment->show_scores && $rubric_shown);
+                if (!$results_visible) {
+                    $rubric_points_breakdown = null;
+                }
+                if ($rubric_points_breakdown && $is_dynamic) {
+                    $dynamic_rubric_state = ['exists' => true,
+                        'applied_item_ids' => $rubric_points_breakdown->applied_item_ids !== null
+                            ? array_map('strval', json_decode($rubric_points_breakdown->applied_item_ids, true) ?: [])
+                            : [],
+                        'adjustment' => (float)$rubric_points_breakdown->adjustment,
+                        'needs_review' => (bool)$rubric_points_breakdown->needs_review];
+                    $dynamic_rubric_state['score'] = $this->_dynamicRubricScore($assignment, $question, $user,
+                        $assignment_question, $rubric, $dynamic_rubric_state);
+                }
                 $rubric_points_breakdown_exists = true;
                 if (!$rubric_points_breakdown) {
                     $rubric_points_breakdown_exists = false;
@@ -104,6 +168,9 @@ class RubricPointsBreakdownController extends Controller
             $response['rubric_points_breakdown'] = $rubric_points_breakdown;
             $response['rubric_points_breakdown_exists'] = $rubric_points_breakdown_exists;
             $response['rubric_shown'] = $rubric_shown;
+            $response['is_dynamic'] = $is_dynamic;
+            $response['dynamic_rubric_state'] = $dynamic_rubric_state;
+            $response['scores_released'] = (bool)$assignment->show_scores;
             $response['type'] = 'success';
         } catch (Exception $e) {
             $h = new Handler(app());
