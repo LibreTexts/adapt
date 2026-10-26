@@ -52,10 +52,9 @@ class Kernel extends ConsoleKernel
 
         }
 
-        if (env('APP_ENV') !== 'dev') {
-            $schedule->command('import:allH5P', ['minutes', '5'])
-                ->everyMinute();
-        }
+        /*if (env('APP_ENV') !== 'dev') {
+            $schedule->command('import:allH5P', ['minutes', '5'])->everyMinute();
+        }*/
 
         $schedule->command('remove:NoRoles')->everyMinute();
         if (env('APP_ENV') === 'production') {
