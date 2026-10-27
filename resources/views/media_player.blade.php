@@ -25,7 +25,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-hotkeys/0.2.27/videojs.hotkeys.min.js"></script>
 
   <script>
-    //how far the skip buttons and the left/right arrow keys move the playback position
+    //how far the skip buttons (shown only when $show_skip_controls is set, i.e. discuss_it) and the
+    //left/right arrow keys (always) move the playback position
     var SKIP_SECONDS = 10;
 
     function configureAudioPlayer(audioId, captionId, startTime, vttUrl) {
@@ -220,6 +221,7 @@
         <audio id="mobile-audio-player" class="native-audio-player" controls preload="auto">
           <source type="audio/mpeg" src="{{ $temporary_url }}"/>
         </audio>
+        @if($show_skip_controls ?? false)
         <div id="mobile-audio-skip-controls" class="skip-controls" role="group" aria-label="Move back or forward 10 seconds">
           <button type="button" class="btn btn-outline-secondary btn-sm" data-skip="-10" aria-label="Back 10 seconds">
             <i class="fas fa-backward" aria-hidden="true"></i> Back 10s
@@ -228,6 +230,7 @@
             Forward 10s <i class="fas fa-forward" aria-hidden="true"></i>
           </button>
         </div>
+        @endif
       </div>
       <script>
         configureAudioPlayer('mobile-audio-player', {!! $vtt_file ? "'mobile-caption-display'" : 'null' !!}, {{ $start_time ?? 0 }}, {!! $vtt_file ? json_encode($vtt_file) : 'null' !!});
@@ -280,6 +283,7 @@
             <track kind="captions" src="{{ $vtt_file }}" />
           @endif
         </video>
+        @if($show_skip_controls ?? false)
         <div id="mobile-video-skip-controls" class="skip-controls" role="group" aria-label="Move back or forward 10 seconds">
           <button type="button" class="btn btn-outline-secondary btn-sm" data-skip="-10" aria-label="Back 10 seconds">
             <i class="fas fa-backward" aria-hidden="true"></i> Back 10s
@@ -288,6 +292,7 @@
             Forward 10s <i class="fas fa-forward" aria-hidden="true"></i>
           </button>
         </div>
+        @endif
 
         @if (!$use_hls && isset($show_buttons) && $show_buttons)
           <div class="controls" style="display:flex;justify-content:center;gap:0.5rem;margin-bottom:50px;margin-top:0.5rem">
@@ -410,6 +415,7 @@
             <source type="audio/mpeg" src="{{ $temporary_url }}"/>
           </audio>
         </div>
+        @if($show_skip_controls ?? false)
         <div id="audio-skip-controls" class="skip-controls" role="group" aria-label="Move back or forward 10 seconds">
           <button type="button" class="btn btn-outline-secondary btn-sm" data-skip="-10" aria-label="Back 10 seconds">
             <i class="fas fa-backward" aria-hidden="true"></i> Back 10s
@@ -418,6 +424,7 @@
             Forward 10s <i class="fas fa-forward" aria-hidden="true"></i>
           </button>
         </div>
+        @endif
       </div>
       <script>
         configureAudioPlayer('audio-player', {!! $vtt_file ? "'caption-display'" : 'null' !!}, {{ $start_time ?? 0 }}, {!! $vtt_file ? json_encode($vtt_file) : 'null' !!});
@@ -470,6 +477,7 @@
             <track kind="captions" src="{{ $vtt_file }}" />
           @endif
         </video>
+        @if($show_skip_controls ?? false)
         <div id="video-skip-controls" class="skip-controls" role="group" aria-label="Move back or forward 10 seconds">
           <button type="button" class="btn btn-outline-secondary btn-sm" data-skip="-10" aria-label="Back 10 seconds">
             <i class="fas fa-backward" aria-hidden="true"></i> Back 10s
@@ -478,6 +486,7 @@
             Forward 10s <i class="fas fa-forward" aria-hidden="true"></i>
           </button>
         </div>
+        @endif
 
         @if (!$use_hls && isset($show_buttons) && $show_buttons)
           <div class="controls" style="display:flex;justify-content:center;gap:0.5rem;margin-bottom:50px;margin-top:0.5rem">

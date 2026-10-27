@@ -4131,9 +4131,21 @@ class AssignmentSyncQuestionController extends Controller
                 $question_revisions_by_question_id[$question_revision->question_id] = $question_revision;
                 $question_revision_ids[] = $question_revision->id;
             }
+            //questions that have never been revised store their media without a revision id, so they're looked up
+            //by question id instead (as QuestionMediaUpload::getByQuestionIdAndQuestionRevisionId does); otherwise
+            //their media_uploads come back empty and a custom video size never reaches the viewer
+            $unrevised_question_ids = [];
+            foreach ($assignment_question_info['questions'] as $question) {
+                if (!$question->question_revision_id) {
+                    $unrevised_question_ids[] = $question->question_id;
+                }
+            }
             $question_media_uploads = DB::table('question_media_uploads')
                 ->select('question_id', 's3_key', 'original_filename', 'show_captions', 'width', 'height')
-                ->whereIn('question_revision_id', $question_revision_ids)
+                ->where(function ($query) use ($question_revision_ids, $unrevised_question_ids) {
+                    $query->whereIn('question_revision_id', $question_revision_ids)
+                        ->orWhereIn('question_id', $unrevised_question_ids);
+                })
                 ->get();
             $show_captions = [];
             $media_uploads_by_question_id = [];

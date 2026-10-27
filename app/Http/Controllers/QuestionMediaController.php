@@ -500,15 +500,19 @@ class QuestionMediaController extends Controller
     public function index(string $media, int $start_time = 0)
     {
         $questionMediaUpload = new QuestionMediaUpload();
+        //local on the vapor database points at production's questions, so their files are in production's bucket
+        $use_production_files = app()->environment('local')
+            && config('database.connections.' . config('database.default') . '.database') === 'vapor';
+        $disk = $use_production_files ? 'production_s3' : 's3';
         $show_captions_session = session()->get('show_captions');
 
         $show_captions = is_array($show_captions_session) && !(in_array($media, array_keys($show_captions_session)) && $show_captions_session[$media] === 0);
 
         $vtt_file = $questionMediaUpload->getVttFileNameFromS3Key($media);
         $type = strpos($media, '.mp3') !== false ? 'audio' : 'video';
-        $temporary_url = Storage::disk('s3')->temporaryUrl("{$questionMediaUpload->getDir()}/$media", Carbon::now()->addDays(7));
+        $temporary_url = Storage::disk($disk)->temporaryUrl("{$questionMediaUpload->getDir()}/$media", Carbon::now()->addDays(7));
         $mp4_temporary_url = $type === 'video' ? $temporary_url : '';
-        $vtt_file = $show_captions ? Storage::disk('s3')->temporaryUrl("{$questionMediaUpload->getDir()}/$vtt_file", Carbon::now()->addDays(7)) : '';
+        $vtt_file = $show_captions ? Storage::disk($disk)->temporaryUrl("{$questionMediaUpload->getDir()}/$vtt_file", Carbon::now()->addDays(7)) : '';
         $is_phone = 0;
 
         $stream_hls_url = null;
@@ -520,6 +524,17 @@ class QuestionMediaController extends Controller
             }
         }
 
+        //the Back 10s / Forward 10s buttons are only for discuss_it, which asks for them with ?skip_controls=1
+        $show_skip_controls = (bool)request()->query('skip_controls', false);
+
+        //a custom size set in the Question Media modal arrives as ?aspect_ratio=300:169; the width itself is
+        //applied by the wrapper around the iframe, this keeps the player's height in proportion to it
+        $player_options = [];
+        $aspect_ratio = (string)request()->query('aspect_ratio', '');
+        if ($type === 'video' && preg_match('/^[1-9]\d{0,4}:[1-9]\d{0,4}$/', $aspect_ratio)) {
+            $player_options['aspectRatio'] = $aspect_ratio;
+        }
+
         return view('media_player', ['type' => $type,
             'temporary_url' => $temporary_url,
             'mp4_temporary_url' => $mp4_temporary_url,
@@ -527,6 +542,8 @@ class QuestionMediaController extends Controller
             'start_time' => $start_time,
             'is_phone' => $is_phone,
             'show_buttons' => false,
+            'show_skip_controls' => $show_skip_controls,
+            'player_options' => $player_options,
             'stream_hls_url' => $stream_hls_url]);
     }
 

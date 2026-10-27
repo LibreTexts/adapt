@@ -118,7 +118,7 @@
             aria-label="Question Media"
             width="100%"
             allowtransparency="true"
-            :src="`/question-media-player/${activeMedia.s3_key}/${startTime}`"
+            :src="`/question-media-player/${activeMedia.s3_key}/${startTime}${isDiscussIt ? '?skip_controls=1' : ''}`"
             frameborder="0"
             allowfullscreen
             class="mb-2"

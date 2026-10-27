@@ -48,8 +48,11 @@ export function create3DModelSrc (parameters) {
 }
 
 export function formatQuestionMediaPlayer (htmlString, mediaUploads = []) {
-  const currentDomain = window.location.origin
-  const regex = new RegExp(`<a\\s+href="${currentDomain}/question-media-player/([^"]+)">([^<]+)<\\/a>`, 'g')
+  // The domain saved in the question's links. Local on the vapor database holds production links, but the player
+  // itself always loads from the current site, so local changes to it can be tested (see QuestionMediaController@index).
+  const linkDomain = window.config?.questionMediaPlayerDomain || window.location.origin
+  const playerDomain = window.location.origin
+  const regex = new RegExp(`<a\\s+href="${linkDomain}/question-media-player/([^"]+)">([^<]+)<\\/a>`, 'g')
   return htmlString.replace(regex, (match, url) => {
     // url is the s3_key (optionally followed by /startTime) - strip that off to look up the media item.
     const s3Key = url.split('/')[0]
@@ -62,7 +65,13 @@ export function formatQuestionMediaPlayer (htmlString, mediaUploads = []) {
       ? `width: ${mediaUpload.width}px;max-width: 100%;margin: 0 auto;`
       : 'width: 100%;'
 
-    return `<div class="question-media-player-wrapper" style="${wrapperStyle}"><iframe class="question-media-player" style="width: 1px;min-width: 100%;" frameborder="0" src="${currentDomain}/question-media-player/${url}"></iframe></div></div>`
+    // With a custom size, tell the player its shape so the height follows the chosen width/height
+    // (which already reflects "Maintain aspect ratio") instead of the video's own proportions.
+    const query = mediaUpload && mediaUpload.width && mediaUpload.height
+      ? `?aspect_ratio=${Math.round(mediaUpload.width)}:${Math.round(mediaUpload.height)}`
+      : ''
+
+    return `<div class="question-media-player-wrapper" style="${wrapperStyle}"><iframe class="question-media-player" style="width: 1px;min-width: 100%;" frameborder="0" src="${playerDomain}/question-media-player/${url}${query}"></iframe></div>`
   })
 }
 

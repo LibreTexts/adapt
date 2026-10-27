@@ -839,6 +839,8 @@ class DiscussionCommentController extends Controller
             //lets a reply's timestamp open the comment at that moment
             'start_time' => max(0, round((float)$request->query('start_time', 0), 2)),
             'show_buttons' => true,
+            //discussion comments only exist in discuss_it, so they always get the Back 10s / Forward 10s buttons
+            'show_skip_controls' => true,
             'is_phone' => $is_phone,
             'in_modal' => true,
             'stream_hls_url' => $stream_hls_url]);

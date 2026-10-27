@@ -8,6 +8,10 @@
       'isAdmin' =>\App\Helpers\Helper::isAdmin(),
       'showEnvironment' => $_COOKIE['show_environment'] ?? false,
       'environment' => config('app.env'),
+      'questionMediaPlayerDomain' => app()->environment('local')
+        && config('database.connections.' . config('database.default') . '.database') === 'vapor'
+          ? 'https://adapt.libretexts.org'
+          : null,
       'clickerApp' => isset($_COOKIE['clicker_app']) && +$_COOKIE['clicker_app'] === 1,
       'toggleColors' => [  'checked' => '#008600', 'unchecked' => '#6c757d' ]
   ];
