@@ -24,6 +24,7 @@ use App\LmsAPI;
 use App\LtiAssignmentsAndGradesUrl;
 use App\PendingQuestionRevision;
 use App\Question;
+use App\Rules\IsValidPeriodOfTime;
 use App\QuestionRevision;
 use App\Score;
 use App\Section;
@@ -233,10 +234,9 @@ class AssignmentController extends Controller
         $chosen_assignments = $request->chosen_assignments;
         $date = CarbonImmutable::now();
         $response['type'] = 'error';
-        if (in_array($shift_by, ['period of time', 'first available on'])) {
-            try {
-                $date->add($shift_by)->calendar();
-            } catch (Exception $e) {
+        if (in_array($request->shifting_method, ['period of time', 'first available on'])) {
+            //same check as the save endpoint so a preview can't succeed where the save would fail
+            if (!(new IsValidPeriodOfTime(true))->passes('shift_by', $shift_by)) {
                 $response['message'] = "$shift_by is not a valid period of time.";
                 return $response;
             }

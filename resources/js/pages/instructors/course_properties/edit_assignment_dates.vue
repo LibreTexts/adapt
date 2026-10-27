@@ -31,7 +31,7 @@
           <td>
             2 days and -1 hour
           </td>
-          <td> 3 days and 1 hour back</td>
+          <td> 1 day and 23 hours forward</td>
         </tr>
         <tr>
           <td>
@@ -392,13 +392,36 @@ export default {
         }
       }
     },
-    computeShiftByForDate () {
+    getChosenDateTimeMoment () {
       const { date, time } = this.changeDateForm
+      if (!date || !time) {
+        return null
+      }
       const time24 = this.$moment(time, ['h:mm A']).format('HH:mm')
-      const dateTimeString = `${date} ${time24}`
-      if (this.$moment(dateTimeString).isValid() && this.$moment(this.assignmentDates[0].available_from).isValid()) {
-        const firstAvailableMoment = this.$moment(dateTimeString)
-        const availableFromMoment = this.$moment(this.assignmentDates[0].available_from)
+      const chosenMoment = this.$moment(`${date} ${time24}`)
+      return chosenMoment.isValid() ? chosenMoment : null
+    },
+    showInvalidDateTimeError () {
+      const errorMessage = 'Please be sure to enter a valid date and time.'
+      this.changeDateForm.errors.set('date', errorMessage)
+      this.allFormErrors = [errorMessage]
+      this.$bvModal.show('modal-form-errors-shift-dates')
+    },
+    getEarliestSelectedAvailableFrom () {
+      // use the saved dates (not chosenAssignments, which holds previewed dates after a preview)
+      // and the earliest of the selected assignments rather than whichever row happens to come first
+      const availableFroms = this.assignmentDates
+        .filter(assignment => this.selectedAssignmentIds.includes(assignment.assignment_id))
+        .map(assignment => this.$moment(assignment.available_from))
+        .filter(availableFrom => availableFrom.isValid())
+      return availableFroms.length ? this.$moment.min(availableFroms) : null
+    },
+    computeShiftByForDate () {
+      const chosenMoment = this.getChosenDateTimeMoment()
+      const earliestAvailableFrom = this.getEarliestSelectedAvailableFrom()
+      if (chosenMoment && earliestAvailableFrom) {
+        const firstAvailableMoment = chosenMoment
+        const availableFromMoment = earliestAvailableFrom
         const firstAvailableOffset = firstAvailableMoment.utcOffset()
         const availableFromOffset = availableFromMoment.utcOffset()
 
@@ -411,10 +434,7 @@ export default {
         }
         this.shiftDatesForm.shift_by = `${this.differenceInMinutes} minutes`
       } else {
-        const errorMessage = 'Please be sure to enter a valid date and time.'
-        this.changeDateForm.errors.set('date', errorMessage)
-        this.allFormErrors = [errorMessage]
-        this.$bvModal.show('modal-form-errors-shift-dates')
+        this.showInvalidDateTimeError()
         return false
       }
       return true
@@ -431,8 +451,17 @@ export default {
           return false
         }
       }
-      if (['first available on', 'assignment date property'].includes(this.shiftDatesForm.shifting_method)) {
+      if (this.shiftDatesForm.shifting_method === 'first available on') {
         if (!this.computeShiftByForDate()) {
+          return false
+        }
+      }
+      if (this.shiftDatesForm.shifting_method === 'assignment date property') {
+        // the date is applied directly, so there's no shift to compute or send
+        this.shiftDatesForm.shift_by = ''
+        this.shiftDatesForm.offset_difference = 0
+        if (!this.getChosenDateTimeMoment()) {
+          this.showInvalidDateTimeError()
           return false
         }
       }

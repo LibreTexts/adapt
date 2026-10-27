@@ -24,8 +24,12 @@ class ShiftDatesRequest extends FormRequest
      */
     public function rules()
     {
-        return [
-            'shift_by' => new IsValidPeriodOfTime()
-        ];
+        //shift_by is only used when shifting by a period of time or a new first available on;
+        //with a single common date it's ignored, so it shouldn't be able to block the save
+        $rules = [];
+        if ($this->input('shifting_method') !== 'assignment date property') {
+            $rules['shift_by'] = new IsValidPeriodOfTime(true);
+        }
+        return $rules;
     }
 }

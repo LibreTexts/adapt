@@ -4,18 +4,24 @@ namespace App\Rules;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Validation\Rule;
-use \Exception;
+use Throwable;
 
 class IsValidPeriodOfTime implements Rule
 {
     /**
+     * @var bool
+     */
+    private $allowNegative;
+
+    /**
      * Create a new rule instance.
      *
+     * @param bool $allowNegative true where shifting backwards in time makes sense (e.g. shifting dates)
      * @return void
      */
-    public function __construct()
+    public function __construct(bool $allowNegative = false)
     {
-        //
+        $this->allowNegative = $allowNegative;
     }
 
     /**
@@ -32,9 +38,12 @@ class IsValidPeriodOfTime implements Rule
         }
         try {
             $base = CarbonImmutable::now();
-            //must be an actual length of time: "0 minutes" or a negative interval doesn't count
-            return $base->add($value)->greaterThan($base);
-        } catch (Exception $e) {
+            $shifted = $base->add($value);
+            //"0 minutes" never counts; negative periods only count when they've been opted into
+            return $this->allowNegative
+                ? $shifted->notEqualTo($base)
+                : $shifted->greaterThan($base);
+        } catch (Throwable $e) {
             return false;
         }
 
