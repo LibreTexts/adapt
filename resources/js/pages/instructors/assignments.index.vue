@@ -496,7 +496,7 @@
         id="modal-create-assignment-from-template"
         ref="modal"
         size="lg"
-        title="Create Assignment From Template"
+        :title="`Clone ${createAssignmentFromTemplateAssignmentName}`"
       >
         <b-form-group
           id="create_assignment_from_template_level"
@@ -525,8 +525,8 @@
           class="mt-2"
         >
           <small>
-            <strong>Note:</strong> Questions will be linked to the source assignment's questions, not cloned as
-            independent copies.
+            <strong>Note:</strong> Questions in the clone will be linked to the source assignment's questions; they will
+            not be independent copies.
           </small>
         </b-alert>
         <b-form-group
@@ -653,7 +653,7 @@
             class="float-right"
             @click="handleCreateAssignmentFromTemplate"
           >
-            Yes, copy assignment!
+            Yes, clone assignment!
           </b-button>
         </template>
       </b-modal>
@@ -1589,8 +1589,8 @@
               >
                 <span v-if="lms">Link icon: the assignment's connection to your LMS (green when linked). </span>
                 <span v-if="user.role !== 5">Check: open the grader (red when submissions still need grading). </span>
-                <span v-if="[2,5].includes(user.role)">Gear: assignment properties. Copy: create a new assignment from
-                  this one. Trash: delete the assignment.</span>
+                <span v-if="[2,5].includes(user.role)">Gear: assignment properties. Copy: clone the assignment.
+                  Trash: delete the assignment.</span>
               </b-tooltip>
             </th>
           </tr>
@@ -1910,13 +1910,13 @@
                                triggers="hover focus"
                                delay="500"
                     >
-                      Create Assignment From Template
+                      Clone {{ assignment.name }}
                     </b-tooltip>
                     <a :id="getTooltipTarget('createAssignmentFromTemplate',assignment.id)"
                        href="#"
                        class="pr-1"
-                       :aria-label="`Create assignment from ${assignment.name} template`"
-                       @click="initCreateAssignmentFromTemplate(assignment.id)"
+                       :aria-label="`Clone ${assignment.name}`"
+                       @click="initCreateAssignmentFromTemplate(assignment)"
                     >
                       <font-awesome-icon
                         :icon="copyIcon"
@@ -2339,6 +2339,7 @@ export default {
       link_discuss_it_questions: '1'
     }),
     createAssignmentFromTemplateAssignmentId: 0,
+    createAssignmentFromTemplateAssignmentName: '',
     course: '',
     assignTosToView: [],
     currentOrderedAssignments: [],
@@ -3572,9 +3573,11 @@ What assignment parameters??? */
         this.$noty.error(error.message)
       }
     },
-    async initCreateAssignmentFromTemplate (assignmentId) {
+    async initCreateAssignmentFromTemplate (assignment) {
+      const assignmentId = assignment.id
       // open_ended_questions_in_real_time_assignment_exists
       this.createAssignmentFromTemplateAssignmentId = assignmentId
+      this.createAssignmentFromTemplateAssignmentName = assignment.name
       this.discussItQuestionsExist = false
       try {
         const { data } = await axios.get(`/api/assignment-sync-question/discuss-it-clicker-or-open-ended-questions-by-course-or-assignment/assignment/${assignmentId}`)

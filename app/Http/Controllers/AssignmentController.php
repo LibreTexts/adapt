@@ -1353,7 +1353,10 @@ class AssignmentController extends Controller
             }
 
             DB::commit();
-            $response['message'] = "<strong>$new_assignment->name</strong> is using the same template as <strong>$assignment->name</strong>. Don't forget to add questions and update the assignment's dates.";
+            $response['message'] = "<strong>$assignment->name</strong> was cloned to <strong>$new_assignment->name</strong>. ";
+            $response['message'] .= $request->level === 'properties_and_questions'
+                ? "Don't forget to update the assignment's dates."
+                : "Don't forget to add questions and update the assignment's dates.";
             if (!empty($discuss_it_link_messages)) {
                 $response['message'] .= ' ' . implode(' ', $discuss_it_link_messages);
             }
@@ -1362,7 +1365,7 @@ class AssignmentController extends Controller
             DB::rollback();
             $h = new Handler(app());
             $h->report($e);
-            $response['message'] = "There was an error creating an assignment from $assignment->name.  Please try again or contact us for assistance.";
+            $response['message'] = "There was an error cloning $assignment->name.  Please try again or contact us for assistance.";
         }
         return $response;
     }

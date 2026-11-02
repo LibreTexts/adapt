@@ -208,7 +208,7 @@ class AssignmentPolicy
     public function getQuestionsWithCourseLevelUsageInfo(User $user, Assignment $assignment)
 
     {
-        $has_access = (int)$assignment->course->user_id = $user->id || ($user->role === 2 && $assignment->course->public);
+        $has_access = (int)$assignment->course->user_id === (int)$user->id || ($user->role === 2 && $assignment->course->public);
         return $has_access
             ? Response::allow()
             : Response::deny('You are not allowed to access these assignment questions.');
@@ -297,7 +297,7 @@ class AssignmentPolicy
     {
         return $assignment->course->ownsCourseOrIsCoInstructor($user->id)
             ? Response::allow()
-            : Response::deny("You are not allowed to create an assignment from this template.");
+            : Response::deny("You are not allowed to clone this assignment.");
     }
 
 
