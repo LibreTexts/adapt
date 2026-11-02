@@ -964,7 +964,7 @@ class QuestionController extends Controller
             }
 
 
-            if (!in_array($request->file('bulk_import_file')->getMimetype(), ['application/x-tex', 'application/csv', 'text/plain', 'text/x-tex'])) {
+            if (!in_array($request->file('bulk_import_file')->getMimetype(), ['application/x-tex', 'application/csv', 'text/csv', 'text/plain', 'text/x-tex'])) {
                 $response['message'] = ["This is not a .csv file: {$request->file('bulk_import_file')->getMimetype()} is not a valid MIME type."];
                 return $response;
             }
