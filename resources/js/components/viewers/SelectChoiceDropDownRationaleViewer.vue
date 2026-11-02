@@ -36,6 +36,10 @@ export default {
     showResponseFeedback: {
       type: Boolean,
       default: true
+    },
+    mediaUploads: {
+      type: Array,
+      default: () => []
     }
   },
   data: () => ({
@@ -58,7 +62,7 @@ export default {
           delete (this.qtiJson.inline_choice_interactions['rationales'])
         }
         if (this.qtiJson.questionType === 'select_choice') {
-          this.qtiJson.itemBody = this.formatQuestionMediaPlayer(this.qtiJson.itemBody)
+          this.qtiJson.itemBody = this.formatQuestionMediaPlayer(this.qtiJson.itemBody, this.mediaUploads)
         }
         console.log(this.qtiJson.itemBody)
         let reg = /\[(.*?)\]/g

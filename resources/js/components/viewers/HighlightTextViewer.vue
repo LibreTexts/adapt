@@ -37,6 +37,10 @@ export default {
     showResponseFeedback: {
       type: Boolean,
       default: true
+    },
+    mediaUploads: {
+      type: Array,
+      default: () => []
     }
   },
   data: () => ({
@@ -58,7 +62,7 @@ export default {
     this.qtiJson.prompt = this.qtiJson.prompt.replaceAll('&quot;', '"').replaceAll('&#39;', '\'')
     console.log(this.qtiJson.prompt)
     this.highlightedText = addHighlights(this.qtiJson.prompt, this.qtiJson.responses)
-    this.highlightedText = this.formatQuestionMediaPlayer(this.highlightedText)
+    this.highlightedText = this.formatQuestionMediaPlayer(this.highlightedText, this.mediaUploads)
     this.highlightedTextIndex++
     $(document).ready(function () {
       toggleSelected()

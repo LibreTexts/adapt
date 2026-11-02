@@ -33,6 +33,10 @@ export default {
     showResponseFeedback: {
       type: Boolean,
       default: true
+    },
+    mediaUploads: {
+      type: Array,
+      default: () => []
     }
   },
   data () {
@@ -88,7 +92,7 @@ export default {
           html += part
         }
       }
-      return this.formatQuestionMediaPlayer(html)
+      return this.formatQuestionMediaPlayer(html, this.mediaUploads)
     }
   },
   mounted () {

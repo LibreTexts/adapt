@@ -14,7 +14,7 @@
       <tbody>
       <tr v-for="(item,index) in termsToMatch" :key="`matching-answer-${item.identifier}`">
         <th scope="row">
-          <div v-html="formatQuestionMediaPlayer(item.termToMatch)"/>
+          <div v-html="formatQuestionMediaPlayer(item.termToMatch, mediaUploads)"/>
         </th>
         <td :class="qtiJson.studentResponse ? 'd-flex' : ''">
           <div>
@@ -39,7 +39,7 @@
               >
                 <!-- Unified layout when any item in the list is a media player -->
                 <div v-if="hasMediaPlayer" class="dropdown-match-item__media-row">
-                  <span v-html="formatQuestionMediaPlayer(possibleMatch.matchingTerm)"
+                  <span v-html="formatQuestionMediaPlayer(possibleMatch.matchingTerm, mediaUploads)"
                         class="dropdown-match-item__player"
                   />
                   <button class="btn btn-info btn-block dropdown-match-item__select-btn"
@@ -62,7 +62,7 @@
             <!-- Render the selected media player inline below the dropdown -->
             <div v-if="chosenMatchHasMediaPlayer(item)"
                  class="chosen-media-player mt-2 ml-2"
-                 v-html="formatQuestionMediaPlayer(getChosenMatchTerm(item))"
+                 v-html="formatQuestionMediaPlayer(getChosenMatchTerm(item), mediaUploads)"
             />
           </div>
 
@@ -130,6 +130,10 @@ export default {
     showResponseFeedback: {
       type: Boolean,
       default: true
+    },
+    mediaUploads: {
+      type: Array,
+      default: () => []
     }
   },
   data: () => ({

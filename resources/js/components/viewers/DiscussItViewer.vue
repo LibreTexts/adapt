@@ -1315,7 +1315,7 @@
               aria-label="Discussion Media"
               width="100%"
               allowtransparency="true"
-              :src="`/question-media-player/${currentDiscussionMedia.s3_key}?skip_controls=1`"
+              :src="`/question-media-player/${currentDiscussionMedia.s3_key}${previewingQuestion ? '' : '?skip_controls=1'}`"
               frameborder="0"
               allowfullscreen
               class="mb-2"

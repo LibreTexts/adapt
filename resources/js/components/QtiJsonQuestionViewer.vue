@@ -52,6 +52,7 @@
         ref="dropDownTableViewer"
         :key="`select-choice-drop-down-rational-${qtiJsonCacheKey}`"
         :qti-json="JSON.parse(qtiJson)"
+        :media-uploads="resolvedMediaUploads"
         :show-response-feedback="showResponseFeedback"
       />
 
@@ -59,7 +60,7 @@
                             ref="fillInTheBlankViewer"
                             :key="`fill-in-the-blank-${qtiJsonCacheKey}`"
                             :qti-json="JSON.parse(qtiJson)"
-                            :media-uploads="mediaUploads.length ? mediaUploads : (question.media_uploads || [])"
+                            :media-uploads="resolvedMediaUploads"
                             :show-response-feedback="showResponseFeedback"
       />
       <AccountingJournalEntryViewer v-if="questionType === 'accounting_journal_entry'"
@@ -208,12 +209,14 @@
                                 ref="multiNumericalViewer"
                                 :key="`multi-numerical-${qtiJsonCacheKey}`"
                                 :qti-json="JSON.parse(qtiJson)"
+                                :media-uploads="resolvedMediaUploads"
                                 :show-response-feedback="showResponseFeedback"
           />
           <MatchingViewer v-if="questionType === 'matching'"
                           ref="matchingViewer"
                           :key="`matching-${qtiJsonCacheKey}`"
                           :qti-json="JSON.parse(qtiJson)"
+                          :media-uploads="resolvedMediaUploads"
                           :show-submit="showSubmit"
           />
           <MultipleChoiceTrueFalseViewer v-if="['true_false','multiple_choice'].includes(questionType)"
@@ -275,6 +278,7 @@
         v-if="questionType === 'highlight_text'"
         ref="highlightTextViewer"
         :qti-json="JSON.parse(qtiJson)"
+        :media-uploads="resolvedMediaUploads"
         :show-response-feedback="showResponseFeedback"
       />
       <HighlightTableViewer
@@ -491,6 +495,9 @@ export default {
     ...mapGetters({
       user: 'auth/user'
     }),
+    resolvedMediaUploads () {
+      return this.mediaUploads && this.mediaUploads.length ? this.mediaUploads : (this.question.media_uploads || [])
+    },
     parsedQtiJson () {
       try {
         return JSON.parse(this.qtiJson)
@@ -625,7 +632,7 @@ export default {
       default:
         alert(`${this.questionType} is not yet supported.`)
     }
-    this.prompt = this.formatQuestionMediaPlayer(this.prompt, this.mediaUploads.length ? this.mediaUploads : (this.question.media_uploads || []))
+    this.prompt = this.formatQuestionMediaPlayer(this.prompt, this.resolvedMediaUploads)
     this.$forceUpdate()
     this.$nextTick(() => {
       this.typesetMath()

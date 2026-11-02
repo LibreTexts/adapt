@@ -118,14 +118,14 @@
             aria-label="Question Media"
             width="100%"
             allowtransparency="true"
-            :src="`/question-media-player/${activeMedia.s3_key}/${startTime}${isDiscussIt ? '?skip_controls=1' : ''}`"
+            :src="`/question-media-player/${activeMedia.s3_key}/${startTime}`"
             frameborder="0"
             allowfullscreen
             class="mb-2"
           />
         </div>
       </b-row>
-      <div v-if="isVideo(activeMedia)"
+      <div v-if="isVideo(activeMedia) && !isDiscussIt"
            class="mb-3 mt-2 p-2"
            style="border: 1px solid #dee2e6; border-radius: 6px; max-width: 60%; margin: 0 auto;"
       >
