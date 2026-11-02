@@ -6,6 +6,7 @@ use App\Exceptions\Handler;
 use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Telegram\Bot\Laravel\Facades\Telegram;
 
 class findRichTextError extends Command
 {
@@ -40,10 +41,24 @@ class findRichTextError extends Command
     public function handle()
     {
         try {
-            if (DB::table('assignment_question')
+            $ids = DB::table('assignment_question')
                 ->where('open_ended_submission_type', 'rich text')
-                ->first()) {
-                throw new Exception("There are open_ended_submissions in assignment_question with 'rich text' but they should just be text.");
+                ->pluck('id');
+            if ($ids->isNotEmpty()) {
+                DB::table('assignment_question')
+                    ->whereIn('id', $ids)
+                    ->update([
+                        'open_ended_submission_type' => 'text',
+                        'open_ended_text_editor' => 'rich'
+                    ]);
+                // Telegram messages are limited to 4096 characters.
+                foreach ($ids->chunk(400) as $ids_chunk) {
+                    Telegram::sendMessage([
+                        'chat_id' => config('myconfig.telegram_channel_id'),
+                        'parse_mode' => 'HTML',
+                        'text' => "Updated assignment_question records from 'rich text' to 'text' with the rich text editor. IDs: " . $ids_chunk->implode(', ')
+                    ]);
+                }
             }
             return 0;
         } catch (Exception $e) {

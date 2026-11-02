@@ -47,6 +47,13 @@ class getNullLmsGradePassbacks extends Command
                 ->where('courses.lms', 1)
                 ->whereNull('assignments.lms_grade_passback')
                 ->where('assignments.formative',0)
+                ->whereExists(function ($query) {
+                    $query->select(DB::raw(1))
+                        ->from('assign_to_timings')
+                        ->whereColumn('assign_to_timings.assignment_id', 'assignments.id')
+                        ->whereRaw('assign_to_timings.available_from <= UTC_TIMESTAMP()')
+                        ->whereRaw('assign_to_timings.due > UTC_TIMESTAMP()');
+                })
                 ->select(DB::raw('CONCAT(first_name, " " , last_name) AS instructor'),
                     'courses.name AS course_name', 'assignments.name AS assignment_name',
                     'assignments.id AS assignment_id')
