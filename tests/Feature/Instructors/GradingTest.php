@@ -393,15 +393,6 @@ class GradingTest extends TestCase
     }
 
     #[Test]
-    public function can_download_assignment_file_if_owner()
-    {
-        $this->markTestIncomplete(
-            'Not sure how to test'
-        );
-
-    }
-
-    #[Test]
     public function can_get_temporary_url_from_request_if_owner()
     {
         $this->actingAs($this->user)->postJson("/api/submission-files/get-temporary-url-from-request",

@@ -541,15 +541,6 @@ class QuestionsGetTest extends TestCase
     }
 
     #[Test]
-    public function if_page_id_is_included_there_should_be_no_other_tags()
-    {
-        $this->markTestIncomplete(
-            'TODO'
-        );
-
-    }
-
-    #[Test]
     public function cannot_update_points_if_points_are_not_valid()
     {
         $this->actingAs($this->user)->patchJson("/api/assignments/{$this->assignment->id}/questions/{$this->question->id}/update-points",
@@ -599,24 +590,6 @@ class QuestionsGetTest extends TestCase
 
     /**@test */
     public function returns_the_correct_question_given_a_query_page_id()
-    {
-        $this->markTestIncomplete(
-            'TODO'
-        );
-
-    }
-
-    #[Test]
-    public function user_gets_message_if_there_are_no_questions_associated_with_a_tag()
-    {
-        $this->markTestIncomplete(
-            'TODO'
-        );
-
-    }
-
-    #[Test]
-    public function user_gets_message_if_there_are_no_questions_associated_with_an_intersection_of_tags()
     {
         $this->markTestIncomplete(
             'TODO'

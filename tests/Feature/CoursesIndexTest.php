@@ -242,15 +242,6 @@ class CoursesIndexTest extends TestCase
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
-    public function user_can_email_grader_invitation_if_owner()
-    {
-        $this->markTestIncomplete(
-            'Need to learn how to mock the Mail class'
-        );
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
     public function grader_can_get_courses_for_which_they_grade()
     {
 

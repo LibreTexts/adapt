@@ -1910,7 +1910,7 @@
                                triggers="hover focus"
                                delay="500"
                     >
-                      Clone {{ assignment.name }}
+                      Clone Assignment
                     </b-tooltip>
                     <a :id="getTooltipTarget('createAssignmentFromTemplate',assignment.id)"
                        href="#"

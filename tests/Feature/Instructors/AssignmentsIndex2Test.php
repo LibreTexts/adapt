@@ -493,7 +493,7 @@ class AssignmentsIndex2Test extends TestCase
 
         $this->actingAs($this->user)->postJson("/api/assignments/$assignment_id/create-assignment-from-template",
             ['assign_to_groups' => 1])
-            ->assertJson(['message' => "<strong>{$this->assignment_info['name']} copy</strong> is using the same template as <strong>{$this->assignment_info['name']}</strong>. Don't forget to add questions and update the assignment's dates."]);
+            ->assertJson(['message' => "<strong>{$this->assignment_info['name']}</strong> was cloned to <strong>{$this->assignment_info['name']} copy</strong>. Don't forget to add questions and update the assignment's dates."]);
 
         $this->assertequals(2 * $num_assign_to_users,
             AssignToUser::all()->count(),
@@ -569,7 +569,7 @@ class AssignmentsIndex2Test extends TestCase
     {
 
         $this->actingAs($this->user_2)->postJson("/api/assignments/{$this->assignment->id}/create-assignment-from-template")
-            ->assertJson(['message' => 'You are not allowed to create an assignment from this template.']);
+            ->assertJson(['message' => 'You are not allowed to clone this assignment.']);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
@@ -578,7 +578,7 @@ class AssignmentsIndex2Test extends TestCase
     {
 
         $this->actingAs($this->user)->postJson("/api/assignments/{$this->assignment->id}/create-assignment-from-template")
-            ->assertJson(['message' => "<strong>{$this->assignment->name} copy</strong> is using the same template as <strong>{$this->assignment->name}</strong>. Don't forget to add questions and update the assignment's dates."]);
+            ->assertJson(['message' => "<strong>{$this->assignment->name}</strong> was cloned to <strong>{$this->assignment->name} copy</strong>. Don't forget to add questions and update the assignment's dates."]);
     }
 
     #[\PHPUnit\Framework\Attributes\Test]

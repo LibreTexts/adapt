@@ -463,7 +463,6 @@ class QuestionEditorTest extends TestCase
     #[\PHPUnit\Framework\Attributes\Test]
     public function if_repeat_bulk_upload_of_h5p_questions_will_save_to_my_favorites_folder()
     {
-        $this->markTestSkipped('Slow: skipped until the duplicate-question check is sped up.');
         $this->actingAs($this->user)->postJson("/api/questions/h5p/600", ['folder_id' => $this->my_questions_folder->id])
             ->assertJson(['h5p' => ['url' => 'https://studio.libretexts.org/h5p/600']]);
 
@@ -762,7 +761,6 @@ class QuestionEditorTest extends TestCase
     public function only_question_editor_or_instructor_can_bulk_upload_h5p()
     {
 
-        $this->markTestSkipped('h5p skipped.');
         $this->actingAs($this->user)->postJson("/api/questions/h5p/108", ['folder_id' => $this->my_questions_folder->id])
             ->assertJson(['h5p' => ['url' => 'https://studio.libretexts.org/h5p/108']]);
 
@@ -1090,7 +1088,6 @@ EOT;
     #[\PHPUnit\Framework\Attributes\Test]
     public function bulk_upload_h5p_returns_h5p_information()
     {
-        $this->markTestSkipped('h5p skipped.');
         $this->actingAs($this->user)->postJson("/api/questions/h5p/600", ['folder_id' => $this->my_questions_folder->id])
             ->assertJson(['h5p' => ['url' => 'https://studio.libretexts.org/h5p/600']]);
 

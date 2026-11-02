@@ -14,7 +14,6 @@ class H5pCollectionTest extends TestCase
 
     public function setup(): void
     {
-        $this->markTestSkipped('H5P collection tests are disabled: they call the live H5P service.');
         parent::setUp();
         $this->user = factory(User::class)->create();
         $this->course = factory(Course::class)->create(['user_id' => $this->user->id]);

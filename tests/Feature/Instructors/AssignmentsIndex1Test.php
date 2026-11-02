@@ -147,26 +147,6 @@ class AssignmentsIndex1Test extends TestCase
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
-    public function must_submit_a_valid_scoring_type()
-    {
-        $this->markTestIncomplete(
-            'check if c or p'
-        );
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
-    public function can_submit_scoring_type_completed()
-    {
-        $assignment_info = $this->assignment_info;
-        unset($assignment_info['default_points_per_question']);
-        $this->markTestIncomplete(
-            'submit without the default points'
-        );
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
     public function cannot_get_assignments_if_you_are_a_student()
     {
         $this->user->role = 3;

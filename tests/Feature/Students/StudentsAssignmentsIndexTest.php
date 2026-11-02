@@ -165,16 +165,6 @@ class StudentsAssignmentsIndexTest extends TestCase
     }
 
     #[\PHPUnit\Framework\Attributes\Test]
-    public function can_store_assignment_file_if_enrolled_in_course()
-    {
-
-        $this->markTestIncomplete(
-            'https://laravel.com/docs/7.x/http-tests#testing-file-uploads'
-        );
-
-    }
-
-    #[\PHPUnit\Framework\Attributes\Test]
     public function computes_the_correct_z_score_at_the_course_level()
     {
         $this->course->show_z_scores = 1;
