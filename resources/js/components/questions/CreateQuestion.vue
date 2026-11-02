@@ -701,7 +701,11 @@
           :preview-or-solution="showQtiAnswer"
           :previewing-question="previewingQuestion"
         />
-        <div v-if="showQtiAnswer && questionForm.solution_html" v-html="questionForm.solution_html" />
+        <div
+          v-if="showQtiAnswer && questionForm.solution_html"
+          ref="qtiPreviewSolution"
+          v-html="questionForm.solution_html"
+        />
       </div>
       <div v-if="questionForm.technology !== 'qti'">
         <SolutionFileHtml
@@ -5647,9 +5651,28 @@ export default {
           console.error('This logic is just for submit molecule.  Bt it didn;t work')
         }
         this.qtiJsonQuestionViewerKey++
+        await this.typesetQtiPreviewSolution()
       } catch (error) {
         this.$noty.error(error.message)
       }
+    },
+    async typesetQtiPreviewSolution () {
+      if (!this.questionForm.solution_html) return
+      // The solution div only exists once showQtiAnswer is true, and b-modal
+      // renders its content through a portal, so the ref can take more than
+      // one tick to appear.
+      for (let tick = 0; tick < 10 && !this.$refs.qtiPreviewSolution; tick++) {
+        await this.$nextTick()
+      }
+      // QtiJsonQuestionViewer remounts here and typesets itself. MathJax can't
+      // run overlapping typeset calls, so let that one go first.
+      await new Promise(resolve => setTimeout(resolve))
+      const solutionEl = this.$refs.qtiPreviewSolution
+      // The div survives repeat View Solution clicks; typesetting it again
+      // would duplicate the math.
+      if (!solutionEl || solutionEl.querySelector('mjx-container')) return
+      this.convertMathJaxV2ToV3(solutionEl)
+      await this.typesetMath(solutionEl)
     },
     checkForOtherQuestionEditors: function () {
       this.updateCurrentQuestionEditor()
@@ -6398,7 +6421,7 @@ export default {
         this.$noty.info('Please click "Done Editing Molecule" (or Cancel) before previewing.')
         return false
       }
-      if (['marker', 'submit-molecule', 'pushing_arrows'].includes(this.qtiQuestionType)) {
+      if (['marker', 'submit_molecule', 'pushing_arrows'].includes(this.qtiQuestionType)) {
         this.previewingQuestion = true
         this.receivedStructure = false
         const iframe = this.editorSketcherIframe()
