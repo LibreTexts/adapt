@@ -101,6 +101,7 @@
 <script>
 import $ from 'jquery'
 import { applyWarningsVisibility } from '../helpers/CSSUpdates'
+import { fitModalToContent } from '../helpers/fitModalToContent'
 import { mapGetters } from 'vuex'
 import axios from 'axios'
 
@@ -235,43 +236,15 @@ export default {
         console.error(e)
       }
       // Give the browser one frame to lay out the typeset output.
-      requestAnimationFrame(() => this.fitModalToContent(modalEl))
+      requestAnimationFrame(() => fitModalToContent(modalEl))
       window.removeEventListener('resize', this.onWindowResize)
       window.addEventListener('resize', this.onWindowResize)
     },
     onWindowResize () {
       const modalEl = this.getSolutionModalEl()
       if (modalEl && modalEl.offsetParent !== null) {
-        this.fitModalToContent(modalEl)
+        fitModalToContent(modalEl)
       }
-    },
-    // Widens the modal so wide content (MathJax matrices, tables, images)
-    // fits, up to 95% of the viewport. Anything wider scrolls horizontally.
-    fitModalToContent (modalEl) {
-      const dialog = modalEl.querySelector('.modal-dialog')
-      const body = modalEl.querySelector('.modal-body')
-      if (!dialog || !body) return
-
-      // Reset to the size="lg" default before measuring.
-      dialog.style.maxWidth = ''
-      body.style.overflowX = ''
-
-      const style = getComputedStyle(body)
-      const padding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
-
-      // scrollWidth includes overflowing content, even inside overflow:auto containers.
-      let contentWidth = body.scrollWidth
-      body.querySelectorAll('mjx-container, .MathJax_Display, .MJXc-display, .MathJax_SVG_Display, table, img, .mt-section > *')
-        .forEach(el => {
-          contentWidth = Math.max(contentWidth, el.scrollWidth + padding)
-        })
-
-      if (contentWidth <= body.clientWidth) return // already fits
-
-      const maxAllowed = window.innerWidth * 0.95
-      // +4 accounts for modal-content borders and rounding
-      dialog.style.maxWidth = `${Math.ceil(Math.min(contentWidth + 4, maxAllowed))}px`
-      body.style.overflowX = 'auto'
     },
     async openShowHTMLSolutionModal () {
       this.$bvModal.show(`modal-show-html-solution-${this.modalId}`)
