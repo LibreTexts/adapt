@@ -10,6 +10,7 @@
     <b-modal id="modal-delete-discipline"
              title="Delete Discipline"
              no-close-on-backdrop
+             @hidden="resetDiscipline"
     >
       <p>Please confirm that you would like to delete the discipline:</p>
       <p class="text-center font-weight-bold">
@@ -110,8 +111,8 @@
       <p>
         To enter this course, you'll need to log in with your instructor account and then visit the {{ title }} from the
         Dashboard.</p>
-       <p>If you don’t have a LibreTexts Instructor Account apply at <a href="https://register.libretexts.org" target="_blank" rel="noopener noreferrer">https://register.libretexts.org</a>. We do require an institutional email address for security reasons and a URL to a page showing that you are an instructor.
-         All LibreTexts Instructor Accounts provide access to the ADAPT homework system as well as our textbook platform. </p>
+      <p>If you don’t have a LibreTexts Instructor Account apply at <a href="https://register.libretexts.org" target="_blank" rel="noopener noreferrer">https://register.libretexts.org</a>. We do require an institutional email address for security reasons and a URL to a page showing that you are an instructor.
+        All LibreTexts Instructor Accounts provide access to the ADAPT homework system as well as our textbook platform. </p>
       <template #modal-footer>
         <b-button
           size="sm"
@@ -257,6 +258,7 @@
 
       <b-table
         v-show="openCourses.length"
+        primary-key="id"
         :aria-label="title"
         striped
         hover
@@ -579,6 +581,7 @@ export default {
             })
         }
         this.fields.push('actions')
+        this.update()
       } catch (error) {
         this.$noty.error(error.message)
       }

@@ -33,9 +33,12 @@ export default {
   data: () => ({
     disciplineId: null
   }),
-  mounted () {
-    if (this.currentDisciplineId) {
-      this.disciplineId = this.currentDisciplineId
+  watch: {
+    currentDisciplineId: {
+      immediate: true,
+      handler (id) {
+        this.disciplineId = id
+      }
     }
   },
   methods: {
