@@ -74,11 +74,13 @@ class notifyFailedTranscriptions extends Command
             if ($bad_question_media_uploads) {
                 $text .= "Bad question media uploads: " . implode(", ", $bad_question_media_uploads);
             }
-            Telegram::sendMessage([
-                'chat_id' => config('myconfig.telegram_channel_id'),
-                'parse_mode' => 'HTML',
-                'text' => $text
-            ]);
+            if ($text) {
+                Telegram::sendMessage([
+                    'chat_id' => config('myconfig.telegram_channel_id'),
+                    'parse_mode' => 'HTML',
+                    'text' => $text
+                ]);
+            }
             return 0;
         } catch (Exception $e) {
             $h = new Handler(app());
