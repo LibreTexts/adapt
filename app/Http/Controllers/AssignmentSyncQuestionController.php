@@ -1025,6 +1025,15 @@ class AssignmentSyncQuestionController extends Controller
             $current_custom_rubric_items = $current_custom_rubric['rubric_items'] ?: [];
             $new_custom_rubric = json_decode(json_encode($custom_rubric), 1);
             $new_custom_rubric_items = $new_custom_rubric['rubric_items'] ?: [];
+            if (!RubricEditPermission::canEditGradedStaticRubrics($request->user(), $assignment)
+                && !$this->_rubricsAreTheSame($current_custom_rubric_items, $new_custom_rubric_items)
+                && $rubricPointsBreakdown->where('assignment_id', $assignment->id)
+                    ->where('question_id', $question->id)
+                    ->exists()) {
+                //this save would delete every student's rubric point breakdown
+                $response['message'] = RubricEditPermission::GRADER_STATIC_SCORES_MESSAGE;
+                return $response;
+            }
             DB::beginTransaction();
             DB::table('assignment_question')
                 ->where('assignment_id', $assignment->id)

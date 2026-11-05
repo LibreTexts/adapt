@@ -20,7 +20,7 @@ use Illuminate\Support\Str;
 class DynamicRubricEditor
 {
     const CONFLICT_MESSAGE = "The rubric was changed by someone else. Please reload the page.";
-    const NAMES_HIDDEN_MESSAGE = "Student names are hidden because 'Graders can see student names' is turned off for this assignment.";
+    const NAMES_HIDDEN_MESSAGE = "Student names are hidden because 'Graders can see student names' is turned off for this assignment. These are the same stand-in names you see in the Open Grader.";
     const HAS_DYNAMIC_SCORES_MESSAGE = "Students have already been graded with this dynamic rubric, so this would wipe out their rubric scores. Change it with Edit Rubric instead: edits recalculate their scores, and choosing Static converts them to static scoring after showing you a preview.";
 
     /**
@@ -296,7 +296,8 @@ class DynamicRubricEditor
                 'changed' => !$has_override && abs($new_rubric_score - $old_rubric_score) >= 0.005];
         }
 
-        $names_hidden = (int)$viewer->role === 4 && !$assignment->graders_can_see_student_names;
+        $names_hidden = StudentAnonymizer::hiddenFrom($viewer, $assignment);
+        $stand_in_names = $names_hidden ? StudentAnonymizer::names($assignment->id, array_column($students, 'user_id')) : [];
         $changed = array_values(array_filter($students, function ($student) {
             return $student['changed'] && !$student['is_fake'];
         }));
@@ -306,11 +307,9 @@ class DynamicRubricEditor
         $overrides = array_values(array_filter($students, function ($student) {
             return $student['has_override'] && !$student['is_fake'];
         }));
-        $label_number = 0;
-        $public_student = function ($student) use ($names_hidden, &$label_number, $question_points) {
-            $label_number++;
+        $public_student = function ($student) use ($names_hidden, $stand_in_names, $question_points) {
             return ['user_id' => $names_hidden ? null : $student['user_id'],
-                'name' => $names_hidden ? "Student $label_number" : $student['name'],
+                'name' => $names_hidden ? $stand_in_names[$student['user_id']]['name'] : $student['name'],
                 'old_score' => $student['old_question_score'],
                 'new_score' => $student['new_question_score'],
                 'question_points' => $question_points];

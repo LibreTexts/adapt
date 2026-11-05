@@ -74,6 +74,10 @@
           Download Scores
         </a>
         <TimeSpent @updateView="getAssignmentQuestionScoresByUser" />
+        <p v-if="hasOutOfRangeScores" class="small mb-2">
+          <span class="score-out-of-range">Highlighted</span> scores are above the question's points (or the
+          assignment's total) or below 0, usually from an override or a rubric adjustment. Hover over one for details.
+        </p>
         <b-table
           v-show="items.length"
           aria-label="Assignment Gradebook"
@@ -104,16 +108,20 @@
               </span>
               <span v-if="!nonEditableFields.includes(data.field.key)"
                     style="cursor:pointer"
-                    :class="isSubmissionScoreOverride(data) ? 'text-info' : ''"
+                    :class="[isSubmissionScoreOverride(data) ? 'text-info' : '',
+                             { 'score-out-of-range': outOfRangeMessage(data.value, data.field.points) }]"
+                    :title="outOfRangeMessage(data.value, data.field.points)"
                     @click="initOverrideSubmissionScore(data)"
               >{{ data.value }}
               </span>
             </span>
             <span v-if="data.field.key === 'total_points'">
               <span style="cursor:pointer"
-                    :class="data.item.override_score ? 'text-info' : ''"
+                    :class="[data.item.override_score ? 'text-info' : '',
+                             { 'score-out-of-range': outOfRangeMessage(totalScore(data), data.field.points) }]"
+                    :title="outOfRangeMessage(totalScore(data), data.field.points)"
                     @click="initOverrideAssignmentScore(data)"
-              >{{ data.item.override_score ? data.item.override_score : data.value }}
+              >{{ totalScore(data) }}
               </span>
             </span>
           </template>
@@ -178,9 +186,17 @@ export default {
     showTimeSpent: false,
     toggleColors: window.config.toggleColors
   }),
-  computed: mapGetters({
-    user: 'auth/user'
-  }),
+  computed: {
+    ...mapGetters({
+      user: 'auth/user'
+    }),
+    hasOutOfRangeScores () {
+      return this.items.some(item => this.fields.some(field => {
+        const value = field.key === 'total_points' ? (item.override_score || item.total_points) : item[field.key]
+        return this.outOfRangeMessage(value, field.points)
+      }))
+    }
+  },
   mounted () {
     if (![2, 4].includes(this.user.role)) {
       this.$router.push({ name: 'no.access' })
@@ -190,6 +206,28 @@ export default {
     this.getAssignmentQuestionScoresByUser(0)
   },
   methods: {
+    totalScore (data) {
+      return data.item.override_score ? data.item.override_score : data.value
+    },
+    // A score cell can carry the time spent after the score ("7 3:20"), or be "-" when there's no submission.
+    // Returns a message for a score above its maximum or below 0, and '' otherwise.
+    outOfRangeMessage (value, maximum) {
+      if (maximum === undefined || maximum === null || value === undefined || value === null) {
+        return ''
+      }
+      const score = parseFloat(String(value).trim())
+      const max = parseFloat(maximum)
+      if (isNaN(score) || isNaN(max)) {
+        return ''
+      }
+      if (score > max + 0.005) {
+        return `Above the maximum of ${max} ${max === 1 ? 'point' : 'points'}`
+      }
+      if (score < -0.005) {
+        return 'Below 0'
+      }
+      return ''
+    },
     async updateOverrideAssignmentScore () {
       try {
         const { data } = await this.overrideAssignmentScoreForm.patch(`/api/scores/${this.assignmentId}/${this.studentUserId}`)
@@ -279,6 +317,15 @@ export default {
 }
 </script>
 <style scoped>
+/* a score outside 0 to its maximum: dark red text on light red, readable in the striped rows */
+.score-out-of-range {
+  background-color: #fde2e1;
+  color: #a71d2a;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
 .custom-tooltip .tooltip-inner {
   max-width: 800px; /* Set the desired width */
   white-space: normal;

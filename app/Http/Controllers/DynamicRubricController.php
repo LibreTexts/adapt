@@ -10,6 +10,7 @@ use App\Helpers\DynamicRubricEditor;
 use App\Helpers\DynamicRubricRemover;
 use App\Helpers\RubricEditPermission;
 use App\Helpers\StaticRubricConverter;
+use App\Helpers\StudentAnonymizer;
 use App\Question;
 use App\User;
 use Carbon\Carbon;
@@ -50,6 +51,8 @@ class DynamicRubricController extends Controller
             $response['version'] = $state['version'];
             $response['can_edit'] = $permission['allowed'];
             $response['can_edit_message'] = $permission['message'];
+            $response['rubric_permissions'] = RubricEditPermission::permissions($request->user(), $assignment);
+            $response['default_scoring_style'] = RubricEditPermission::defaultScoringStyle($request->user(), $assignment);
             //the History link stays once a rubric has been converted back to static
             $response['has_history'] = DB::table('rubric_change_logs')
                 ->where('assignment_id', $assignment->id)
@@ -157,12 +160,13 @@ class DynamicRubricController extends Controller
     public function convertPreview(Request $request, Assignment $assignment, Question $question): array
     {
         $response['type'] = 'error';
-        if (!$assignment->course->ownsCourseOrIsCoInstructor($request->user()->id)) {
+        if (!RubricEditPermission::canConvertGradedRubrics($request->user(), $assignment)) {
             $response['message'] = DynamicRubricConverter::ONLY_INSTRUCTORS_MESSAGE;
             return $response;
         }
         try {
-            return DynamicRubricConverter::preview($assignment, $question);
+            return $this->_conversionPreviewForViewer(DynamicRubricConverter::preview($assignment, $question, $request->user()),
+                $request->user(), $assignment);
         } catch (Exception $e) {
             $h = new Handler(app());
             $h->report($e);
@@ -184,7 +188,7 @@ class DynamicRubricController extends Controller
     public function convert(Request $request, Assignment $assignment, Question $question): array
     {
         $response['type'] = 'error';
-        if (!$assignment->course->ownsCourseOrIsCoInstructor($request->user()->id)) {
+        if (!RubricEditPermission::canConvertGradedRubrics($request->user(), $assignment)) {
             $response['message'] = DynamicRubricConverter::ONLY_INSTRUCTORS_MESSAGE;
             return $response;
         }
@@ -224,12 +228,13 @@ class DynamicRubricController extends Controller
     public function convertToStaticPreview(Request $request, Assignment $assignment, Question $question): array
     {
         $response['type'] = 'error';
-        if (!$assignment->course->ownsCourseOrIsCoInstructor($request->user()->id)) {
+        if (!RubricEditPermission::canConvertGradedRubrics($request->user(), $assignment)) {
             $response['message'] = StaticRubricConverter::ONLY_INSTRUCTORS_MESSAGE;
             return $response;
         }
         try {
-            return StaticRubricConverter::preview($assignment, $question);
+            return $this->_conversionPreviewForViewer(StaticRubricConverter::preview($assignment, $question, $request->user()),
+                $request->user(), $assignment);
         } catch (Exception $e) {
             $h = new Handler(app());
             $h->report($e);
@@ -250,7 +255,7 @@ class DynamicRubricController extends Controller
     public function convertToStatic(Request $request, Assignment $assignment, Question $question): array
     {
         $response['type'] = 'error';
-        if (!$assignment->course->ownsCourseOrIsCoInstructor($request->user()->id)) {
+        if (!RubricEditPermission::canConvertGradedRubrics($request->user(), $assignment)) {
             $response['message'] = StaticRubricConverter::ONLY_INSTRUCTORS_MESSAGE;
             return $response;
         }
@@ -342,6 +347,24 @@ class DynamicRubricController extends Controller
             $response['message'] = "We were not able to change the rubric, and no scores were changed.  Please try again or contact us for assistance.";
         }
         return $response;
+    }
+
+    /**
+     * Adds what this viewer may do with a conversion preview.
+     *
+     * @param array $result from a converter's preview()
+     * @param User $viewer
+     * @param Assignment $assignment
+     * @return array
+     */
+    private function _conversionPreviewForViewer(array $result, User $viewer, Assignment $assignment): array
+    {
+        if (($result['type'] ?? '') === 'success') {
+            $names_hidden = StudentAnonymizer::hiddenFrom($viewer, $assignment);
+            $result['preview']['names_hidden'] = $names_hidden;
+            $result['preview']['names_hidden_message'] = $names_hidden ? DynamicRubricEditor::NAMES_HIDDEN_MESSAGE : '';
+        }
+        return $result;
     }
 
     /**
@@ -499,6 +522,7 @@ class DynamicRubricController extends Controller
                     return (int)$user_id;
                 })
                 ->toArray();
+            $response['rubric_editor_permissions'] = RubricEditPermission::courseEditorPermissions($course);
             $response['type'] = 'success';
         } catch (Exception $e) {
             $h = new Handler(app());
@@ -530,10 +554,21 @@ class DynamicRubricController extends Controller
         }
         try {
             if ($request->can_edit) {
+                $already_an_editor = RubricEditPermission::isRubricEditor($course, $user->id);
+                $values = array_merge(['updated_at' => Carbon::now()],
+                    RubricEditPermission::permissionColumnValues($request->permissions));
+                if (in_array($request->default_scoring_style, ['static', 'dynamic'], true)) {
+                    $values['default_scoring_style'] = $request->default_scoring_style;
+                }
+                if (!$already_an_editor) {
+                    $values['created_at'] = Carbon::now();
+                }
                 DB::table('rubric_editors')->updateOrInsert(
                     ['course_id' => $course->id, 'user_id' => $user->id],
-                    ['created_at' => Carbon::now(), 'updated_at' => Carbon::now()]);
-                $response['message'] = "$user->first_name $user->last_name can now edit rubrics in this course.";
+                    $values);
+                $response['message'] = $already_an_editor && ($request->has('permissions') || $request->has('default_scoring_style'))
+                    ? "The rubric options for $user->first_name $user->last_name have been updated."
+                    : "$user->first_name $user->last_name can now edit rubrics in this course.";
             } else {
                 DB::table('rubric_editors')
                     ->where('course_id', $course->id)

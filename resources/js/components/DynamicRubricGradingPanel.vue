@@ -62,7 +62,7 @@
           <b-button size="sm"
                     variant="outline-secondary"
                     class="text-nowrap"
-                    title="Clears every criterion and the adjustment (key 0). Saved when you move to another student."
+                    title="Clears every criterion and the adjustment (key 0)."
                     @click="noCredit()"
           >
             Clear All
@@ -79,7 +79,7 @@
         </span>
       </div>
       <div class="small text-muted">
-        Keys 1-9 apply criteria, 0 clears all. Changes are saved when you move to another student.
+        Keys 1-9 apply criteria, 0 clears all. Changes save automatically.
       </div>
     </div>
   </div>

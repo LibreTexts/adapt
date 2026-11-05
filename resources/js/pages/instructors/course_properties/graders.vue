@@ -171,7 +171,10 @@
                                delay="500"
                     >
                       Lets this grader add and edit rubrics from the Open Grader for the assignments they grade. Editing a
-                      dynamic rubric rescores the students who were already graded with it.
+                      dynamic rubric rescores the students who were already graded with it. Turning this on shows more
+                      options, which all start off. If New rubrics use is greyed out, that's because Convert graded
+                      rubrics is on: it lets the grader switch any rubric's style, so the dropdown stays on Grader's
+                      choice until you turn that option off.
                     </b-tooltip>
                   </template>
                   <template v-slot:cell(can_edit_rubric)="data">
@@ -181,6 +184,59 @@
                                      :aria-label="`${data.item.name} can edit rubrics`"
                                      @change="updateRubricEditor(data.item, $event)"
                     />
+                    <div v-if="rubricEditorUserIds.includes(+data.item.user_id)" class="small mt-1">
+                      <div class="d-flex align-items-center mb-2">
+                        <label :for="`new-rubric-style-${data.item.user_id}`" class="mb-0 text-nowrap">
+                          New rubrics use
+                        </label>
+                        <span class="ml-2 mr-2">
+                          <QuestionCircleTooltip :id="`new-rubric-style-tooltip-${data.item.user_id}`"/>
+                        </span>
+                        <b-tooltip :target="`new-rubric-style-tooltip-${data.item.user_id}`"
+                                   triggers="hover focus"
+                                   delay="250"
+                        >
+                          The scoring style of rubrics this grader adds. With Grader's choice, they pick static or
+                          dynamic, and can also change the style of a rubric no student has scores on. With Static or
+                          Dynamic, they can't change the style of any rubric. Rubrics that already exist keep their
+                          style, and no scores change.
+                          <span v-if="hasRubricPermission(data.item, 'can_convert_graded_rubrics')">
+                            <br><br>This is locked to Grader's choice because Convert graded rubrics is on. That option
+                            lets the grader switch any rubric between static and dynamic, so limiting new rubrics to one
+                            style wouldn't hold. To choose Static or Dynamic here, turn off Convert graded rubrics
+                            first.
+                          </span>
+                        </b-tooltip>
+                        <b-form-select :id="`new-rubric-style-${data.item.user_id}`"
+                                       :key="`new-rubric-style-${data.item.user_id}-${rubricEditorsKey}`"
+                                       :value="newRubricStyle(data.item)"
+                                       :options="newRubricStyleOptions"
+                                       :disabled="hasRubricPermission(data.item, 'can_convert_graded_rubrics')"
+                                       class="w-auto"
+                                       size="sm"
+                                       @change="updateNewRubricStyle(data.item, $event)"
+                        />
+                      </div>
+                      <div v-for="option in rubricPermissionOptions"
+                           :key="`rubric-permission-${data.item.user_id}-${option.key}-${rubricEditorsKey}`"
+                           class="d-flex align-items-center"
+                      >
+                        <b-form-checkbox :checked="hasRubricPermission(data.item, option.key)"
+                                         @change="updateRubricPermission(data.item, option.key, $event)"
+                        >
+                          {{ option.label }}
+                        </b-form-checkbox>
+                        <span class="ml-2" style="position: relative; top: -1px;">
+                          <QuestionCircleTooltip :id="`rubric-permission-tooltip-${data.item.user_id}-${option.key}`"/>
+                        </span>
+                        <b-tooltip :target="`rubric-permission-tooltip-${data.item.user_id}-${option.key}`"
+                                   triggers="hover focus"
+                                   delay="250"
+                        >
+                          {{ option.description }}
+                        </b-tooltip>
+                      </div>
+                    </div>
                   </template>
                   <template v-slot:cell(actions)="data">
                     <a
@@ -403,6 +459,29 @@ export default {
     isLoading: true,
     graders: {},
     rubricEditorUserIds: [],
+    rubricEditorPermissions: {},
+    newRubricStyleOptions: [
+      { value: 'static', text: 'Static Only' },
+      { value: 'dynamic', text: 'Dynamic Only' },
+      { value: 'grader', text: 'Grader\'s choice' }
+    ],
+    rubricPermissionOptions: [
+      {
+        key: 'can_convert_graded_rubrics',
+        label: 'Convert graded rubrics',
+        description: "The grader can switch a rubric between static and dynamic after students are graded. If a student's score would change, the grader decides whether to keep it and mark the student Needs Review, or clear it so the student has to be regraded. Clearing changes students' totals. While this is on, New rubrics use is greyed out and locked to Grader's choice."
+      },
+      {
+        key: 'can_change_rubric_shown',
+        label: 'Change rubric visibility',
+        description: "The grader can show or hide the rubric's score breakdown from students, including after scores are released. No scores change."
+      },
+      {
+        key: 'can_edit_graded_static_rubrics',
+        label: 'Edit graded static rubrics',
+        description: "The grader can add, remove, rename or reorder the criteria of a static rubric after students are graded with it. This permanently deletes every student's rubric point breakdown for the question. Their scores stay, but the breakdowns are gone until each student is regraded."
+      }
+    ],
     rubricEditorsKey: 0,
     course: { graders: {} },
     grader_user_id: 0,
@@ -434,10 +513,46 @@ export default {
           return false
         }
         this.rubricEditorUserIds = data.rubric_editor_user_ids
+        this.rubricEditorPermissions = data.rubric_editor_permissions || {}
         this.rubricEditorsKey++
       } catch (error) {
         this.$noty.error(error.message)
       }
+    },
+    hasRubricPermission (grader, key) {
+      const permissions = this.rubricEditorPermissions[+grader.user_id] || {}
+      return Boolean(permissions[key]) ||
+        (key === 'can_change_scoring_style' && Boolean(permissions.can_convert_graded_rubrics))
+    },
+    newRubricStyle (grader) {
+      if (this.hasRubricPermission(grader, 'can_change_scoring_style')) {
+        return 'grader'
+      }
+      const permissions = this.rubricEditorPermissions[+grader.user_id] || {}
+      return permissions.default_scoring_style === 'dynamic' ? 'dynamic' : 'static'
+    },
+    async updateNewRubricStyle (grader, style) {
+      const update = { can_edit: true, permissions: { can_change_scoring_style: style === 'grader' } }
+      if (style !== 'grader') {
+        update.default_scoring_style = style
+      }
+      try {
+        const { data } = await axios.patch(`/api/courses/${this.courseId}/rubric-editors/${grader.user_id}`, update)
+        this.$noty[data.type](data.message)
+      } catch (error) {
+        this.$noty.error(error.message)
+      }
+      await this.getRubricEditors()
+    },
+    async updateRubricPermission (grader, key, allowed) {
+      try {
+        const { data } = await axios.patch(`/api/courses/${this.courseId}/rubric-editors/${grader.user_id}`,
+          { can_edit: true, permissions: { [key]: allowed } })
+        this.$noty[data.type](data.message)
+      } catch (error) {
+        this.$noty.error(error.message)
+      }
+      await this.getRubricEditors()
     },
     async updateRubricEditor (grader, canEdit) {
       try {

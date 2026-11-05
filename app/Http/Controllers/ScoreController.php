@@ -619,6 +619,7 @@ class ScoreController extends Controller
                 $field = ['key' => "$question->id",
                     'isRowHeader' => true,
                     'label' => "Q$i ($points)",
+                    'points' => (float)$points, //so the gradebook can flag scores above the question's points
                     'sortable' => true];
                 $i++;
                 $fields[] = $field;
@@ -627,6 +628,7 @@ class ScoreController extends Controller
             if ($total_points) {
                 $fields[] = ['key' => 'total_points',
                     'sortable' => true,
+                    'points' => round((float)$total_points, 2), //so the gradebook can flag totals above the assignment's points
                     'isRowHeader' => true];
                 $fields[] = ['key' => 'percent_correct',
                     'sortable' => true,

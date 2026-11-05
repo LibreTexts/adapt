@@ -99,7 +99,11 @@ class SubmissionPageAnnotationController extends Controller
                 ->first();
             if ($submission_file) {
                 $annotations = $this->_annotationsByPage($assignment->id, $question->id, $user->id);
-                if (count((array)$annotations)) {
+                //a page that was only turned isn't markup to show the student
+                $marked_up = array_filter((array)$annotations, function ($state) {
+                    return !empty(((array)$state)['markers']);
+                });
+                if ($marked_up) {
                     $response['pages'] = SubmissionFilePage::forSubmission($assignment->id,
                         $submission_file->submission,
                         $submission_file->page,
@@ -145,7 +149,7 @@ class SubmissionPageAnnotationController extends Controller
     }
 
     /**
-     * Saves (or, with no markers, removes) the markup on one page.
+     * Saves the markup and rotation of one page, or removes the row when there's neither.
      *
      * @param Request $request
      * @param Assignment $assignment
@@ -193,13 +197,15 @@ class SubmissionPageAnnotationController extends Controller
                 'question_id' => $question->id,
                 'user_id' => $studentUser->id,
                 'page' => $page];
-            if (!count($state['markers'])) {
+            if (!count($state['markers']) && empty($state['rotation'])) {
                 SubmissionPageAnnotation::where($key)->delete();
                 $response['message'] = "The markup on Page $page has been removed.";
             } else {
                 SubmissionPageAnnotation::updateOrCreate($key,
                     ['state' => $state, 'grader_id' => $request->user()->id]);
-                $response['message'] = "Your markup on Page $page has been saved.";
+                $response['message'] = count($state['markers'])
+                    ? "Your markup on Page $page has been saved."
+                    : "The rotation of Page $page has been saved.";
             }
             $response['type'] = 'success';
         } catch (Exception $e) {
@@ -224,6 +230,9 @@ class SubmissionPageAnnotationController extends Controller
             || !is_numeric($state['height']) || $state['height'] <= 0
             || !is_array($state['markers'])) {
             return 'The markup could not be read.  Please try again.';
+        }
+        if (isset($state['rotation']) && !in_array((int)$state['rotation'], [0, 90, 180, 270], true)) {
+            return 'The rotation could not be read.  Please try again.';
         }
         if (count($state['markers']) > self::MAX_MARKERS) {
             return 'That page has too many marks to save (the limit is ' . self::MAX_MARKERS . ').';

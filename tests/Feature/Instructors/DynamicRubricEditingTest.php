@@ -294,7 +294,8 @@ class DynamicRubricEditingTest extends TestCase
             ->json('preview');
         $this->assertTrue($preview['names_hidden']);
         $this->assertEquals(DynamicRubricEditor::NAMES_HIDDEN_MESSAGE, $preview['names_hidden_message']);
-        $this->assertEquals('Student 1', $preview['students_changed'][0]['name']);
+        $this->assertEquals(\App\Helpers\StudentAnonymizer::fullName($this->assignment->id, $this->student_a->id),
+            $preview['students_changed'][0]['name']);
         $this->assertNull($preview['students_changed'][0]['user_id']);
 
         $this->actingAs($this->grader_user)->patchJson($this->url(), $this->proposal([0 => ['points' => 3]]))

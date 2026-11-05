@@ -191,14 +191,12 @@ export default {
       let points = 0
       for (let i = 0; i <= this.rubricPointsBreakdown.length - 1; i++) {
         if (this.rubricPointsBreakdown[i].points !== '') {
-          if (isNaN(this.rubricPointsBreakdown[i].points)) {
+          const itemPoints = this.rubricPointsBreakdown[i].points
+          if (isNaN(itemPoints) || +itemPoints < 0 || +itemPoints > this.getMax(i)) {
+            this.$emit('invalidRubricPoints')
             return false
           }
-          if (+this.rubricPointsBreakdown[i].points < 0) return false
-          points = points + +this.rubricPointsBreakdown[i].points
-          if (+this.rubricPointsBreakdown[i].points > this.getMax(i)) {
-            return
-          }
+          points = points + +itemPoints
         }
       }
       this.$emit('updateOpenEndedSubmissionScore', this.rubricPointsBreakdown, this.roundToDecimalSigFig(points, 2))

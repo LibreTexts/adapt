@@ -151,7 +151,7 @@
         id="rubric_shown"
         v-model="rubricShown"
         class="mt-2"
-        :disabled="!canChangeRubricSettings || isConverting"
+        :disabled="!canChangeRubricShown || isConverting"
       >
         <b-form-radio :value="true">
           Yes
@@ -186,21 +186,21 @@
         v-model="scoringStyle"
         class="mt-2"
       >
-        <b-form-radio value="static" :disabled="!canChangeRubricSettings">
+        <b-form-radio value="static" :disabled="!canChangeScoringStyle">
           Static
         </b-form-radio>
-        <b-form-radio value="dynamic" :disabled="!canChangeRubricSettings">
+        <b-form-radio value="dynamic" :disabled="!canChangeScoringStyle">
           Dynamic
         </b-form-radio>
       </b-form-radio-group>
-      <small v-if="!canChangeRubricSettings" class="text-muted d-block">
-        Only instructors can change the scoring style and whether students see the rubric.
+      <small v-if="!canChangeScoringStyle || !canChangeRubricShown" class="text-muted d-block">
+        Some of these options need your instructor's permission.
       </small>
-      <small v-if="dynamicScoresExist && canChangeRubricSettings && !isConverting" class="text-muted d-block">
+      <small v-if="dynamicScoresExist && canChangeScoringStyle && !isConverting" class="text-muted d-block">
         Students have been graded with this dynamic rubric. Choosing Static converts their scores, and you'll see a
         preview before anything is saved.
       </small>
-      <small v-if="staticScoresExist && canChangeRubricSettings && !isConverting" class="text-muted d-block">
+      <small v-if="staticScoresExist && canChangeScoringStyle && !isConverting" class="text-muted d-block">
         Students already have static rubric scores for this question. Choosing Dynamic converts their scores, and
         you'll see a preview before anything is saved.
       </small>
@@ -429,7 +429,10 @@
         Add Criterion
       </b-button>
     </p>
-    <b-alert variant="danger" :show="rubricPointsBreakdownExists && scoringStyle === 'static'">
+    <b-alert variant="warning" :show="needsGradedStaticPermission">
+      Students have already been graded with this rubric, so changing its criteria needs your instructor's permission.
+    </b-alert>
+    <b-alert variant="danger" :show="rubricPointsBreakdownExists && scoringStyle === 'static' && !needsGradedStaticPermission">
       You have already saved the point breakdowns for at least one student. If you update this rubric, all rubric point
       breakdowns
       will be reset and you will
@@ -489,6 +492,11 @@ export default {
       type: Object,
       default: () => {
       }
+    },
+    // a grader's options from the dynamic-rubric show endpoint; the server enforces them too
+    rubricPermissions: {
+      type: Object,
+      default: null
     }
   },
   watch: {
@@ -547,9 +555,27 @@ export default {
     canUseTemplates () {
       return this.isTemplate || !this.user || +this.user.role !== 4
     },
-    // graders may change the criteria, but the scoring style and "Rubric Shown" are the instructor's
-    canChangeRubricSettings () {
-      return this.isTemplate || !this.user || +this.user.role !== 4
+    isRestrictedGrader () {
+      return !this.isTemplate && Boolean(this.user) && +this.user.role === 4
+    },
+    // graders may always change the criteria; these need the options the instructor turned on
+    canChangeScoringStyle () {
+      if (!this.isRestrictedGrader) {
+        return true
+      }
+      const permissions = this.rubricPermissions || {}
+      if (!permissions.can_change_scoring_style) {
+        return false
+      }
+      return !this.rubricPointsBreakdownExists || Boolean(permissions.can_convert_graded_rubrics)
+    },
+    // saving new criteria would reset these students' point breakdowns; the server refuses it without this option
+    needsGradedStaticPermission () {
+      return this.isRestrictedGrader && this.staticScoresExist &&
+        !(this.rubricPermissions || {}).can_edit_graded_static_rubrics
+    },
+    canChangeRubricShown () {
+      return !this.isRestrictedGrader || Boolean((this.rubricPermissions || {}).can_change_rubric_shown)
     },
     // only in an assignment: the rubric in use already has student scores of one style or the other
     dynamicScoresExist () {
@@ -645,6 +671,10 @@ export default {
       // what's saved, so a conversion can start from it
       this.savedRubricItems = JSON.parse(JSON.stringify(this.rubricItems))
       this.savedRubricShown = this.rubricShown
+    }
+    // a grader who can't choose the style adds rubrics in the style the instructor set for them
+    if (!this.isEdit && !this.rubricInfo.rubric && !this.canChangeScoringStyle) {
+      this.scoringStyle = (this.rubricPermissions || {}).default_scoring_style === 'dynamic' ? 'dynamic' : 'static'
     }
     this.$emit('setKeyValue', 'rubricScoringStyle', this.scoringStyle)
   },

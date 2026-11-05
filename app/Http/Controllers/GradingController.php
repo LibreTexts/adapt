@@ -12,6 +12,7 @@ use App\Exceptions\Handler;
 use App\Helpers\DynamicRubric;
 use App\Helpers\Helper;
 use App\Helpers\RubricHelper;
+use App\Helpers\StudentAnonymizer;
 use App\Http\Requests\GradingRequest;
 use App\JWE;
 use App\Question;
@@ -28,7 +29,6 @@ use Carbon\Carbon;
 use DOMDocument;
 use Exception;
 use App\Traits\DateFormatter;
-use Faker\Factory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -554,13 +554,6 @@ class GradingController extends Controller
             $enrolled_users = $enrollment->getEnrolledUsersByRoleCourseSection($role, $course, $sectionId);
             $ferpa_mode = ((int)request()->cookie('ferpa_mode') === 1 && Auth::user()->id === 5)
                 || ($role === 4 && !$assignment->graders_can_see_student_names);
-            if ($ferpa_mode) {
-                $faker = Factory::create();
-                foreach ($enrolled_users as $key => $user) {
-                    $enrolled_users[$key]['first_name'] = $faker->firstName;
-                    $enrolled_users[$key]['last_name'] = $faker->lastName;
-                }
-            }
 
             if ($role === 4 && $sectionId === 0) {
                 $access_level_override = $assignment->graders()
@@ -568,6 +561,14 @@ class GradingController extends Controller
                     ->first();
                 if ($access_level_override && $access_level_override->pivot->access_level) {
                     $enrolled_users = $course->enrolledUsers;
+                }
+            }
+            //after the list of students is final; the same stand-in names appear in the rubric previews
+            if ($ferpa_mode) {
+                $stand_in_names = StudentAnonymizer::names($assignment->id, $enrolled_users->pluck('id')->toArray());
+                foreach ($enrolled_users as $key => $user) {
+                    $enrolled_users[$key]['first_name'] = $stand_in_names[$user->id]['first_name'];
+                    $enrolled_users[$key]['last_name'] = $stand_in_names[$user->id]['last_name'];
                 }
             }
 
@@ -762,8 +763,8 @@ class GradingController extends Controller
                     $grading[$user->id] = [];
                     $grading[$user->id]['student'] = [
                         'name' => "$user->first_name $user->last_name",
-                        'email' => $user->email,
-                        'student_id' => $user->student_id,
+                        'email' => $ferpa_mode ? '' : $user->email,
+                        'student_id' => $ferpa_mode ? '' : $user->student_id,
                         'user_id' => $user->id];
                     $grading[$user->id]['needs_review'] = in_array((int)$user->id, $needs_review_user_ids, true);
                     //open_ended

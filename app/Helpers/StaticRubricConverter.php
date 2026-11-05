@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\Mail;
  */
 class StaticRubricConverter
 {
-    const ONLY_INSTRUCTORS_MESSAGE = "Only instructors can convert a rubric to static scoring.";
+    const ONLY_INSTRUCTORS_MESSAGE = "Only instructors, and graders they've allowed, can convert a rubric to static scoring.";
     const ALREADY_STATIC_MESSAGE = "This rubric already uses static scoring. Please reload the page.";
     const NO_RUBRIC_MESSAGE = "This question doesn't have a rubric to convert.";
     const ONLY_ZERO_POINT_CRITERIA_MESSAGE = "Every criterion in this rubric is worth 0 points. Static rubrics need at least one criterion with points, so it can't be converted. Give a criterion some points first.";
@@ -113,8 +113,9 @@ class StaticRubricConverter
      * @param bool $lock_for_update
      * @return array ['students' => full detail, 'preview' => what the browser sees, 'fingerprint' => string]
      */
-    public static function plan(Assignment $assignment, Question $question, array $state, array $converted, bool $lock_for_update = false): array
+    public static function plan(Assignment $assignment, Question $question, array $state, array $converted, bool $lock_for_update = false, ?User $viewer = null): array
     {
+        $names_hidden = $viewer && StudentAnonymizer::hiddenFrom($viewer, $assignment);
         $question_points = (float)$state['assignment_question']->points;
         $dynamic_rubric = $state['rubric'];
         $static_rubric = $converted['rubric'];
@@ -128,6 +129,7 @@ class StaticRubricConverter
         $breakdowns = $query->get();
         $user_ids = $breakdowns->pluck('user_id')->toArray();
         $users_by_id = User::whereIn('id', $user_ids)->get()->keyBy('id');
+        $stand_in_names = $names_hidden ? StudentAnonymizer::names($assignment->id, $user_ids) : [];
         $auto_graded_scores_by_user_id = DB::table('submissions')
             ->where('assignment_id', $assignment->id)
             ->where('question_id', $question->id)
@@ -191,7 +193,9 @@ class StaticRubricConverter
             $user = $users_by_id[$breakdown->user_id] ?? null;
             $students[] = [
                 'user_id' => (int)$breakdown->user_id,
-                'name' => $user ? "$user->first_name $user->last_name" : '',
+                'name' => $names_hidden
+                    ? $stand_in_names[(int)$breakdown->user_id]['name']
+                    : ($user ? "$user->first_name $user->last_name" : ''),
                 'email' => $user ? $user->email : null,
                 'first_name' => $user ? $user->first_name : '',
                 'is_fake' => $user ? (bool)$user->fake_student : false,
@@ -317,14 +321,14 @@ class StaticRubricConverter
      * @param Question $question
      * @return array
      */
-    public static function preview(Assignment $assignment, Question $question): array
+    public static function preview(Assignment $assignment, Question $question, ?User $viewer = null): array
     {
         $state = DynamicRubricEditor::currentState($assignment, $question);
         $convertible = self::convertible($state);
         if ($convertible['type'] !== 'success') {
             return $convertible;
         }
-        $plan = self::plan($assignment, $question, $state, $convertible['converted']);
+        $plan = self::plan($assignment, $question, $state, $convertible['converted'], false, $viewer);
         return ['type' => 'success', 'preview' => $plan['preview'], 'fingerprint' => $plan['fingerprint']];
     }
 

@@ -15,6 +15,7 @@
                     :question-points="questionPoints"
                     :assignment-id="assignmentId"
                     :question-id="questionId"
+                    :rubric-permissions="rubricPermissions"
                     :errors="errors"
                     @setRubricItems="setRubricItems"
                     @hideRubricProperties="showRubricProperties = false"
@@ -96,6 +97,10 @@ export default {
       type: Object,
       default: () => {
       }
+    },
+    rubricPermissions: {
+      type: Object,
+      default: null
     }
   },
   data: () => ({

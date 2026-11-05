@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\Mail;
  */
 class DynamicRubricConverter
 {
-    const ONLY_INSTRUCTORS_MESSAGE = "Only instructors can convert a rubric to dynamic scoring.";
+    const ONLY_INSTRUCTORS_MESSAGE = "Only instructors, and graders they've allowed, can convert a rubric to dynamic scoring.";
     const ALREADY_DYNAMIC_MESSAGE = "This rubric already uses dynamic scoring. Please reload the page.";
     const NO_RUBRIC_MESSAGE = "This question doesn't have a rubric to convert.";
     const NO_POINTS_MESSAGE = "The rubric's criteria don't have any points, so it can't be converted.";
@@ -71,8 +71,9 @@ class DynamicRubricConverter
      * @param bool $lock_for_update
      * @return array ['students' => full detail, 'preview' => what the browser sees, 'fingerprint' => string]
      */
-    public static function plan(Assignment $assignment, Question $question, array $state, array $converted, bool $lock_for_update = false): array
+    public static function plan(Assignment $assignment, Question $question, array $state, array $converted, bool $lock_for_update = false, ?User $viewer = null): array
     {
+        $names_hidden = $viewer && StudentAnonymizer::hiddenFrom($viewer, $assignment);
         $question_points = (float)$state['assignment_question']->points;
         $query = DB::table('rubric_points_breakdowns')
             ->where('assignment_id', $assignment->id)
@@ -84,6 +85,7 @@ class DynamicRubricConverter
         $breakdowns = $query->get();
         $user_ids = $breakdowns->pluck('user_id')->toArray();
         $users_by_id = User::whereIn('id', $user_ids)->get()->keyBy('id');
+        $stand_in_names = $names_hidden ? StudentAnonymizer::names($assignment->id, $user_ids) : [];
         $auto_graded_scores_by_user_id = DB::table('submissions')
             ->where('assignment_id', $assignment->id)
             ->where('question_id', $question->id)
@@ -136,7 +138,9 @@ class DynamicRubricConverter
             $user = $users_by_id[$breakdown->user_id] ?? null;
             $students[] = [
                 'user_id' => (int)$breakdown->user_id,
-                'name' => $user ? "$user->first_name $user->last_name" : '',
+                'name' => $names_hidden
+                    ? $stand_in_names[(int)$breakdown->user_id]['name']
+                    : ($user ? "$user->first_name $user->last_name" : ''),
                 'email' => $user ? $user->email : null,
                 'first_name' => $user ? $user->first_name : '',
                 'is_fake' => $user ? (bool)$user->fake_student : false,
@@ -329,14 +333,14 @@ class DynamicRubricConverter
      * @param Question $question
      * @return array
      */
-    public static function preview(Assignment $assignment, Question $question): array
+    public static function preview(Assignment $assignment, Question $question, ?User $viewer = null): array
     {
         $state = DynamicRubricEditor::currentState($assignment, $question);
         $convertible = self::convertible($state);
         if ($convertible['type'] !== 'success') {
             return $convertible;
         }
-        $plan = self::plan($assignment, $question, $state, $convertible['rubric']);
+        $plan = self::plan($assignment, $question, $state, $convertible['rubric'], false, $viewer);
         return ['type' => 'success', 'preview' => $plan['preview'], 'fingerprint' => $plan['fingerprint']];
     }
 

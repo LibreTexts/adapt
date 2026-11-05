@@ -139,6 +139,10 @@
                                                                                                  @click="fields=originalFields"
               >Reset Assignments</b-button></span>
             </b-row>
+            <b-row v-if="assignmentView === 'individual' && hasOutOfRangeScores" class="p-2 small">
+              <span class="score-out-of-range mr-1">Highlighted</span> assignment scores are above the
+              assignment's points or below 0, usually from an override. Hover over one for details.
+            </b-row>
             <b-row v-if="assignmentView !== 'individual'" class="p-2">
               Assignments that are not included in the final weighted
               average (<span
@@ -247,7 +251,9 @@
                   </span>
                   <span v-if="!['name'].includes(data.field.key)"
                         @click="getStudentAction(data.value,data.item.userId, data.field.key, data.item.name)"
-                  >{{ data.value }} <span v-if="showAssignmentTimeSpent">{{
+                  ><span :class="{ 'score-out-of-range': outOfRangeMessage(data.value, data.field.points) }"
+                         :title="outOfRangeMessage(data.value, data.field.points)"
+                  >{{ data.value }}</span> <span v-if="showAssignmentTimeSpent">{{
                     getAssignmentTimeSpent(data.item.userId, data.field.key, timeSpentArr)
                   }}</span>
                   </span>
@@ -549,6 +555,9 @@ export default {
     ...mapGetters({
       user: 'auth/user'
     }),
+    hasOutOfRangeScores () {
+      return this.items.some(item => this.fields.some(field => this.outOfRangeMessage(item[field.key], field.points)))
+    },
     isAdmin: () => window.config.isAdmin
   },
   watch: {
@@ -583,6 +592,25 @@ export default {
     this.fixTableHeight()
   },
   methods: {
+    // Only assignment columns have points; a cell can be "-" or text when there's no score. Returns a message for a
+    // score above the assignment's points or below 0, and '' otherwise.
+    outOfRangeMessage (value, maximum) {
+      if (maximum === undefined || maximum === null || maximum === '' || value === undefined || value === null) {
+        return ''
+      }
+      const score = parseFloat(String(value).trim())
+      const max = parseFloat(maximum)
+      if (isNaN(score) || isNaN(max)) {
+        return ''
+      }
+      if (score > max + 0.005) {
+        return `Above the maximum of ${max} ${max === 1 ? 'point' : 'points'}`
+      }
+      if (score < -0.005) {
+        return 'Below 0'
+      }
+      return ''
+    },
     getMeanAssignmentTimeSpent (object, assignmentId) {
       let timeSpent = object.find(item => item.id === assignmentId)
       return timeSpent ? timeSpent.mean_time_spent : 'N/A'
@@ -993,6 +1021,15 @@ export default {
 }
 </script>
 <style scoped>
+/* an assignment score outside 0 to its points: dark red text on light red, readable in the striped rows */
+.score-out-of-range {
+  background-color: #fde2e1;
+  color: #a71d2a;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
 
 table thead,
 table tfoot {

@@ -6,6 +6,9 @@
            @shown="choice = null; emailStudents = false"
   >
     <div v-if="preview">
+      <b-alert v-if="preview.names_hidden" show variant="info">
+        {{ preview.names_hidden_message }}
+      </b-alert>
       <p class="mb-1">
         {{
           toStatic

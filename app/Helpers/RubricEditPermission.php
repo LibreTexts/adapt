@@ -8,15 +8,22 @@ use App\User;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Who may edit an assignment question's dynamic rubric, and who may grade with it.
+ * Who may edit an assignment question's rubric, what else they may change, and who may grade with it.
  */
 class RubricEditPermission
 {
     const GRADER_MESSAGE = "You don't have permission to edit this rubric. Ask your instructor to turn on 'Can edit rubric' for you in Course Properties → Graders.";
     const HEAD_GRADER_MESSAGE = "As head grader, you still need rubric-editing permission. Ask your instructor to turn on 'Can edit rubric' for you in Course Properties → Graders.";
     const NOT_ALLOWED_MESSAGE = "You are not allowed to edit this rubric.";
-    const GRADER_SCORING_STYLE_MESSAGE = "Only instructors can change a rubric's scoring style.";
-    const GRADER_RUBRIC_SHOWN_MESSAGE = "Only instructors can change whether students see the rubric.";
+    const GRADER_SCORING_STYLE_MESSAGE = "You don't have permission to change a rubric's scoring style. Ask your instructor to allow it in Course Properties → Graders.";
+    const GRADER_RUBRIC_SHOWN_MESSAGE = "You don't have permission to change whether students see the rubric. Ask your instructor to allow it in Course Properties → Graders.";
+    const GRADER_STATIC_SCORES_MESSAGE = "Students have already been graded with this rubric, and changing its criteria would delete their rubric point breakdowns. Ask your instructor to turn on 'Edit graded static rubrics' for you in Course Properties → Graders.";
+
+    //optional abilities on top of "Can edit rubric"; each is a boolean column on rubric_editors
+    const PERMISSION_COLUMNS = ['can_change_scoring_style',
+        'can_convert_graded_rubrics',
+        'can_change_rubric_shown',
+        'can_edit_graded_static_rubrics'];
 
     /**
      * @param User $user
@@ -40,8 +47,115 @@ class RubricEditPermission
     }
 
     /**
-     * Graders with "Can edit rubric" may change the criteria, but not the scoring style or whether students see the rubric.
-     * A new rubric from a grader is static and shown to students (the defaults).
+     * What this user may do beyond editing the criteria. Instructors may do everything; a grader needs
+     * "Can edit rubric" plus each option. Converting a graded rubric includes choosing the scoring style.
+     *
+     * @param User $user
+     * @param Assignment $assignment
+     * @return array column => bool, for every column in PERMISSION_COLUMNS
+     */
+    public static function permissions(User $user, Assignment $assignment): array
+    {
+        $course = $assignment->course;
+        if ($course->ownsCourseOrIsCoInstructor($user->id)) {
+            return array_fill_keys(self::PERMISSION_COLUMNS, true);
+        }
+        $permissions = array_fill_keys(self::PERMISSION_COLUMNS, false);
+        if (!self::check($user, $assignment)['allowed']) {
+            return $permissions;
+        }
+        $rubric_editor = DB::table('rubric_editors')
+            ->where('course_id', $course->id)
+            ->where('user_id', $user->id)
+            ->first();
+        foreach (self::PERMISSION_COLUMNS as $column) {
+            $permissions[$column] = (bool)($rubric_editor->$column ?? false);
+        }
+        $permissions['can_change_scoring_style'] = $permissions['can_change_scoring_style']
+            || $permissions['can_convert_graded_rubrics'];
+        return $permissions;
+    }
+
+    /**
+     * @param User $user
+     * @param Assignment $assignment
+     * @return bool
+     */
+    public static function canConvertGradedRubrics(User $user, Assignment $assignment): bool
+    {
+        return self::permissions($user, $assignment)['can_convert_graded_rubrics'];
+    }
+
+    /**
+     * The scoring style of rubrics this grader adds when they can't choose it. Set by the instructor.
+     *
+     * @param User $user
+     * @param Assignment $assignment
+     * @return string static|dynamic
+     */
+    public static function defaultScoringStyle(User $user, Assignment $assignment): string
+    {
+        $default_scoring_style = DB::table('rubric_editors')
+            ->where('course_id', $assignment->course->id)
+            ->where('user_id', $user->id)
+            ->value('default_scoring_style');
+        return $default_scoring_style === 'dynamic' ? 'dynamic' : 'static';
+    }
+
+    /**
+     * @param User $user
+     * @param Assignment $assignment
+     * @return bool
+     */
+    public static function canEditGradedStaticRubrics(User $user, Assignment $assignment): bool
+    {
+        return self::permissions($user, $assignment)['can_edit_graded_static_rubrics'];
+    }
+
+    /**
+     * Every grader's saved options in this course, for Course Properties → Graders.
+     *
+     * @param Course $course
+     * @return array user id => [column => bool]
+     */
+    public static function courseEditorPermissions(Course $course): array
+    {
+        $permissions_by_user_id = [];
+        foreach (DB::table('rubric_editors')->where('course_id', $course->id)->get() as $rubric_editor) {
+            $permissions = [];
+            foreach (self::PERMISSION_COLUMNS as $column) {
+                $permissions[$column] = (bool)$rubric_editor->$column;
+            }
+            $permissions['default_scoring_style'] = $rubric_editor->default_scoring_style === 'dynamic' ? 'dynamic' : 'static';
+            $permissions_by_user_id[(int)$rubric_editor->user_id] = $permissions;
+        }
+        return $permissions_by_user_id;
+    }
+
+    /**
+     * Keeps only the known options from a request, so nothing else can be written to the table.
+     *
+     * @param mixed $requested column => value
+     * @return array column => 0|1
+     */
+    public static function permissionColumnValues($requested): array
+    {
+        if (!is_array($requested)) {
+            return [];
+        }
+        $values = [];
+        foreach (self::PERMISSION_COLUMNS as $column) {
+            if (array_key_exists($column, $requested)) {
+                $values[$column] = filter_var($requested[$column], FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
+            }
+        }
+        return $values;
+    }
+
+    /**
+     * Graders with "Can edit rubric" may change the criteria. Changing the scoring style or whether students see
+     * the rubric takes the matching option. A grader who can't choose the style adds rubrics in the style the
+     * instructor set for them.
      *
      * @param User $user
      * @param Assignment $assignment
@@ -52,15 +166,19 @@ class RubricEditPermission
      */
     public static function graderSettingsError(User $user, Assignment $assignment, array $state, bool $proposed_dynamic, ?bool $proposed_rubric_shown): string
     {
-        if ($assignment->course->ownsCourseOrIsCoInstructor($user->id)) {
-            return '';
-        }
+        $permissions = self::permissions($user, $assignment);
         $current_dynamic = $state['rubric'] ? (bool)$state['is_dynamic'] : false;
-        if ($proposed_dynamic !== $current_dynamic) {
-            return self::GRADER_SCORING_STYLE_MESSAGE;
+        if (!$permissions['can_change_scoring_style']) {
+            $required_dynamic = $state['rubric']
+                ? $current_dynamic
+                : self::defaultScoringStyle($user, $assignment) === 'dynamic';
+            if ($proposed_dynamic !== $required_dynamic) {
+                return self::GRADER_SCORING_STYLE_MESSAGE;
+            }
         }
         $current_rubric_shown = $state['rubric'] ? (bool)($state['rubric']['rubric_shown'] ?? false) : true;
-        if ($proposed_rubric_shown !== null && $proposed_rubric_shown !== $current_rubric_shown) {
+        if ($proposed_rubric_shown !== null && $proposed_rubric_shown !== $current_rubric_shown
+            && !$permissions['can_change_rubric_shown']) {
             return self::GRADER_RUBRIC_SHOWN_MESSAGE;
         }
         return '';

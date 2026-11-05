@@ -15,7 +15,8 @@ use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
- * The student's dynamic rubric view gets a total that matches their score: cap, late penalty and overrides.
+ * The student's dynamic rubric view gets a total that matches their score: cap and late penalty.
+ * A student whose score was overridden sees the override, not the rubric, so gets no total.
  */
 class DynamicRubricStudentTotalsTest extends TestCase
 {
@@ -72,12 +73,16 @@ class DynamicRubricStudentTotalsTest extends TestCase
             'rubric_version' => 1]);
     }
 
-    private function score(): ?array
+    private function response()
     {
         return $this->actingAs($this->student_user)
             ->getJson("/api/rubric-points-breakdown/assignment/{$this->assignment->id}/question/{$this->question->id}/user/{$this->student_user->id}")
-            ->assertJson(['type' => 'success'])
-            ->json('dynamic_rubric_state.score');
+            ->assertJson(['type' => 'success']);
+    }
+
+    private function score(): ?array
+    {
+        return $this->response()->json('dynamic_rubric_state.score');
     }
 
     #[Test]
@@ -98,10 +103,20 @@ class DynamicRubricStudentTotalsTest extends TestCase
     }
 
     #[Test]
-    public function the_total_includes_the_late_penalty_and_flags_an_override()
+    public function the_total_includes_the_late_penalty()
     {
         $this->grade(['b'], 0);
         DB::table('submission_files')->where('user_id', $this->student_user->id)->update(['applied_late_penalty' => 10]);
+        $score = $this->score();
+        $this->assertEquals(5.4, $score['final']);
+        $this->assertEquals(10, $score['late_penalty_percent']);
+        $this->assertFalse($score['has_override']);
+    }
+
+    #[Test]
+    public function a_student_with_an_override_gets_no_rubric_total()
+    {
+        $this->grade(['b'], 0);
         DB::table('submission_score_overrides')->insert([
             'user_id' => $this->student_user->id,
             'assignment_id' => $this->assignment->id,
@@ -109,10 +124,8 @@ class DynamicRubricStudentTotalsTest extends TestCase
             'score' => '9',
             'created_at' => now(),
             'updated_at' => now()]);
-        $score = $this->score();
-        $this->assertEquals(5.4, $score['final']);
-        $this->assertEquals(10, $score['late_penalty_percent']);
-        $this->assertTrue($score['has_override']);
+        $this->response()->assertJson(['rubric_shown' => false]);
+        $this->assertNull($this->score());
     }
 
     #[Test]

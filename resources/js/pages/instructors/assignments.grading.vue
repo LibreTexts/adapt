@@ -11,6 +11,7 @@
                            :question-points="currentQuestionPoints"
                            :assignment-id="+assignmentId"
                            :question-id="+questionView"
+                           :rubric-permissions="rubricEditPermission.settings"
                            @setCustomRubric="setCustomRubric"
                            @dynamicRubricSaved="dynamicRubricSaved"
                            @hideRubricProperties="showRubricProperties = false"
@@ -662,6 +663,34 @@
                 @input="changePage()"
               />
             </div>
+            <div v-if="showStudentNavigation && !splitView" class="text-center mb-2">
+              <b-button-group size="sm" aria-label="Move between students">
+                <b-button variant="outline-primary"
+                          :disabled="previousUngradedStudentPage === null"
+                          @click="goToStudentPage(previousUngradedStudentPage)"
+                >
+                  Previous Ungraded
+                </b-button>
+                <b-button variant="outline-primary"
+                          :disabled="currentStudentPage <= 1"
+                          @click="goToStudentPage(currentStudentPage - 1)"
+                >
+                  Previous
+                </b-button>
+                <b-button variant="outline-primary"
+                          :disabled="currentStudentPage >= numStudents"
+                          @click="goToStudentPage(currentStudentPage + 1)"
+                >
+                  Next
+                </b-button>
+                <b-button variant="outline-primary"
+                          :disabled="nextUngradedStudentPage === null"
+                          @click="goToStudentPage(nextUngradedStudentPage)"
+                >
+                  Next Ungraded
+                </b-button>
+              </b-button-group>
+            </div>
             <div class="text-center">
               <b-container class="mb-2">
                 <b-row class="justify-content-md-center">
@@ -978,6 +1007,34 @@
                       </b-alert>
                     </div>
                   </div>
+                        <div v-if="showStudentNavigation && splitView && retrievedFromS3" class="text-center mt-2 mb-2">
+                          <b-button-group size="sm" aria-label="Move between students">
+                            <b-button variant="outline-primary"
+                                      :disabled="previousUngradedStudentPage === null"
+                                      @click="goToStudentPage(previousUngradedStudentPage)"
+                            >
+                              Previous Ungraded
+                            </b-button>
+                            <b-button variant="outline-primary"
+                                      :disabled="currentStudentPage <= 1"
+                                      @click="goToStudentPage(currentStudentPage - 1)"
+                            >
+                              Previous
+                            </b-button>
+                            <b-button variant="outline-primary"
+                                      :disabled="currentStudentPage >= numStudents"
+                                      @click="goToStudentPage(currentStudentPage + 1)"
+                            >
+                              Next
+                            </b-button>
+                            <b-button variant="outline-primary"
+                                      :disabled="nextUngradedStudentPage === null"
+                                      @click="goToStudentPage(nextUngradedStudentPage)"
+                            >
+                              Next Ungraded
+                            </b-button>
+                          </b-button-group>
+                        </div>
                 </div>
               </b-col>
 
@@ -1194,9 +1251,7 @@
                         </div>
                         <div v-else>
                           <b-button
-                            v-show="grading[currentStudentPage - 1].auto_graded_submission
-                              && grading[currentStudentPage - 1].auto_graded_submission.submission
-                              && grading[currentStudentPage - 1].auto_graded_submission.submission.includes('structure_s3_key')"
+                            v-show="hasScannedImage(grading[currentStudentPage - 1])"
                             variant="primary"
                             size="sm"
                             @click="viewStructureImage(grading[currentStudentPage - 1])"
@@ -1255,8 +1310,9 @@
                         <template #header>
                           <h2 class="h7 mb-0">
                             Scores for {{ grading[currentStudentPage - 1]['student']['name'] }}
-                            <QuestionCircleTooltip :id="`student-info`"/>
-                            <b-tooltip :target="`student-info`"
+                            <QuestionCircleTooltip v-if="grading[currentStudentPage - 1]['student']['email']" :id="`student-info`"/>
+                            <b-tooltip v-if="grading[currentStudentPage - 1]['student']['email']"
+                                       :target="`student-info`"
                                        delay="250"
                                        width="600"
                                        triggers="hover focus"
@@ -1516,6 +1572,12 @@
                                  class="mb-2"
                             >
                               <span class="font-weight-bold mr-1">Rubric</span>
+                              <b-badge v-if="rubric"
+                                       :variant="isDynamicRubric ? 'info' : 'secondary'"
+                                       class="mr-2"
+                              >
+                                {{ isDynamicRubric ? 'Dynamic' : 'Static' }}
+                              </b-badge>
                               <a v-if="rubricEditPermission.canEdit && !savingDynamicRubric"
                                  id="edit-rubric-tooltip"
                                  href=""
@@ -1629,16 +1691,32 @@
                                 :question-id="grading[currentStudentPage - 1]['open_ended_submission']['question_id']"
                                 :question-points="grading[currentStudentPage - 1]['open_ended_submission']['points'] * 1 -gradingForm.question_submission_score* 1"
                                 @updateOpenEndedSubmissionScore="updateOpenEndedSubmissionScore"
+                                @invalidRubricPoints="staticRubricInvalid = true"
                                 @setRubricPointsBreakdown="setRubricPointsBreakdown"
                                 @setOriginalRubricWithMaxes="setOriginalRubricWithMaxes"
                               />
+                              <div v-if="!isDynamicRubric && staticRubricSavedName" class="small text-muted mt-1" aria-live="polite">
+                                <b-icon icon="check" aria-hidden="true"/> Saved {{ staticRubricSavedName }}
+                              </div>
                               <div v-if="isDynamicRubric" class="small mt-1" aria-live="polite">
                                 <span v-if="savingDynamicRubric" class="text-muted">
                                   <b-spinner small type="grow"/> Saving…
                                 </span>
-                                <b-badge v-else-if="dynamicRubricUnsaved" variant="warning">
-                                  Unsaved changes
-                                </b-badge>
+                                <span v-else-if="dynamicRubricSaveStatus === 'failed'" class="text-danger">
+                                  Not saved.
+                                  <a href="" @click.prevent="retryDynamicRubricAutosave()">Try again</a>
+                                </span>
+                                <span v-else-if="dynamicRubricUnsaved && dynamicRubricContext && !dynamicRubricCanAutosave(dynamicRubricContext)"
+                                      class="text-muted"
+                                >
+                                  Feedback will save once you apply a criterion.
+                                </span>
+                                <span v-else-if="dynamicRubricUnsaved" class="text-muted">
+                                  <b-spinner small type="grow"/> Saving…
+                                </span>
+                                <span v-else-if="dynamicRubricSaveStatus === 'saved'" class="text-muted">
+                                  <b-icon icon="check" aria-hidden="true"/> Saved
+                                </span>
                               </div>
                             </div>
                             <hr>
@@ -1772,7 +1850,17 @@
                       </b-card>
                     </div>
                     <div class="text-center pt-3 pb-3">
-                      <b-button variant="primary"
+                      <b-button v-if="isDynamicRubric"
+                                :class="{ 'disabled': currentStudentPage === numStudents }"
+                                :aria-disabled="currentStudentPage === numStudents"
+                                size="sm"
+                                variant="success"
+                                @click="goToNextStudent()"
+                      >
+                        Next Student
+                      </b-button>
+                      <b-button v-if="!isDynamicRubric"
+                                variant="primary"
                                 :class="{ 'disabled': noSubmission && !gradingForm.file_submission_score}"
                                 :aria-disabled="noSubmission && !gradingForm.file_submission_score"
                                 size="sm"
@@ -1782,6 +1870,7 @@
                         Submit
                       </b-button>
                       <b-button
+                        v-if="!isDynamicRubric"
                         :class="{ 'disabled': currentStudentPage === numStudents || (noSubmission && !gradingForm.file_submission_score)}"
                         :aria-disabled="currentStudentPage === numStudents || (noSubmission && !gradingForm.file_submission_score)"
                         size="sm"
@@ -1903,6 +1992,15 @@ export default {
     dynamicRubricContext: null,
     dynamicRubricDirty: false,
     savingDynamicRubric: false,
+    // static rubrics: the student on screen and what's changed for them, saved when the grader moves on
+    staticRubricContext: null,
+    staticRubricDirty: false,
+    staticRubricInvalid: false,
+    savingStaticRubric: false,
+    staticRubricSavedName: '',
+    dynamicRubricAutosaveTimer: null,
+    dynamicRubricSavePromise: null,
+    dynamicRubricSaveStatus: '',
     // editing the rubric from the Open Grader
     rubricEditPermission: { canEdit: false, message: '', hasHistory: false },
     keepStudentUserIdOnReload: null,
@@ -2090,6 +2188,40 @@ export default {
     splitView () {
       return this.isOpenEnded
     },
+    showStudentNavigation () {
+      return this.gradeView === 'allStudents' && this.numStudents > 1
+    },
+    // page numbers (1-based) of the students who submitted something and don't have a score yet
+    ungradedStudentPages () {
+      const pages = []
+      this.grading.forEach((item, index) => {
+        const openEndedSubmission = item.open_ended_submission
+        if (!openEndedSubmission) {
+          return
+        }
+        const manualGrading = openEndedSubmission.open_ended_submission_type === 'no submission, manual grading'
+        let submitted = manualGrading || Boolean(openEndedSubmission.submission)
+        if (this.isForge) {
+          submitted = Boolean(openEndedSubmission.date_submitted)
+        }
+        if (this.isDiscussIt) {
+          const discussion = (this.discussionsByUserId || []).find(value => value.user_id === item.student.user_id)
+          submitted = Boolean(discussion && discussion.comments && discussion.comments.length)
+        }
+        if (submitted && [null, undefined, '', 'N/A'].includes(openEndedSubmission.file_submission_score)) {
+          pages.push(index + 1)
+        }
+      })
+      return pages
+    },
+    previousUngradedStudentPage () {
+      const pages = this.ungradedStudentPages.filter(page => page < this.currentStudentPage)
+      return pages.length ? pages[pages.length - 1] : null
+    },
+    nextUngradedStudentPage () {
+      const page = this.ungradedStudentPages.find(page => page > this.currentStudentPage)
+      return page === undefined ? null : page
+    },
     // static rubric, flagged Needs review: the criteria (with any late penalty) don't add up to the score
     staticNeedsReviewMismatch () {
       const current = this.grading && this.grading[this.currentStudentPage - 1]
@@ -2162,6 +2294,16 @@ export default {
     },
     'gradingForm.question_submission_score' (newVal, oldVal) {
       this.totalScore = +this.gradingForm.file_submission_score + +newVal || 0
+      this.scheduleDynamicRubricAutosave(1000)
+    },
+    plainTextFeedback () {
+      this.scheduleDynamicRubricAutosave(1500)
+    },
+    richTextFeedback () {
+      this.scheduleDynamicRubricAutosave(1500)
+    },
+    cannedResponse () {
+      this.scheduleDynamicRubricAutosave(500)
     }
   },
   created () {
@@ -2177,6 +2319,7 @@ export default {
   async beforeRouteLeave (to, from, next) {
     // dynamic rubrics: leaving the Open Grader saves the student being graded, like moving to another student
     await this.saveDynamicRubricStudentIfNeeded()
+    await this.saveStaticRubricStudentIfNeeded()
     next()
   },
   mounted () {
@@ -2294,6 +2437,16 @@ export default {
     viewInNewTab (url) {
       window.open(url, '_blank')
     },
+    // The submission can come back as text or as already-decoded data (an object or a number), depending on the
+    // question type; calling .includes on anything but text broke the whole page.
+    hasScannedImage (grading) {
+      const submission = grading && grading.auto_graded_submission && grading.auto_graded_submission.submission
+      if (!submission) {
+        return false
+      }
+      const text = typeof submission === 'string' ? submission : JSON.stringify(submission)
+      return Boolean(text) && text.includes('structure_s3_key')
+    },
     scannedImageMessage (grading) {
       try {
         if (grading &&
@@ -2345,6 +2498,8 @@ export default {
       this.originalRubricWithMaxes = originalRubricWithMaxes
     },
     updateOpenEndedSubmissionScore (rubricPointsBreakdown, points) {
+      this.staticRubricDirty = true
+      this.staticRubricInvalid = false
       this.gradingForm.file_submission_score = points
       this.setRubricPointsBreakdown(rubricPointsBreakdown)
     },
@@ -2423,7 +2578,10 @@ export default {
           this.rubricEditPermission = {
             canEdit: Boolean(data.can_edit),
             message: data.can_edit_message || '',
-            hasHistory: Boolean(data.has_history)
+            hasHistory: Boolean(data.has_history),
+            settings: data.rubric_permissions
+              ? { ...data.rubric_permissions, default_scoring_style: data.default_scoring_style }
+              : null
           }
         } else {
           this.rubricEditPermission = { canEdit: false, message: data.message || '', hasHistory: false }
@@ -2805,7 +2963,7 @@ export default {
           return false
         }
         this.gradingForm.applied_late_penalty = Number(enteredDynamicLatePenalty)
-        this.$noty.success('The late penalty will be applied when this student is saved.')
+        this.scheduleDynamicRubricAutosave(0)
         return
       }
       if ((1 * this.grading[this.currentStudentPage - 1]['open_ended_submission']['file_submission_score'] || 0) > 0) {
@@ -3216,6 +3374,13 @@ export default {
       this.viewSubmission = !this.viewSubmission
     },
     async submitGradingForm (next, prepopulatedScore = {}, justShowErrorMessage = false, mismatchDecided = false) {
+      if (this.isDynamicRubric) {
+        // this save covers whatever an autosave was about to send
+        clearTimeout(this.dynamicRubricAutosaveTimer)
+        if (this.dynamicRubricSavePromise) {
+          await this.dynamicRubricSavePromise
+        }
+      }
       if (!mismatchDecided && !prepopulatedScore.specialScore && this.staticNeedsReviewMismatch) {
         // a flagged student whose criteria don't match their score: ask before marking them reviewed
         this.pendingStaticMismatchSave = { next, prepopulatedScore, justShowErrorMessage }
@@ -3260,6 +3425,10 @@ export default {
         } else {
           this.$noty[data.type](data.message)
         }
+        if (['success', 'info'].includes(data.type)) {
+          this.staticRubricDirty = false
+          this.staticRubricInvalid = false
+        }
         if (data.type === 'success') {
           const savedStudent = this.grading[this.currentStudentPage - 1]
           if (!this.isDynamicRubric && savedStudent && savedStudent.needs_review && this.gradingForm.rubric_points_breakdown) {
@@ -3273,6 +3442,7 @@ export default {
           }
           if (this.dynamicRubricContext && this.dynamicRubricContext.index === this.currentStudentPage - 1) {
             this.dynamicRubricDirty = false
+            this.dynamicRubricSaveStatus = 'saved'
             if (this.gradingForm.dynamic_rubric) {
               this.dynamicRubricContext.savedCriteria = this.dynamicRubricCriteriaKey(
                 this.gradingForm.dynamic_rubric.applied_item_ids, this.gradingForm.dynamic_rubric.adjustment)
@@ -3437,6 +3607,7 @@ export default {
         savedCriteria: this.dynamicRubricCriteriaKey(state.exists ? state.applied_item_ids : [], state.exists ? state.adjustment : 0)
       }
       this.dynamicRubricDirty = false
+      this.dynamicRubricSaveStatus = ''
       this.gradingForm.rubric_points_breakdown = null
       this.gradingForm.dynamic_rubric = state.exists
         ? { applied_item_ids: state.applied_item_ids, adjustment: state.adjustment, rubric_version: state.rubric_version }
@@ -3459,6 +3630,7 @@ export default {
           rubric_version: state.rubric_version
         }
         this.gradingForm.file_submission_score = state.score
+        this.scheduleDynamicRubricAutosave()
       }
     },
     dynamicRubricCriteriaKey (appliedItemIds, adjustment) {
@@ -3513,23 +3685,55 @@ export default {
         saved['auto_graded_submission']['score'] = this.gradingForm.question_submission_score
       }
     },
-    async saveDynamicRubricStudentIfNeeded () {
+    // dynamic rubrics save themselves: changes wait for a short pause, then save without a success message
+    scheduleDynamicRubricAutosave (delay = 500) {
+      if (!this.isDynamicRubric) {
+        return
+      }
+      clearTimeout(this.dynamicRubricAutosaveTimer)
+      this.dynamicRubricAutosaveTimer = setTimeout(() => this.autosaveDynamicRubricStudent(), delay)
+    },
+    dynamicRubricCanAutosave (context) {
+      // a student with no rubric score stays ungraded, so feedback typed for them waits for a criterion
+      return context.exists || Boolean(this.gradingForm.dynamic_rubric)
+    },
+    async autosaveDynamicRubricStudent () {
+      if (this.dynamicRubricSavePromise) {
+        await this.dynamicRubricSavePromise
+      }
       const context = this.dynamicRubricContext
-      if (!context || this.savingDynamicRubric) {
+      if (!context || !this.isDynamicRubric || context.index !== this.currentStudentPage - 1 ||
+        !this.dynamicRubricCanAutosave(context) || !this.dynamicRubricFormChanged(context)) {
         return
       }
-      // forget the student first so a second navigation can't save them twice
-      this.dynamicRubricContext = null
-      if (!this.isDynamicRubric || !this.dynamicRubricFormChanged(context)) {
-        this.dynamicRubricDirty = false
-        return
+      const saved = await this.postDynamicRubricStudent(context)
+      // something changed while that save was on its way
+      if (saved && this.dynamicRubricContext === context && this.dynamicRubricFormChanged(context)) {
+        this.scheduleDynamicRubricAutosave()
       }
-      this.dynamicRubricDirty = false
+    },
+    retryDynamicRubricAutosave () {
+      this.dynamicRubricSaveStatus = ''
+      this.autosaveDynamicRubricStudent()
+    },
+    async postDynamicRubricStudent (context) {
+      const save = this.sendDynamicRubricStudent(context)
+      this.dynamicRubricSavePromise = save
+      const saved = await save
+      this.dynamicRubricSavePromise = null
+      return saved
+    },
+    async sendDynamicRubricStudent (context) {
       this.savingDynamicRubric = true
       const openEndedSubmission = this.grading[context.index]['open_ended_submission']
       const feedback = this.getTextFeedback(this.textFeedbackMode)
       const textFeedback = feedback === false || feedback === undefined ? openEndedSubmission.text_feedback : feedback
       const textFeedbackEditor = this.textFeedbackMode === 'rich_text' ? 'rich' : 'plain'
+      const dynamicRubric = this.gradingForm.dynamic_rubric
+      const sentCriteria = dynamicRubric
+        ? this.dynamicRubricCriteriaKey(dynamicRubric.applied_item_ids, dynamicRubric.adjustment)
+        : null
+      let saved = false
       try {
         const { data } = await axios.post('/api/grading', {
           assignment_id: context.assignment_id,
@@ -3539,16 +3743,25 @@ export default {
           applied_late_penalty: this.gradingForm.applied_late_penalty,
           text_feedback_editor: textFeedbackEditor,
           textFeedback: textFeedback,
-          dynamic_rubric: this.gradingForm.dynamic_rubric
+          dynamic_rubric: dynamicRubric
         })
-        if (data.type === 'success') {
+        if (['success', 'info'].includes(data.type)) {
+          saved = true
           this.rememberDynamicRubricStudentSaved(context.index, {
             textFeedback,
             textFeedbackEditor,
             fileSubmissionScore: data.dynamic_rubric_score ? data.dynamic_rubric_score.final : this.gradingForm.file_submission_score,
             data
           })
-          this.$noty.success(`Saved ${context.name}.`)
+          if (sentCriteria !== null) {
+            context.savedCriteria = sentCriteria
+            context.exists = true
+          }
+          if (this.dynamicRubricContext === context) {
+            const form = this.gradingForm.dynamic_rubric
+            this.dynamicRubricDirty = Boolean(form) &&
+              this.dynamicRubricCriteriaKey(form.applied_item_ids, form.adjustment) !== context.savedCriteria
+          }
         } else if (data.manual_grading_error) {
           this.$noty.error(`${context.name} was not saved: they have no open-ended submission for this question.`)
         } else {
@@ -3559,9 +3772,127 @@ export default {
       } finally {
         this.savingDynamicRubric = false
       }
+      this.dynamicRubricSaveStatus = saved ? 'saved' : 'failed'
+      return saved
+    },
+    async saveDynamicRubricStudentIfNeeded () {
+      clearTimeout(this.dynamicRubricAutosaveTimer)
+      if (this.dynamicRubricSavePromise) {
+        await this.dynamicRubricSavePromise
+      }
+      const context = this.dynamicRubricContext
+      if (!context) {
+        return
+      }
+      // forget the student first so a second navigation can't save them twice
+      this.dynamicRubricContext = null
+      if (!this.isDynamicRubric || !this.dynamicRubricFormChanged(context)) {
+        this.dynamicRubricDirty = false
+        return
+      }
+      this.dynamicRubricDirty = false
+      await this.postDynamicRubricStudent(context)
+    },
+    staticRubricFormChanged (context) {
+      const saved = this.grading[context.index]
+      if (!saved) {
+        return false
+      }
+      if (this.staticRubricDirty) {
+        return true
+      }
+      const toScore = value => [null, undefined, '', 'N/A'].includes(value) ? null : +value
+      return toScore(this.gradingForm.file_submission_score) !== toScore(saved['open_ended_submission']['file_submission_score']) ||
+        this.dynamicRubricFormChanged(context)
+    },
+    // Static rubrics: saves the student being left, if anything changed. The grader stays put until it's saved, so a
+    // failed save loses nothing. Returns whether it's fine to move on.
+    async saveStaticRubricStudentIfNeeded () {
+      const context = this.staticRubricContext
+      if (!context || this.isDynamicRubric) {
+        return true
+      }
+      const targetPage = this.currentStudentPage
+      if (this.savingStaticRubric) {
+        this.currentStudentPage = context.index + 1
+        return false
+      }
+      if (!this.staticRubricFormChanged(context)) {
+        return true
+      }
+      this.currentStudentPage = context.index + 1
+      if (this.staticRubricInvalid) {
+        this.$noty.error(`${context.name} was not saved: please fix the rubric points first.`)
+        return false
+      }
+      const savedStudent = this.grading[context.index]
+      if (savedStudent.needs_review && this.staticNeedsReviewMismatch) {
+        this.pendingStaticMismatchSave = { next: false, prepopulatedScore: {}, justShowErrorMessage: false }
+        this.$bvModal.show('modal-static-needs-review-mismatch')
+        return false
+      }
+      const openEndedSubmission = savedStudent['open_ended_submission']
+      const feedback = this.getTextFeedback(this.textFeedbackMode)
+      const textFeedback = feedback === false || feedback === undefined ? openEndedSubmission.text_feedback : feedback
+      const textFeedbackEditor = this.textFeedbackMode === 'rich_text' ? 'rich' : 'plain'
+      const fileSubmissionScore = this.gradingForm.file_submission_score
+      const sentBreakdown = this.staticRubricDirty
+      const payload = {
+        assignment_id: this.assignmentId,
+        question_id: context.question_id,
+        user_id: context.user_id,
+        question_submission_score: this.gradingForm.question_submission_score,
+        file_submission_score: fileSubmissionScore,
+        applied_late_penalty: this.gradingForm.applied_late_penalty,
+        text_feedback_editor: textFeedbackEditor,
+        textFeedback
+      }
+      if (sentBreakdown) {
+        payload.rubric_points_breakdown = this.gradingForm.rubric_points_breakdown
+      }
+      this.savingStaticRubric = true
+      try {
+        const { data } = await axios.post('/api/grading', payload)
+        if (!['success', 'info'].includes(data.type)) {
+          this.$noty.error(data.manual_grading_error
+            ? `${context.name} was not saved: they have no open-ended submission for this question.`
+            : `${context.name} was not saved: ${data.message}`)
+          return false
+        }
+        this.rememberDynamicRubricStudentSaved(context.index, { textFeedback, textFeedbackEditor, fileSubmissionScore, data })
+        if (savedStudent.needs_review && sentBreakdown) {
+          savedStudent.needs_review = false
+          this.needsReviewCount = Math.max(0, this.needsReviewCount - 1)
+        }
+        this.staticRubricDirty = false
+        this.staticRubricSavedName = context.name
+        this.currentStudentPage = targetPage
+        return true
+      } catch (error) {
+        const errors = error.response && error.response.data && error.response.data.errors
+        const message = errors ? Object.values(errors)[0] : error.message
+        this.$noty.error(`${context.name} was not saved: ${message}`)
+        return false
+      } finally {
+        this.savingStaticRubric = false
+      }
+    },
+    goToStudentPage (page) {
+      if (page === null || page < 1 || page > this.numStudents || page === this.currentStudentPage) {
+        return
+      }
+      this.currentStudentPage = page
+      this.changePage()
+    },
+    goToNextStudent () {
+      if (this.currentStudentPage < this.numStudents) {
+        this.currentStudentPage++
+        this.changePage()
+      }
     },
     dynamicRubricBeforeUnload (event) {
-      if (this.isDynamicRubric && this.dynamicRubricContext && this.dynamicRubricFormChanged(this.dynamicRubricContext)) {
+      const staticChanged = this.staticRubricContext && this.staticRubricFormChanged(this.staticRubricContext)
+      if (staticChanged || (this.isDynamicRubric && this.dynamicRubricContext && this.dynamicRubricFormChanged(this.dynamicRubricContext))) {
         // the browser shows its own "leave site?" warning
         event.preventDefault()
         event.returnValue = ''
@@ -3576,6 +3907,16 @@ export default {
     async changePage () {
       // dynamic rubrics: save the student we're leaving before the form switches to the next one
       await this.saveDynamicRubricStudentIfNeeded()
+      if (!await this.saveStaticRubricStudentIfNeeded()) {
+        return false
+      }
+      if (!this.isDynamicRubric) {
+        // the next student's breakdown comes from the rubric panel; never reuse the last student's
+        this.gradingForm.rubric_points_breakdown = null
+      }
+      this.staticRubricContext = null
+      this.staticRubricDirty = false
+      this.staticRubricInvalid = false
       this.gradingForm.dynamic_rubric = null
       this.submittedWork = {}
       this.canSubmitWork = false
@@ -3636,6 +3977,15 @@ export default {
 
       this.setTextFeedback(textFeedback)
       this.gradingForm.textFeedback = this.grading[this.currentStudentPage - 1]['open_ended_submission']['text_feedback']
+      if (this.rubric && !this.isDynamicRubric) {
+        const openEndedSubmission = this.grading[this.currentStudentPage - 1]['open_ended_submission']
+        this.staticRubricContext = {
+          index: this.currentStudentPage - 1,
+          question_id: openEndedSubmission.question_id,
+          user_id: openEndedSubmission.user_id,
+          name: this.grading[this.currentStudentPage - 1].student.name
+        }
+      }
       console.log(this.grading[this.currentStudentPage - 1]['open_ended_submission'])
 
       this.openEndedType = this.grading[this.currentStudentPage - 1]['open_ended_submission'].open_ended_submission_type
@@ -3888,6 +4238,8 @@ export default {
     async getGrading (showMessage = true) {
       // dynamic rubrics: switching question, section or view leaves the current student, so save them first
       await this.saveDynamicRubricStudentIfNeeded()
+      await this.saveStaticRubricStudentIfNeeded()
+      this.staticRubricContext = null
       // set by reloadGradingKeepingStudent: after a rubric change, stay on this student
       const keepStudentUserId = this.keepStudentUserIdOnReload
       this.keepStudentUserIdOnReload = null

@@ -132,6 +132,15 @@ class RubricPointsBreakdownController extends Controller
                 } catch (Exception $e){
                     $rubric_shown = false;
                 }
+                //a student whose score was set directly by an override sees that score, not the rubric
+                if ((int)Auth::user()->role === 3
+                    && DB::table('submission_score_overrides')
+                        ->where('assignment_id', $assignment->id)
+                        ->where('question_id', $question->id)
+                        ->where('user_id', $user->id)
+                        ->exists()) {
+                    $rubric_shown = false;
+                }
                 $rubric_points_breakdown = $rubricPointsBreakdown->where('assignment_id', $assignment->id)
                     ->where('question_id', $question->id)
                     ->where('user_id', $user->id)
