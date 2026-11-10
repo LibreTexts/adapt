@@ -117,7 +117,7 @@ class Kernel extends ConsoleKernel
 
         if (env('APP_ENV') === 'dev') {
             $schedule->command('s3:backup')->daily();
-            $schedule->command('fix:unprocessedTranscriptions')->everyMinute();
+            $schedule->command('fix:unprocessedTranscriptions')->everyMinute()->withoutOverlapping(120);
         }
 
     }

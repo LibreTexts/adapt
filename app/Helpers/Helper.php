@@ -17,6 +17,7 @@ use MiladRahimi\Jwt\Cryptography\Algorithms\Hmac\HS256;
 use MiladRahimi\Jwt\Cryptography\Keys\HmacKey;
 use MiladRahimi\Jwt\Parser;
 use phpcent\Client;
+use Symfony\Component\Process\Process;
 
 class Helper
 {
@@ -381,30 +382,16 @@ class Helper
     /**
      * @param $command
      * @return array
-     * @throws Exception
      */
     public static function runFfmpegCommand($command): array
     {
-        $descriptorspec = [
-            1 => ['pipe', 'w'],  // stdout is a pipe that the child will write to
-            2 => ['pipe', 'w'],  // stderr is a pipe that the child will write to
-        ];
+        // Process drains stdout and stderr together; reading them one after the other deadlocks
+        // once ffmpeg fills the stderr pipe buffer with progress output.
+        $process = Process::fromShellCommandline($command);
+        $process->setTimeout(null);
+        $process->run();
 
-        $process = proc_open($command, $descriptorspec, $pipes);
-
-        if (!is_resource($process)) {
-            throw new Exception("Failed to start ffmpeg process");
-        }
-
-        $output = stream_get_contents($pipes[1]);
-        $errorOutput = stream_get_contents($pipes[2]);
-
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-
-        $returnValue = proc_close($process);
-
-        return [$returnValue, $output, $errorOutput];
+        return [$process->getExitCode(), $process->getOutput(), $process->getErrorOutput()];
     }
 
     /**
