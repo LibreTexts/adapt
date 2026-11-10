@@ -28,5 +28,8 @@ return [
     'mysql8_db_password' => env('MYSQL8_DB_PASSWORD', ''),
     'openai_api_key' => env('OPENAI_API_KEY', ''),
     'analytics_user_id_api_key' => env('ANALYTICS_USER_ID_API_KEY', ''),
-    'firebase_credentials' => env('FIREBASE_CREDENTIALS', '')
+    'firebase_credentials' => env('FIREBASE_CREDENTIALS', ''),
+    // LMS status monitor (check:lmsStatus): ids of the users emailed when a school's status changes.
+    'lms_status_alert_user_ids' => env('LMS_STATUS_ALERT_USER_IDS', '1,5'),
+    'lms_status_retention_hours' => (int)env('LMS_STATUS_RETENTION_HOURS', 72)
 ];

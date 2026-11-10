@@ -58,6 +58,7 @@ class Kernel extends ConsoleKernel
 
         $schedule->command('remove:NoRoles')->everyMinute();
         if (env('APP_ENV') === 'production') {
+            $schedule->command('check:lmsStatus')->everyTenMinutes()->withoutOverlapping(15);
             $schedule->command('delete:cloudFlareVideosMarkedForDeletion')->everyThirtyMinutes();
             $schedule->command('fix:BadTranscriptionQuestionMediaUploads')->everyThirtyMinutes();
             $schedule->command('fix:DiscussionComment502Errors')->everyFiveMinutes();

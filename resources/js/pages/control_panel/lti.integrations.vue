@@ -95,6 +95,9 @@
           <b-tab title="Outages">
             <LmsOutageManager/>
           </b-tab>
+          <b-tab title="LMS Status" lazy>
+            <LmsStatusMonitor/>
+          </b-tab>
         </b-tabs>
       </div>
     </div>
@@ -112,13 +115,15 @@ import { doCopy } from '~/helpers/Copy'
 import { faCopy } from '@fortawesome/free-regular-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import LmsOutageManager from '~/components/LmsOutageManager'
+import LmsStatusMonitor from '~/components/LmsStatusMonitor'
 
 export default {
   components: {
     Loading,
     ToggleButton,
     FontAwesomeIcon,
-    LmsOutageManager
+    LmsOutageManager,
+    LmsStatusMonitor
   },
   data: () => ({
     copyIcon: faCopy,

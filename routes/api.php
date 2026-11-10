@@ -356,6 +356,8 @@ Route::group(['middleware' => ['auth:api', 'analytics','rate.limit.by.user']], f
     Route::get('/lms-outage/status', 'LmsOutageController@getStatus');
     Route::post('/lms-outage/{lmsType}/turn-off', 'LmsOutageController@turnOff');
     Route::post('/lms-outage/{lmsType}/turn-on', 'LmsOutageController@turnOn');
+    Route::get('/lms-status', 'LmsStatusController@index');
+    Route::get('/lms-status/{ltiRegistrationId}/history', 'LmsStatusController@history');
     Route::get('/courses/assignments', 'CourseController@getCoursesAndAssignments');
     Route::get('/courses/assignments/non-beta', 'CourseController@getCoursesAndNonBetaAssignments');
     Route::get('/courses/enrolled-in-courses-and-assignments', 'CourseController@getEnrolledInCoursesAndAssignments');
