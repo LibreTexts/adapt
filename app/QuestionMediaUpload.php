@@ -403,7 +403,8 @@ class QuestionMediaUpload extends Model
         if ($file_extension === 'mp4') {
             $new_path_on_transcribe_server = $path_info['dirname'] . '/temp-' . $path_info['filename'] . '.' . $file_extension;
 
-            $command = "ffmpeg -i $path_on_transcribe_server -c:v libx264 -c:a aac -strict experimental -y $new_path_on_transcribe_server";
+            // Whisper only needs the audio, so drop the video instead of re-encoding it
+            $command = "ffmpeg -nostdin -y -i " . escapeshellarg($path_on_transcribe_server) . " -vn -c:a aac -loglevel error " . escapeshellarg($new_path_on_transcribe_server);
             $this->_logInfo($command);
             list($returnValue, $output, $errorOutput) = Helper::runFfmpegCommand($command);
 
@@ -413,7 +414,7 @@ class QuestionMediaUpload extends Model
 
         }
 
-        $command = "ffmpeg -i $new_path_on_transcribe_server -c copy -map 0 -loglevel error -segment_time 30 -f segment $output_file_pattern";
+        $command = "ffmpeg -nostdin -i " . escapeshellarg($new_path_on_transcribe_server) . " -c copy -map 0 -loglevel error -segment_time 30 -f segment " . escapeshellarg($output_file_pattern);
 
 
         $this->_logInfo($command);

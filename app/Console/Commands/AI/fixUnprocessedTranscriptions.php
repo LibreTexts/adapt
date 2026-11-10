@@ -55,7 +55,7 @@ class fixUnprocessedTranscriptions extends Command
                 ->get();
             $pending_transcriptions = DB::table('pending_transcriptions')
                 ->where('message', '')
-                ->whereIn('environment', ['staging', 'production','local'])
+                ->whereIn('environment', ['staging', 'production','dev'])
                 ->limit(2)
                 ->orderBy('id', 'desc')
                 ->get();
