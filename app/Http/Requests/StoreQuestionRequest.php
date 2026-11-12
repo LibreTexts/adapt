@@ -132,6 +132,7 @@ class StoreQuestionRequest extends FormRequest
             $rules['rubric_items'] = ['required', new IsValidRubricItems($this->rubric_scoring_style === 'dynamic' ? 'dynamic' : 'static')];
             $rules['rubric_shown'] = ['required', Rule::in(true, false)];
             $rules['rubric_scoring_style'] = ['nullable', Rule::in(['static', 'dynamic', 'classic'])]; //'classic' is the old name for static, still accepted from pages loaded before the rename
+            $rules['rubric_checked_items'] = ['nullable', Rule::in(['add', 'take_off'])]; //dynamic only: checked items add points or take off points
         }
         if ($this->rubric_template_save_option && $this->rubric_template_save_option !== 'do not save as template') {
             $is_edit = $this->rubric_template_save_option === 'update existing template';

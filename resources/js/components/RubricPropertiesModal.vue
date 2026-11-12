@@ -117,6 +117,7 @@ export default {
     rubricTemplate: null,
     rubricTemplateSaveOption: 'do not save as template',
     rubricScoringStyle: 'static',
+    rubricCheckedItems: 'add',
     rubricVersion: 0,
     dynamicErrors: [],
     dynamicPreview: null,
@@ -175,7 +176,8 @@ export default {
             assignment_id: this.assignmentId,
             question_id: this.questionId,
             rubric_shown: this.rubricShown,
-            scoring_style: this.rubricScoringStyle
+            scoring_style: this.rubricScoringStyle,
+            checked_items: this.rubricScoringStyle === 'dynamic' ? this.rubricCheckedItems : null
           }
           // On the template page, isEdit means "editing this template".
           // On a question page, isEdit only means the question already has a rubric,
@@ -303,6 +305,7 @@ export default {
           points: item.points
         })),
         rubric_shown: this.rubricShown,
+        checked_items: this.rubricCheckedItems,
         base_version: this.rubricVersion
       }
     },

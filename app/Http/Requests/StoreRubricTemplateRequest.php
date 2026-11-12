@@ -27,6 +27,7 @@ class StoreRubricTemplateRequest extends FormRequest
     {
         $rules['rubric_items'] = ['required', new IsValidRubricItems($this->scoring_style === 'dynamic' ? 'dynamic' : 'static')];
         $rules['scoring_style'] = ['nullable', Rule::in(['static', 'dynamic', 'classic'])]; //'classic' is the old name for static, still accepted from pages loaded before the rename
+        $rules['checked_items'] = ['nullable', Rule::in(['add', 'take_off'])]; //dynamic only: checked items add points or take off points
         if ($this->save_as_template) {
             $unique = Rule::unique('rubric_templates')
                 ->where('user_id', $this->user()->id);

@@ -1860,7 +1860,7 @@ class QuestionController extends Controller
                 if ($rubric_scoring_style === 'dynamic') {
                     //items keep their ids from the previous version; new items get ids; the version goes up by 1
                     $previous_rubric = $is_update ? Question::find($request->id)->rubric : null;
-                    $rubric = json_encode(DynamicRubric::prepareQuestionRubric($data['rubric_items'], $data['rubric_shown'], $previous_rubric));
+                    $rubric = json_encode(DynamicRubric::prepareQuestionRubric($data['rubric_items'], $data['rubric_shown'], $previous_rubric, $data['rubric_checked_items'] ?? null));
                 } else {
                     //static items have no ids (an item may still carry one if the style was just switched from dynamic)
                     $static_rubric_items = array_map(function ($item) {
@@ -1871,7 +1871,7 @@ class QuestionController extends Controller
                 }
                 $data['rubric'] = $rubric;
                 if ($request->rubric_template_save_option !== 'do not save as template') {
-                    $template_rubric = json_encode(DynamicRubric::templateRubric($data['rubric_items'], $data['rubric_shown'], $rubric_scoring_style));
+                    $template_rubric = json_encode(DynamicRubric::templateRubric($data['rubric_items'], $data['rubric_shown'], $rubric_scoring_style, $data['rubric_checked_items'] ?? null));
                     $request->rubric_template_id ? RubricTemplate::where('id', $request->rubric_template_id)
                         ->update(['name' => $data['rubric_name'],
                             'description' => $data['rubric_description'],
@@ -1881,7 +1881,7 @@ class QuestionController extends Controller
                         'rubric' => $template_rubric,
                         'user_id' => $request->user()->id]);
                 }
-                foreach (['rubric_name', 'rubric_description', 'rubric_template_id', 'rubric_shown', 'rubric_items', 'rubric_scoring_style'] as $rubric_key) {
+                foreach (['rubric_name', 'rubric_description', 'rubric_template_id', 'rubric_shown', 'rubric_items', 'rubric_scoring_style', 'rubric_checked_items'] as $rubric_key) {
                     unset($data[$rubric_key]);
                 }
             }

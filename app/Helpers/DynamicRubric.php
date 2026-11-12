@@ -9,9 +9,50 @@ namespace App\Helpers;
  *   "scoring_style": "dynamic", "version": int, and an "id" on every item in "rubric_items".
  * A student's record stores which item ids were applied; the score is always recalculated
  * from the current item points, so editing an item flows through to every student who has it.
+ *
+ * "checked_items" says what a checked item does: "add" (the default, also when the key is missing) adds its points
+ * to 0; "take_off" takes its points off full credit. Item points are always stored as positive numbers.
  */
 class DynamicRubric
 {
+    const ADD_POINTS = 'add';
+    const TAKE_OFF_POINTS = 'take_off';
+
+    /**
+     * @param mixed $value
+     * @return string 'add' or 'take_off'
+     */
+    public static function normalizeCheckedItems($value): string
+    {
+        return $value === self::TAKE_OFF_POINTS ? self::TAKE_OFF_POINTS : self::ADD_POINTS;
+    }
+
+    /**
+     * @param string|array|null $rubric
+     * @return string 'add' or 'take_off'
+     */
+    public static function checkedItems($rubric): string
+    {
+        $rubric = self::decode($rubric);
+        return self::normalizeCheckedItems($rubric['checked_items'] ?? null);
+    }
+
+    /**
+     * Adds "checked_items" to a dynamic rubric only when points are taken off, so rubrics that add points
+     * look exactly as they always have.
+     *
+     * @param array $rubric
+     * @param mixed $checked_items
+     * @return array
+     */
+    public static function withCheckedItems(array $rubric, $checked_items): array
+    {
+        unset($rubric['checked_items']);
+        if (self::normalizeCheckedItems($checked_items) === self::TAKE_OFF_POINTS) {
+            $rubric['checked_items'] = self::TAKE_OFF_POINTS;
+        }
+        return $rubric;
+    }
     /**
      * @param string|array|null $rubric
      * @return array|null
@@ -95,9 +136,10 @@ class DynamicRubric
      * @param array $items [{id?, title, description?, points}]
      * @param $rubric_shown
      * @param string|array|null $previous_rubric the question's rubric before this save
+     * @param mixed $checked_items 'add' or 'take_off'
      * @return array
      */
-    public static function prepareQuestionRubric(array $items, $rubric_shown, $previous_rubric): array
+    public static function prepareQuestionRubric(array $items, $rubric_shown, $previous_rubric, $checked_items = self::ADD_POINTS): array
     {
         $previous_rubric = self::decode($previous_rubric);
         $previous_is_dynamic = self::isDynamic($previous_rubric);
@@ -115,10 +157,10 @@ class DynamicRubric
                 'description' => trim((string)($item['description'] ?? '')),
                 'points' => round((float)($item['points'] ?? 0), 2)];
         }
-        return ['scoring_style' => 'dynamic',
+        return self::withCheckedItems(['scoring_style' => 'dynamic',
             'version' => $previous_is_dynamic ? self::version($previous_rubric) + 1 : 1,
             'rubric_shown' => (bool)$rubric_shown,
-            'rubric_items' => $rubric_items];
+            'rubric_items' => $rubric_items], $checked_items);
     }
 
     /**
@@ -128,9 +170,10 @@ class DynamicRubric
      * @param array $items
      * @param $rubric_shown
      * @param string|null $scoring_style
+     * @param mixed $checked_items 'add' or 'take_off' (dynamic only)
      * @return array
      */
-    public static function templateRubric(array $items, $rubric_shown, ?string $scoring_style): array
+    public static function templateRubric(array $items, $rubric_shown, ?string $scoring_style, $checked_items = self::ADD_POINTS): array
     {
         $template_items = [];
         foreach (array_values($items) as $item) {
@@ -139,7 +182,7 @@ class DynamicRubric
         }
         $rubric = ['rubric_shown' => $rubric_shown, 'rubric_items' => $template_items];
         if ($scoring_style === 'dynamic') {
-            $rubric = ['scoring_style' => 'dynamic'] + $rubric;
+            $rubric = self::withCheckedItems(['scoring_style' => 'dynamic'] + $rubric, $checked_items);
         }
         return $rubric;
     }
@@ -157,7 +200,8 @@ class DynamicRubric
     }
 
     /**
-     * raw     = sum of applied item points + adjustment
+     * raw     = add points:      sum of applied item points + adjustment
+     *           take off points: the cap - sum of applied item points + adjustment
      * clamped = raw kept between 0 and the cap
      * final   = clamped minus the late penalty percentage, rounded to 2 decimals
      *
@@ -171,12 +215,17 @@ class DynamicRubric
     public static function score(array $rubric, array $applied_item_ids, $adjustment, float $cap, $late_penalty_percent): array
     {
         $applied_item_ids = array_map('strval', $applied_item_ids);
-        $raw = 0.0;
+        $applied_points = 0.0;
         foreach ($rubric['rubric_items'] ?? [] as $item) {
             if (isset($item['id']) && in_array((string)$item['id'], $applied_item_ids, true)) {
-                $raw += (float)$item['points'];
+                $applied_points += (float)$item['points'];
             }
         }
+        //taking points off starts from full credit; with no limit (INF, for working out an adjustment) there's no
+        //full credit to start from, so it starts from 0 like adding
+        $raw = self::checkedItems($rubric) === self::TAKE_OFF_POINTS && is_finite($cap)
+            ? $cap - $applied_points
+            : $applied_points;
         $raw += (float)($adjustment ?? 0);
         $clamped = min(max($raw, 0.0), $cap);
         $late_penalty_percent = min(max((float)($late_penalty_percent ?? 0), 0.0), 100.0);

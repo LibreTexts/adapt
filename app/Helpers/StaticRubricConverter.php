@@ -26,6 +26,7 @@ class StaticRubricConverter
     const NO_RUBRIC_MESSAGE = "This question doesn't have a rubric to convert.";
     const ONLY_ZERO_POINT_CRITERIA_MESSAGE = "Every criterion in this rubric is worth 0 points. Static rubrics need at least one criterion with points, so it can't be converted. Give a criterion some points first.";
     const CHANGED_MESSAGE = "Students' rubric scores or the rubric changed since you previewed the conversion. Please preview it again.";
+    const TAKE_OFF_POINTS_MESSAGE = "This rubric takes off points for checked items, and static rubrics can only add points. To convert it, first switch \"Checked items\" to \"Add points\" and reword the criteria as points earned.";
 
     /**
      * @param array $dynamic_rubric
@@ -95,6 +96,10 @@ class StaticRubricConverter
         }
         if (!$state['is_dynamic']) {
             return ['type' => 'error', 'message' => self::ALREADY_STATIC_MESSAGE];
+        }
+        //a criterion like "-2 sign error" can't become a static criterion worth up to 2 points
+        if (DynamicRubric::checkedItems($state['rubric']) === DynamicRubric::TAKE_OFF_POINTS) {
+            return ['type' => 'error', 'message' => self::TAKE_OFF_POINTS_MESSAGE];
         }
         $converted = self::staticRubric($state['rubric']);
         if (!$converted['rubric']['rubric_items']) {

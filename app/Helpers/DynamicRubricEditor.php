@@ -83,7 +83,7 @@ class DynamicRubricEditor
     /**
      * Validates the proposed rubric and builds the new rubric JSON (new items get ids, version goes up by 1).
      *
-     * @param array $input rubric_items: [{id?, title, description?, points}], rubric_shown, base_version
+     * @param array $input rubric_items: [{id?, title, description?, points}], rubric_shown, checked_items, base_version
      * @param array $state from currentState()
      * @param int $assignment_id
      * @param int $question_id
@@ -181,11 +181,19 @@ class DynamicRubricEditor
         $rubric_shown = array_key_exists('rubric_shown', $input)
             ? (bool)$input['rubric_shown']
             : (bool)($state['rubric']['rubric_shown'] ?? false);
+        //add points or take off points; left out, it stays as it is
+        if (array_key_exists('checked_items', $input) && $input['checked_items'] !== null
+            && !in_array($input['checked_items'], [DynamicRubric::ADD_POINTS, DynamicRubric::TAKE_OFF_POINTS], true)) {
+            return ['type' => 'error', 'message' => 'Please choose whether checked items add points or take off points.', 'errors' => []];
+        }
+        $checked_items = array_key_exists('checked_items', $input) && $input['checked_items'] !== null
+            ? $input['checked_items']
+            : ($state['is_dynamic'] ? DynamicRubric::checkedItems($state['rubric']) : DynamicRubric::ADD_POINTS);
         return ['type' => 'success',
-            'rubric' => ['scoring_style' => 'dynamic',
+            'rubric' => DynamicRubric::withCheckedItems(['scoring_style' => 'dynamic',
                 'version' => self::nextVersion($assignment_id, $question_id, $state),
                 'rubric_shown' => $rubric_shown,
-                'rubric_items' => $new_items]];
+                'rubric_items' => $new_items], $checked_items)];
     }
 
     /**
@@ -359,7 +367,8 @@ class DynamicRubricEditor
             $new_rubric = $proposed['rubric'];
             if ($state['is_dynamic']
                 && $state['rubric']['rubric_items'] == array_values($new_rubric['rubric_items'])
-                && (bool)($state['rubric']['rubric_shown'] ?? false) === $new_rubric['rubric_shown']) {
+                && (bool)($state['rubric']['rubric_shown'] ?? false) === $new_rubric['rubric_shown']
+                && DynamicRubric::checkedItems($state['rubric']) === DynamicRubric::checkedItems($new_rubric)) {
                 DB::rollback();
                 return ['type' => 'info', 'message' => 'There are no changes to save.'];
             }

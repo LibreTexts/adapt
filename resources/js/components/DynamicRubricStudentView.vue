@@ -7,6 +7,9 @@
           : 'The criteria you received will be checked once your instructor releases scores.'
       }}
     </p>
+    <p class="small mb-2" data-testid="checked-items-explanation">
+      {{ explanation }}
+    </p>
     <table class="table table-striped mb-0 student-rubric-table" aria-label="Rubric">
       <thead>
       <tr>
@@ -14,15 +17,29 @@
           Criterion
         </th>
         <th scope="col" class="text-right" style="width:140px">
-          {{ state.exists ? 'Points Earned' : 'Points' }}
+          {{ pointsHeading }}
         </th>
       </tr>
       </thead>
       <tbody>
+      <tr v-if="takeOffPoints && state.exists && total.outOf !== null">
+        <td>Starting points (full credit)</td>
+        <td class="text-right">
+          {{ formatNumber(total.outOf) }}
+        </td>
+      </tr>
       <tr v-for="rubricItem in rubricItems" :key="`student-rubric-item-${rubricItem.id}`">
         <td>
           <span v-if="state.exists" class="mr-1">
-            <span v-if="isApplied(rubricItem.id)">
+            <span v-if="takeOffPoints && isApplied(rubricItem.id)">
+              <b-icon icon="dash-circle-fill" variant="danger" aria-hidden="true"/>
+              <span class="sr-only">Points taken off:</span>
+            </span>
+            <span v-else-if="takeOffPoints">
+              <b-icon icon="check-circle-fill" variant="success" aria-hidden="true"/>
+              <span class="sr-only">No points taken off:</span>
+            </span>
+            <span v-else-if="isApplied(rubricItem.id)">
               <b-icon icon="check-circle-fill" variant="success" aria-hidden="true"/>
               <span class="sr-only">Received:</span>
             </span>
@@ -37,10 +54,13 @@
           </div>
         </td>
         <td class="text-right">
-          <span v-if="state.exists">
+          <span v-if="state.exists && takeOffPoints" :class="{ 'text-danger': isApplied(rubricItem.id) }">
+            {{ isApplied(rubricItem.id) ? `−${formatNumber(rubricItem.points)}` : 0 }}
+          </span>
+          <span v-else-if="state.exists">
             {{ isApplied(rubricItem.id) ? formatNumber(rubricItem.points) : 0 }} / {{ formatNumber(rubricItem.points) }}
           </span>
-          <span v-else>{{ formatNumber(rubricItem.points) }}</span>
+          <span v-else>{{ takeOffPoints ? '−' : '+' }}{{ formatNumber(rubricItem.points) }}</span>
         </td>
       </tr>
       <tr v-if="state.exists && +state.adjustment !== 0">
@@ -50,7 +70,7 @@
         </td>
       </tr>
       </tbody>
-      <tfoot v-if="state.exists">
+      <tfoot v-if="state.exists && total.final !== null">
       <tr class="font-weight-bold">
         <td>Total</td>
         <td class="text-right">
@@ -85,18 +105,43 @@ export default {
     }
   },
   computed: {
-    rubricItems () {
+    parsedRubric () {
       try {
-        return (JSON.parse(this.rubric) || {}).rubric_items || []
+        return JSON.parse(this.rubric) || {}
       } catch (error) {
-        return []
+        return {}
       }
+    },
+    rubricItems () {
+      return this.parsedRubric.rubric_items || []
+    },
+    // checked items take points off full credit instead of adding them up from 0
+    takeOffPoints () {
+      return this.parsedRubric.checked_items === 'take_off'
+    },
+    explanation () {
+      if (!this.takeOffPoints) {
+        return 'Points are added for each criterion you received.'
+      }
+      const outOf = this.total.outOf
+      return outOf !== null
+        ? `You started with full credit (${this.formatNumber(outOf)} ${this.formatNumber(outOf) === 1 ? 'point' : 'points'}). Points are taken off for each criterion marked below.`
+        : 'You start with full credit. Points are taken off for each criterion marked below.'
+    },
+    pointsHeading () {
+      if (this.takeOffPoints) {
+        return this.state.exists ? 'Points Taken Off' : 'Points'
+      }
+      return this.state.exists ? 'Points Earned' : 'Points'
     },
     // the server's calculation (cap and late penalty included); a plain sum if it isn't there
     total () {
       const score = this.state.score
       if (score) {
         return { final: +score.final, outOf: +score.out_of }
+      }
+      if (this.takeOffPoints) {
+        return { final: null, outOf: null } // full credit comes from the server
       }
       const earned = this.rubricItems.filter(item => this.isApplied(item.id)).reduce((sum, item) => sum + +item.points, 0)
       return { final: Math.max(0, earned + +(this.state.adjustment || 0)), outOf: null }
@@ -108,7 +153,9 @@ export default {
       }
       const notes = []
       if (score.capped) {
-        notes.push(`Your criteria add up to more than the ${this.formatNumber(score.out_of)} points available, so the total is capped at ${this.formatNumber(score.out_of)}.`)
+        notes.push(this.takeOffPoints
+          ? `Your total would be more than the ${this.formatNumber(score.out_of)} points available, so it's capped at ${this.formatNumber(score.out_of)}.`
+          : `Your criteria add up to more than the ${this.formatNumber(score.out_of)} points available, so the total is capped at ${this.formatNumber(score.out_of)}.`)
       }
       if (+score.late_penalty_percent > 0) {
         notes.push(`The total includes a ${this.formatNumber(score.late_penalty_percent)}% late penalty.`)

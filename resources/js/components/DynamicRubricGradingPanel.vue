@@ -9,7 +9,7 @@
         <tbody>
           <tr v-for="(rubricItem, rubricItemIndex) in rubricItems"
               :key="`dynamic-rubric-item-${rubricItem.id}`"
-              :class="{ 'table-success': isApplied(rubricItem.id) }"
+              :class="{ 'table-success': isApplied(rubricItem.id) && !takeOffPoints, 'table-danger': isApplied(rubricItem.id) && takeOffPoints }"
               style="cursor:pointer"
               @click="toggle(rubricItem.id)"
           >
@@ -38,8 +38,8 @@
                 {{ rubricItem.description }}
               </b-tooltip>
             </td>
-            <td class="text-right" style="width:60px">
-              +{{ formatNumber(rubricItem.points) }}
+            <td class="text-right" style="width:60px" :class="{ 'text-danger': takeOffPoints }">
+              {{ takeOffPoints ? '−' : '+' }}{{ formatNumber(rubricItem.points) }}
             </td>
           </tr>
         </tbody>
@@ -62,8 +62,10 @@
           <b-button size="sm"
                     variant="outline-secondary"
                     class="text-nowrap"
-                    title="Clears every criterion and the adjustment (key 0)."
-                    @click="noCredit()"
+                    :title="takeOffPoints
+                      ? 'Unchecks every criterion and clears the adjustment, which gives full credit (key 0).'
+                      : 'Unchecks every criterion and clears the adjustment (key 0).'"
+                    @click="clearAll()"
           >
             Clear All
           </b-button>
@@ -72,14 +74,14 @@
       <div class="small font-weight-bold">
         Rubric score: {{ formatNumber(score.final) }} / {{ formatNumber(cap) }}
         <span v-if="score.raw > cap" class="font-weight-normal text-muted">
-          (criteria add up to {{ formatNumber(score.raw) }}; capped at {{ formatNumber(cap) }})
+          ({{ takeOffPoints ? 'with the adjustment it would be' : 'criteria add up to' }} {{ formatNumber(score.raw) }}; capped at {{ formatNumber(cap) }})
         </span>
         <span v-if="latePenalty > 0" class="font-weight-normal text-muted">
           (after the {{ latePenalty }}% late penalty)
         </span>
       </div>
       <div class="small text-muted">
-        Keys 1-9 apply criteria, 0 clears all. Changes save automatically.
+        Keys 1-9 check criteria, 0 unchecks all. Changes save automatically.
       </div>
     </div>
   </div>
@@ -139,6 +141,10 @@ export default {
     rubricVersion () {
       return +this.parsedRubric.version || 0
     },
+    // checked items take points off full credit (the cap) instead of adding up from 0
+    takeOffPoints () {
+      return this.parsedRubric.checked_items === 'take_off'
+    },
     adjustment () {
       const adjustment = Number(this.adjustmentInput)
       return isNaN(adjustment) ? 0 : Math.round(adjustment * 100) / 100
@@ -152,13 +158,14 @@ export default {
       return Math.max(0, +this.questionPoints - (+this.autoGradedScore || 0))
     },
     score () {
-      // a preview only; the server always recalculates the score when it saves
-      let raw = this.adjustment
+      // a preview only; the server always recalculates the score when it saves (DynamicRubric::score)
+      let appliedPoints = 0
       for (const item of this.rubricItems) {
         if (this.appliedItemIds.includes(String(item.id))) {
-          raw += +item.points
+          appliedPoints += +item.points
         }
       }
+      const raw = (this.takeOffPoints ? this.cap - appliedPoints : appliedPoints) + this.adjustment
       const clamped = Math.min(Math.max(raw, 0), this.cap)
       const final = Math.round(clamped * (1 - this.latePenalty / 100) * 100) / 100
       return { raw: Math.round(raw * 100) / 100, clamped, final }
@@ -196,9 +203,16 @@ export default {
     adjustmentChanged () {
       this.emitChange(true)
     },
-    noCredit () {
+    clearAll () {
       this.appliedItemIds = []
       this.adjustmentInput = 0
+      this.emitChange(true)
+    },
+    // a rubric score of 0. Taking points off, unchecking everything would be full credit, so the adjustment
+    // takes off full credit instead.
+    noCredit () {
+      this.appliedItemIds = []
+      this.adjustmentInput = this.takeOffPoints ? -this.cap : 0
       this.emitChange(true)
     },
     emitChange (byGrader) {
@@ -229,7 +243,7 @@ export default {
       }
       event.preventDefault()
       if (event.key === '0') {
-        this.noCredit()
+        this.clearAll()
         return
       }
       const rubricItem = this.rubricItems[+event.key - 1]

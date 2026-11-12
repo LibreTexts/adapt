@@ -54,8 +54,8 @@ class RubricTemplateController extends Controller
             }
             $data = $request->validated();
             //templates keep the scoring style but never item ids (loading a template always creates new items)
-            $data['rubric'] = json_encode(DynamicRubric::templateRubric($data['rubric_items'], $request->rubric_shown, $data['scoring_style'] ?? null));
-            unset($data['scoring_style']);
+            $data['rubric'] = json_encode(DynamicRubric::templateRubric($data['rubric_items'], $request->rubric_shown, $data['scoring_style'] ?? null, $data['checked_items'] ?? null));
+            unset($data['scoring_style'], $data['checked_items']);
 
             $data['user_id'] = $request->user()->id;
             unset($data['rubric_items']);
@@ -90,8 +90,8 @@ class RubricTemplateController extends Controller
             $data = $request->validated();
 
             //templates keep the scoring style but never item ids (loading a template always creates new items)
-            $data['rubric'] = json_encode(DynamicRubric::templateRubric($data['rubric_items'], $request->rubric_shown, $data['scoring_style'] ?? null));
-            unset($data['scoring_style']);
+            $data['rubric'] = json_encode(DynamicRubric::templateRubric($data['rubric_items'], $request->rubric_shown, $data['scoring_style'] ?? null, $data['checked_items'] ?? null));
+            unset($data['scoring_style'], $data['checked_items']);
             unset($data['rubric_items']);
             $rubricTemplate->update($data);
             $response['type'] = 'success';

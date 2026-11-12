@@ -1514,7 +1514,7 @@
                   size="sm"
                   variant="outline-danger"
                   class="text-nowrap my-1"
-                  title="Clears every criterion and the adjustment, saves, and moves to the next student"
+                  title="Sets the rubric score to 0, saves, and moves to the next student"
                   @click="noCreditAndNext()"
         >
           No Credit &amp; Next</b-button>
@@ -1573,10 +1573,26 @@
                             >
                               <span class="font-weight-bold mr-1">Rubric</span>
                               <b-badge v-if="rubric"
+                                       v-b-tooltip.hover="{ delay: { show: 250, hide: 0 } }"
                                        :variant="isDynamicRubric ? 'info' : 'secondary'"
-                                       class="mr-2"
+                                       :class="isDynamicRubric ? 'mr-1' : 'mr-2'"
+                                       :title="isDynamicRubric
+                                         ? 'Dynamic: graders check criteria, and each one is worth exactly its points.'
+                                         : 'Static: graders enter points for each criterion, up to its maximum.'"
+                                       tabindex="0"
                               >
                                 {{ isDynamicRubric ? 'Dynamic' : 'Static' }}
+                              </b-badge>
+                              <b-badge v-if="rubric && isDynamicRubric"
+                                       v-b-tooltip.hover="{ delay: { show: 250, hide: 0 } }"
+                                       :variant="rubricTakesOffPoints ? 'danger' : 'success'"
+                                       class="mr-2"
+                                       :title="rubricTakesOffPoints
+                                         ? 'Take off points: students start at full credit, and each checked criterion takes its points off.'
+                                         : 'Add points: students start at 0, and each checked criterion adds its points.'"
+                                       tabindex="0"
+                              >
+                                {{ rubricTakesOffPoints ? 'Take off points' : 'Add points' }}
                               </b-badge>
                               <a v-if="rubricEditPermission.canEdit && !savingDynamicRubric"
                                  id="edit-rubric-tooltip"
@@ -2268,6 +2284,14 @@ export default {
         return this.rubricEditPermission.message || "You can't edit this rubric."
       }
       return this.rubric ? 'Edit Rubric' : 'Add Rubric'
+    },
+    // dynamic rubrics only: checked criteria take points off full credit instead of adding up from 0
+    rubricTakesOffPoints () {
+      try {
+        return Boolean(this.rubric) && JSON.parse(this.rubric).checked_items === 'take_off'
+      } catch (error) {
+        return false
+      }
     },
     isDynamicRubric () {
       if (!this.rubric) {

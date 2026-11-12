@@ -37,11 +37,11 @@
       </p>
       <ul>
         <li>
-          <strong>Alternative routes.</strong> "Any 3 of these 4 steps earns full marks": four 4-point criteria on a
+          <strong>Alternative routes.</strong> "Any 3 of these 4 steps earns full credit": four 4-point criteria on a
           12-point question. A student with all four still gets 12.
         </li>
         <li>
-          <strong>Bonus criteria.</strong> Extra credit for going further, without letting anyone go past full marks.
+          <strong>Bonus criteria.</strong> Extra credit for going further, without letting anyone go past full credit.
         </li>
       </ul>
       <p class="font-weight-bold mb-1">
@@ -245,6 +245,43 @@
       </b-alert>
     </b-form-group>
     <b-form-group
+      v-if="scoringStyle === 'dynamic' && !isConverting"
+      label-cols-sm="3"
+      label-cols-lg="2"
+      label-size="sm"
+      label-for="checked_items"
+    >
+      <template #label>
+        Checked Items
+        <QuestionCircleTooltip id="checked-items-tooltip"/>
+        <b-tooltip target="checked-items-tooltip"
+                   delay="250"
+                   triggers="hover focus"
+        >
+          Add points: students start at 0, and each criterion a grader checks adds its points (for example, +3
+          "Correct ring"). Take off points: students start at full credit, and each criterion a grader checks takes its
+          points off (for example, -2 "Sign error"). Either way, enter points as positive numbers, and scores stay
+          between 0 and the question's points.
+        </b-tooltip>
+      </template>
+      <b-form-radio-group
+        id="checked_items"
+        v-model="checkedItems"
+        class="mt-2"
+      >
+        <b-form-radio value="add">
+          Add points
+        </b-form-radio>
+        <b-form-radio value="take_off">
+          Take off points
+        </b-form-radio>
+      </b-form-radio-group>
+      <small v-if="dynamicScoresExist && checkedItems !== savedCheckedItems" class="text-muted d-block">
+        Students have been graded with this rubric. Changing this rescores them, and you'll see a preview before
+        anything is saved.
+      </small>
+    </b-form-group>
+    <b-form-group
       v-if="isTemplate || ['save as new template','update existing template'].includes(rubricTemplateSaveOption)"
       label-cols-sm="3"
       label-cols-lg="2"
@@ -298,7 +335,7 @@
             Description (Optional)
           </th>
           <th scope="col" style="width:110px">
-            Points
+            {{ pointsHeading }}
           </th>
         </tr>
         </thead>
@@ -382,7 +419,7 @@
           <td/>
           <td/>
           <td class="font-weight-bold">
-            Total: <span>{{ roundedRunningTotal() }}</span> <span v-show="assignmentId && scoringStyle === 'static'"><QuestionCircleTooltip
+            <span v-if="!takingOffPoints">Total: <span>{{ roundedRunningTotal() }}</span></span> <span v-show="assignmentId && scoringStyle === 'static'"><QuestionCircleTooltip
             id="running-total-tooltip"
           />
         <b-tooltip target="running-total-tooltip"
@@ -404,7 +441,11 @@
           v-if="staticWeightsExample">: on a 10-point question, these would be {{ staticWeightsExample }}</span>.
       </div>
       <div v-if="scoringStyle === 'dynamic' && !isConverting" class="small mb-2">
-        <span v-if="!assignmentId">
+        <span v-if="takingOffPoints">
+          Points are exact. Each checked criterion takes its points off the question's
+          {{ assignmentId && questionPoints ? `${questionPoints} points` : 'points' }}; scores never go below 0.
+        </span>
+        <span v-else-if="!assignmentId">
           Points are exact. Each assignment sets this question's points, and scores are capped there.
           <b-link @click="$bvModal.show('modal-dynamic-rubric-points-info')">
             Should the criteria add up to the question's points?
@@ -538,6 +579,9 @@ export default {
         this.restoreSavedRubricForConversion()
       }
     },
+    checkedItems: function (newVal) {
+      this.$emit('setKeyValue', 'rubricCheckedItems', newVal)
+    },
     scoringStyle: function (newVal, oldVal) {
       this.$emit('setKeyValue', 'rubricScoringStyle', newVal)
       // converting a graded dynamic rubric keeps its points as the weights (the preview shows them scaled)
@@ -613,6 +657,16 @@ export default {
     zeroPointCriteriaTitles () {
       return (this.savedRubricItems || []).filter(item => !(+item.points > 0)).map(item => item.title)
     },
+    // dynamic rubrics only: checked criteria take points off full credit instead of adding up from 0
+    takingOffPoints () {
+      return this.scoringStyle === 'dynamic' && this.checkedItems === 'take_off'
+    },
+    pointsHeading () {
+      if (this.scoringStyle !== 'dynamic') {
+        return 'Points'
+      }
+      return this.checkedItems === 'take_off' ? 'Points taken off' : 'Points added'
+    },
     staticScoresExist () {
       return !this.isTemplate && Boolean(this.assignmentId) && this.rubricPointsBreakdownExists && this.initialScoringStyle === 'static'
     }
@@ -621,6 +675,8 @@ export default {
     rubricShown: true,
     scoringStyle: 'static',
     initialScoringStyle: 'static',
+    checkedItems: 'add',
+    savedCheckedItems: 'add',
     runningTotal: 0,
     initialScoreInputType: '',
     rubricPointsBreakdownExists: false,
@@ -663,6 +719,8 @@ export default {
       // dynamic rubrics keep each item's id so students' applied items stay linked to it
       this.scoringStyle = rubricInfo.scoring_style === 'dynamic' ? 'dynamic' : 'static'
       this.initialScoringStyle = this.scoringStyle
+      this.checkedItems = rubricInfo.checked_items === 'take_off' ? 'take_off' : 'add'
+      this.savedCheckedItems = this.checkedItems
       this.rubricItems = rubricItems
       this.$emit('setKeyValue', 'rubricShown', this.rubricShown)
       this.$emit('setKeyValue', 'rubricTemplateSaveOption', this.rubricTemplateSaveOption)
@@ -677,6 +735,7 @@ export default {
       this.scoringStyle = (this.rubricPermissions || {}).default_scoring_style === 'dynamic' ? 'dynamic' : 'static'
     }
     this.$emit('setKeyValue', 'rubricScoringStyle', this.scoringStyle)
+    this.$emit('setKeyValue', 'rubricCheckedItems', this.checkedItems)
   },
   methods: {
     restoreSavedRubricForConversion () {
@@ -686,9 +745,11 @@ export default {
         return
       }
       const plain = items => JSON.stringify(items.map(item => [item.title, item.description, +item.points]))
-      const changed = plain(this.rubricItems) !== plain(this.savedRubricItems) || this.rubricShown !== this.savedRubricShown
+      const changed = plain(this.rubricItems) !== plain(this.savedRubricItems) || this.rubricShown !== this.savedRubricShown ||
+        this.checkedItems !== this.savedCheckedItems
       this.rubricItems = JSON.parse(JSON.stringify(this.savedRubricItems))
       this.rubricShown = this.savedRubricShown
+      this.checkedItems = this.savedCheckedItems
       if (changed) {
         this.$noty.info('Your unsaved changes to the criteria were undone: the rubric is converted as it was saved. You can edit it after converting.')
       }
@@ -781,6 +842,7 @@ export default {
         return
       }
       this.scoringStyle = templateScoringStyle
+      this.checkedItems = templateScoringStyle === 'dynamic' && rubricInfo.checked_items === 'take_off' ? 'take_off' : 'add'
       if (rubricInfo.hasOwnProperty('rubric_items')) {
         // a template always creates new criteria (no ids)
         this.rubricItems = rubricInfo.rubric_items.map(item => ({
