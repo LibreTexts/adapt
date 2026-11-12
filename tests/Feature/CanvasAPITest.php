@@ -47,7 +47,7 @@ class CanvasAPITest extends TestCase
         int    $school_id,
         string $refresh_token,
         string $access_token = 'old-access-token',
-        Carbon $updated_at = null
+        ?Carbon $updated_at = null
     ): int
     {
         $updated_at = $updated_at ?? Carbon::now()->subHour();

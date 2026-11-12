@@ -525,6 +525,8 @@ Route::group(['middleware' => ['auth:api', 'analytics','rate.limit.by.user']], f
     Route::get('/assignments/{assignment}/common-question-text', 'AssignmentController@showCommonQuestionText');
 
     Route::patch('/assignments/{assignment}', 'AssignmentController@update');
+    Route::get('/assignments/{assignment}/late-penalty-recalculation', 'LatePenaltyRecalculationController@show');
+    Route::patch('/assignments/{assignment}/late-penalty-recalculation', 'LatePenaltyRecalculationController@update');
     Route::get('/assignments/{assignment}/linked-discuss-it-delete-check', 'AssignmentController@linkedDiscussItDeleteCheck');
     Route::delete('/assignments/{assignment}', 'AssignmentController@destroy');
 

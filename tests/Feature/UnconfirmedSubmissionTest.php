@@ -47,7 +47,7 @@ class UnconfirmedSubmissionTest extends TestCase
      * Mirrors what JWTController::processAnswerJWT() stores: the whole request,
      * with the WeBWorK answerJWT under 'submission'.
      */
-    private function createUnconfirmedSubmission(User $user, array $answers = null): UnconfirmedSubmission
+    private function createUnconfirmedSubmission(User $user, ?array $answers = null): UnconfirmedSubmission
     {
         $answers = $answers ?? [
             'AnSwEr0001' => ['original_student_ans' => '42', 'preview_latex_string' => '42', 'score' => 0],

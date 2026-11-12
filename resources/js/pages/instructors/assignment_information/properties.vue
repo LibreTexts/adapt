@@ -1,6 +1,7 @@
 <template>
   <div>
     <AllFormErrors :all-form-errors="allFormErrors" :modal-id="'modal-form-errors-assignment-form'"/>
+    <RecalculateLatePenaltiesModal ref="recalculateLatePenaltiesModal"/>
     <div class="vld-parent">
       <loading :active.sync="isLoading"
                :can-cancel="true"
@@ -55,6 +56,7 @@ import 'vue-loading-overlay/dist/vue-loading.css'
 import { mapGetters } from 'vuex'
 import AssignmentProperties from '~/components/AssignmentProperties'
 import AllFormErrors from '~/components/AllFormErrors'
+import RecalculateLatePenaltiesModal from '~/components/RecalculateLatePenaltiesModal'
 
 import {
   editAssignmentProperties,
@@ -75,7 +77,8 @@ export default {
   components: {
     Loading,
     AssignmentProperties,
-    AllFormErrors
+    AllFormErrors,
+    RecalculateLatePenaltiesModal
   },
   metaInfo () {
     return { title: 'Assignment Properties' }
@@ -153,6 +156,9 @@ export default {
         const { data } = await this.form.patch(`/api/assignments/${this.assignmentId}`)
         let timeout = data.timeout ? data.timeout : 4000
         this.$noty[data.type](data.message, { timeout: timeout })
+        if (data.type === 'success' && data.check_late_penalties) {
+          await this.$refs.recalculateLatePenaltiesModal.check(this.assignmentId, this.form.name)
+        }
       } catch (error) {
         if (!error.message.includes('status code 422')) {
           this.$noty.error(error.message)

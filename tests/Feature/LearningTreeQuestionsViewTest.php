@@ -41,7 +41,7 @@ class LearningTreeQuestionsViewTest extends TestCase
             ->postJson("/api/assignments/{$this->assignment->id}/learning-trees/{$this->learning_tree->id}");
     }
 
-    private function viewQuestions(User $user = null)
+    private function viewQuestions(?User $user = null)
     {
         return $this->actingAs($user ?? $this->user)
             ->getJson("/api/assignments/{$this->assignment->id}/questions/view", $this->headers());
