@@ -85,7 +85,7 @@ class DiscussionCommentTimestampTest extends TestCase
         return "/api/discussions/assignment/{$this->assignment->id}/question/{$this->question->id}/{$this->questionMediaUpload->id}/$discussion_id/1";
     }
 
-    private function _reply(array $timestamps, int $discussion_id = null)
+    private function _reply(array $timestamps, ?int $discussion_id = null)
     {
         return $this->actingAs($this->user)
             ->postJson($this->_replyUrl($discussion_id ?? $this->discussion_id), [

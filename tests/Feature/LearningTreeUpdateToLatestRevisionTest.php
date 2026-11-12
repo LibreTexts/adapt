@@ -45,7 +45,7 @@ class LearningTreeUpdateToLatestRevisionTest extends TestCase
             ->postJson("/api/assignments/{$this->assignment->id}/learning-trees/{$this->learning_tree->id}");
     }
 
-    private function updateEndpoint(User $user = null, bool $understand = true)
+    private function updateEndpoint(?User $user = null, bool $understand = true)
     {
         return $this->actingAs($user ?? $this->user)
             ->patchJson("/api/assignments/{$this->assignment->id}/learning-tree/{$this->learning_tree->id}/update-to-latest-revision",

@@ -29,6 +29,7 @@ use App\Rules\IsValidPeriodOfTime;
 use App\QuestionRevision;
 use App\Score;
 use App\Section;
+use App\Services\LatePenaltyRecalculator;
 use App\Solution;
 use App\Submission;
 use App\SubmissionFile;
@@ -2496,7 +2497,8 @@ class AssignmentController extends Controller
                     AssignmentGroupWeight     $assignmentGroupWeight,
                     Section                   $section,
                     AssignmentSyncQuestion    $assignmentSyncQuestion,
-                    AutoRelease               $autoRelease): array
+                    AutoRelease               $autoRelease,
+                    LatePenaltyRecalculator   $latePenaltyRecalculator): array
     {
 
         $response['type'] = 'error';
@@ -2511,6 +2513,7 @@ class AssignmentController extends Controller
         try {
 
             $data = $request->validated();
+            $due_dates_changed = false;
             DB::beginTransaction();
             if ($request->user()->role === 5) {
                 $assignment->name = $data['name'];
@@ -2582,6 +2585,9 @@ class AssignmentController extends Controller
                 }
                 $assignment->updateShownBasedOnAutoRelease($request->auto_release_shown);
                 $original_assignment = $assignment;
+                // Each student's due date before the assign-tos are rebuilt below, so we can tell
+                // afterward whether this save moved anyone's due date.
+                $due_dates_before = $latePenaltyRecalculator->dueDatesByUser($original_assignment->id);
 
                 $assignments = $assignment->course->alpha
                     ? $assignment->addBetaAssignments()
@@ -2686,6 +2692,7 @@ class AssignmentController extends Controller
                     }
                     unset($assign_tos);//should just be done for the alpha course if it is an alpha course
                 }
+                $due_dates_changed = $due_dates_before !== $latePenaltyRecalculator->dueDatesByUser($original_assignment->id);
 
                 $course = $original_assignment->course;
                 if ($course->lms_course_id) {
@@ -2709,6 +2716,11 @@ class AssignmentController extends Controller
             DB::commit();
             $response['type'] = 'success';
             $response['message'] = "The assignment <strong>{$data['name']}</strong> has been updated.";
+            // Tells the page to ask whether to recalculate late penalties; it shows the question only if
+            // some scores would actually change (GET /api/assignments/{assignment}/late-penalty-recalculation).
+            $response['check_late_penalties'] = LatePenaltyRecalculator::$askInstructorsAfterDueDateChanges
+                && $due_dates_changed
+                && $original_assignment->late_policy === 'deduction';
         } catch
         (Exception $e) {
             DB::rollBack();

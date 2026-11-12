@@ -1,6 +1,7 @@
 <template>
   <div>
     <AllFormErrors :all-form-errors="allFormErrors" :modal-id="'modal-form-errors-assignment-form'" />
+    <RecalculateLatePenaltiesModal ref="recalculateLatePenaltiesModal" @recalculated="getAssignments"/>
     <AllFormErrors :all-form-errors="allFormErrors" :modal-id="'modal-form-errors-link-course-to-lms-form'" />
     <AllFormErrors :all-form-errors="allFormErrors" :modal-id="'modal-form-errors-canvas-url-form'" />
 
@@ -2217,6 +2218,7 @@ import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 import { faCopy } from '@fortawesome/free-regular-svg-icons'
 import { faLink } from '@fortawesome/free-solid-svg-icons'
 import AllFormErrors from '~/components/AllFormErrors'
+import RecalculateLatePenaltiesModal from '~/components/RecalculateLatePenaltiesModal'
 import ShowQuestionTitlesToggle from '~/components/ShowQuestionTitlesToggle.vue'
 import GradersCanSeeStudentNamesToggle from '~/components/GradersCanSeeStudentNamesToggle'
 import { fixInvalid } from '~/helpers/accessibility/FixInvalid'
@@ -2249,6 +2251,7 @@ export default {
     AssignTosToView,
     FontAwesomeIcon,
     AllFormErrors,
+    RecalculateLatePenaltiesModal,
     GradersCanSeeStudentNamesToggle,
     ShowQuestionTitlesToggle
   },
@@ -3436,6 +3439,9 @@ What assignment parameters??? */
           this.form.assign_tos[0].groups = group
           this.form.groups_0 = group
         }
+        // Closing the properties modal resets the form, so keep what the late penalty check needs.
+        const savedAssignmentId = this.assignmentId
+        const savedAssignmentName = this.form.name
         const { data } = !this.assignmentId
           ? await this.form.post(`/api/assignments`)
           : await this.form.patch(`/api/assignments/${this.assignmentId}`)
@@ -3445,6 +3451,9 @@ What assignment parameters??? */
         if (data.type === 'success') {
           this.$bvModal.hide('modal-assignment-properties')
           await this.getAssignments()
+          if (data.check_late_penalties) {
+            await this.$refs.recalculateLatePenaltiesModal.check(savedAssignmentId, savedAssignmentName)
+          }
         }
       } catch (error) {
         this.savingAssignment = false
