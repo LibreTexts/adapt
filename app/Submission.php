@@ -2006,8 +2006,9 @@ class Submission extends Model
         if (in_array(Request::user()->role, [2, 5])) {
             return false;
         }
-        return $Assignment->number_of_allowed_attempts !== 'unlimited'
-            && (int)$submission->submission_count === (int)$Assignment->number_of_allowed_attempts;
+        return $Assignment->number_of_allowed_attempts !== null
+            && $Assignment->number_of_allowed_attempts !== 'unlimited'
+            && (int)$submission->submission_count >= (int)$Assignment->number_of_allowed_attempts;
     }
 
     /**
@@ -2091,8 +2092,9 @@ class Submission extends Model
                     $response['message'] = 'Partial submission re-saved.';
                     return $response;
                 }
-                if ($assignment->number_of_allowed_attempts !== 'unlimited'
-                    && (int)$h5pActivitySet->submission_count === (int)$assignment->number_of_allowed_attempts) {
+                if ($assignment->number_of_allowed_attempts !== null
+                    && $assignment->number_of_allowed_attempts !== 'unlimited'
+                    && (int)$h5pActivitySet->submission_count >= (int)$assignment->number_of_allowed_attempts) {
                     $response['type'] = 'error';
                     $plural = $assignment->number_of_allowed_attempts > 1 ? 's' : '';
                     $response['message'] = "Nothing saved since you are only allowed $assignment->number_of_allowed_attempts attempt$plural.";

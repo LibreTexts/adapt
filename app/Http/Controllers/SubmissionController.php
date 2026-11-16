@@ -241,8 +241,10 @@ class SubmissionController extends Controller
                     return $response;
                 }
             }
-            if ($submission && $assignment->number_of_allowed_attempts !== 'unlimited'
-                && (int) $submission->submission_count === (int) $assignment->number_of_allowed_attempts) {
+            if ($submission
+                && $assignment->number_of_allowed_attempts !== null
+                && $assignment->number_of_allowed_attempts !== 'unlimited'
+                && (int) $submission->submission_count >= (int) $assignment->number_of_allowed_attempts) {
 
                 $submissionCount = (int) $submission->submission_count;
                 $allowedAttempts = (int) $assignment->number_of_allowed_attempts;
