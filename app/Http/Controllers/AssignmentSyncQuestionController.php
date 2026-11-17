@@ -2503,7 +2503,7 @@ class AssignmentSyncQuestionController extends Controller
                     'clicker_end' => $clicker_end
                 ]);
             DB::commit();
-            $time_left = $clicker_end->subSeconds($seconds_padding)->diffInMilliseconds($clicker_start);
+            $time_left = (int) $clicker_start->diffInMilliseconds($clicker_end->subSeconds($seconds_padding));
 
             if (app()->environment() !== 'testing') {
                 $client = Helper::centrifuge();
@@ -2563,7 +2563,7 @@ class AssignmentSyncQuestionController extends Controller
                     'clicker_end' => $clicker_end
                 ]);
             DB::commit();
-            $time_left = $clicker_end->subSeconds($seconds_padding)->diffInMilliseconds($clicker_start);
+            $time_left = (int) $clicker_start->diffInMilliseconds($clicker_end->subSeconds($seconds_padding));
 
             if (app()->environment() !== 'testing') {
                 $client = Helper::centrifuge();
@@ -3898,7 +3898,7 @@ class AssignmentSyncQuestionController extends Controller
                     $end = Carbon::parse($question->clicker_end);
                     $num_seconds = 0;
                     if ($end > $start) {
-                        $num_seconds = $end->diffInMilliseconds($start);
+                        $num_seconds = (int) $start->diffInMilliseconds($end);
                     }
                     $clicker_time_left[$question->question_id] = $num_seconds;
                 }

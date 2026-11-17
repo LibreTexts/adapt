@@ -175,7 +175,7 @@ class AssignmentSyncQuestion extends Model
                 'clicker_end' => $clicker_end
             ]);
         DB::commit();
-        $time_left = $clicker_end->subSeconds($seconds_padding)->diffInMilliseconds($clicker_start);
+        $time_left = (int) $clicker_start->diffInMilliseconds($clicker_end->subSeconds($seconds_padding));
 
         if (app()->environment() !== 'testing') {
             $client = Helper::centrifuge();
