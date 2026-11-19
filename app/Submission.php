@@ -961,8 +961,19 @@ class Submission extends Model
                 'question_id',
                 'assignment_id',
                 'completion_scoring_mode',
-                'open_ended_submission_type')
+                'open_ended_submission_type',
+                'can_submit_work_override')
             ->first();
+
+        // Same rule as AssignmentSyncQuestionController: a per-question override only
+        // applies when the assignment allows submitted work. Without this, a question set
+        // to "cannot submit work" still nagged students to submit work and, under a
+        // "required" policy, had its score moved to pending (showing 0 points) forever.
+        $question_can_submit_work = $assignment->can_submit_work
+        && $assignment_question
+        && $assignment_question->can_submit_work_override !== null
+            ? (bool)$assignment_question->can_submit_work_override
+            : (bool)$assignment->can_submit_work;
 
         $gave_up = DB::table('can_give_ups')
             ->where('question_id', $data['question_id'])
@@ -1092,7 +1103,7 @@ class Submission extends Model
                 ->get();
             $message = 'Auto-graded submission saved.';
             $submitted_work = false;
-            if ($assignment->can_submit_work) {
+            if ($question_can_submit_work) {
                 $submitted_work = DB::table('submitted_works')
                     ->where('assignment_id', $data['assignment_id'])
                     ->where('question_id', $data['question_id'])
@@ -1269,7 +1280,7 @@ class Submission extends Model
                 ];
                 LearningTreeAnalytics::create($learning_tree_analytics_data);
             }
-            if ($assignment->can_submit_work && $assignment->submitted_work_policy !== 'optional') {
+            if ($question_can_submit_work && $assignment->submitted_work_policy !== 'optional') {
                 $submitted_work = DB::table('submitted_works')
                     ->where('assignment_id', $data['assignment_id'])
                     ->where('question_id', $data['question_id'])

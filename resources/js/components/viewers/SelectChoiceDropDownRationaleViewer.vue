@@ -75,20 +75,16 @@ export default {
           if (i % 2 === 0) {
             html += part
           } else {
-            // Guard against blanks whose bracketed text doesn't exactly match a key in
-            // inline_choice_interactions (e.g. apostrophes stored as &#39; in itemBody
-            // but as a literal ' in inline_choice_interactions, or vice versa, after the
-            // content round-trips through a sanitizer/CKEditor). Try the raw key first,
-            // then a normalized version, before giving up.
+            // The server runs itemBody through DOMDocument (Question::addTimeToS3Files),
+            // which re-encodes every non-ASCII character as a numeric entity
+            // (e.g. "laŋlaŋ" -> "la&#331;la&#331;", "'" -> "&#39;"), while the keys of
+            // inline_choice_interactions stay as raw UTF-8. Match on the decoded form.
             if (!this.qtiJson.inline_choice_interactions[part]) {
-              let normalizedPart = part.replace(/&#39;|&apos;/g, '\'')
-              if (this.qtiJson.inline_choice_interactions[normalizedPart]) {
-                part = normalizedPart
-              } else {
-                let denormalizedPart = part.replace(/'/g, '&#39;')
-                if (this.qtiJson.inline_choice_interactions[denormalizedPart]) {
-                  part = denormalizedPart
-                }
+              const decodedPart = this.decodeHtmlEntities(part).normalize('NFC')
+              const matchingKey = Object.keys(this.qtiJson.inline_choice_interactions)
+                .find(key => this.decodeHtmlEntities(key).normalize('NFC') === decodedPart)
+              if (matchingKey !== undefined) {
+                part = matchingKey
               }
             }
             if (!this.qtiJson.inline_choice_interactions[part]) {
@@ -111,8 +107,12 @@ export default {
             }
             let chosenOption = studentResponse ? studentResponse.value : ''
             console.log(chosenOption)
+            // The identifier goes in a data attribute (HTML-escaped) so that spaces, quotes,
+            // ampersands, etc. in the blank text survive; the class is kept for backwards
+            // compatibility but with whitespace and quotes stripped so it can't break the markup.
             html += `<select style="margin:3px;width: 200px"
-class="identifier-${part} select-choice custom-select custom-select-sm form-control inline-form-control"
+data-identifier="${this.escapeHtmlAttribute(part)}"
+class="identifier-${part.replace(/[\s"'<>&]/g, '_')} select-choice custom-select custom-select-sm form-control inline-form-control"
 aria-label="combobox ${Math.ceil(i / 2)} of ${Math.floor(selectChoicesArray.length / 2)}">
 <option value="">Please select an option</option>`
             for (let i = 0; i < this.qtiJson.inline_choice_interactions[part].length; i++) {
@@ -167,6 +167,19 @@ aria-label="combobox ${Math.ceil(i / 2)} of ${Math.floor(selectChoicesArray.leng
     this.$forceUpdate()
   },
   methods: {
+    decodeHtmlEntities (str) {
+      const textarea = document.createElement('textarea')
+      textarea.innerHTML = str
+      return textarea.value
+    },
+    escapeHtmlAttribute (str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+    },
     formatQuestionMediaPlayer
   }
 }

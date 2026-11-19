@@ -459,6 +459,9 @@ export default {
           this.submittedWorkUrl = data.submitted_work_url
           this.currentSubmittedWorkAt = data.submitted_work_at
           this.submittedWorkFormat = this.chosenSubmittedWorkFormat
+          // The recording is saved and the recorder is now hidden, so hide the Save button;
+          // otherwise clicking it again shows "Please first record some audio..."
+          this.stoppedAudioRecording = false
         }
       } catch (error) {
         this.$noty.error(error.message)

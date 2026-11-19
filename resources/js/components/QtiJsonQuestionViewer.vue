@@ -891,11 +891,15 @@ export default {
               invalidResponse = true
               submissionErrorMessage = 'Please make a make a selection for all of the dropdowns before submitting.'
             }
-            let identifier
-            let classes = $(this).attr('class').split(/\s+/)
-            for (let i = 0; i < classes.length; i++) {
-              if (classes[i].startsWith('identifier-')) {
-                identifier = classes[i].replace('identifier-', '')
+            // Prefer data-identifier: it preserves the exact blank text (spaces, quotes,
+            // non-ASCII characters). Fall back to the old class-based identifier.
+            let identifier = $(this).attr('data-identifier')
+            if (identifier === undefined) {
+              let classes = $(this).attr('class').split(/\s+/)
+              for (let i = 0; i < classes.length; i++) {
+                if (classes[i].startsWith('identifier-')) {
+                  identifier = classes[i].replace('identifier-', '')
+                }
               }
             }
             if (questionType === 'drop_down_rationale_triad' &&

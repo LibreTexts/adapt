@@ -3367,6 +3367,7 @@
                   </div>
                   <div v-if="questions[currentPage - 1].can_submit_work
                     && questions[currentPage - 1].last_submitted !== 'N/A'
+                    && !questions[currentPage - 1].submitted_work
                     && submittedWorkPolicy !== 'optional'"
                   >
                     <b-alert variant="danger" show>
